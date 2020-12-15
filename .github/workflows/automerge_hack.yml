@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.6, 3.7]
-        os: [ubuntu-18.04]
+        python: [3.9]
+        os: [ubuntu-20.04]
       fail-fast: false
     name: Unit-testing deployment-agent
     steps:
@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.6, 3.7]
-        os: [ubuntu-18.04]
+        python: [3.9]
+        os: [ubuntu-20.04]
       fail-fast: false
     name: System-testing deployment-agent
     steps:
