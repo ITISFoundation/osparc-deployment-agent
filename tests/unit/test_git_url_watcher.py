@@ -5,8 +5,10 @@
 # pylint:disable=redefined-outer-name
 # pylint:disable=bare-except
 
-from pathlib import Path
 from asyncio import Future
+from pathlib import Path
+from typing import Any, Dict
+
 import pytest
 import yaml
 
@@ -21,14 +23,13 @@ def _list_valid_configs():
         "valid_git_config_staging_tags.yaml",
     ]
 
-
 @pytest.fixture(scope="session", params=_list_valid_configs())
-def valid_git_config(mocks_dir: Path, request):
+def valid_git_config(mocks_dir: Path, request) -> Dict[str, Any]:
     with Path(mocks_dir / request.param).open() as fp:
         return yaml.safe_load(fp)
 
 
-async def test_watcher_workflow(loop, valid_git_config, mocker):
+async def test_watcher_workflow(valid_git_config, mocker):
 
     mock_general = mocker.patch(
         "simcore_service_deployment_agent.git_url_watcher.run_cmd_line",

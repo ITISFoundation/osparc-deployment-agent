@@ -6,16 +6,20 @@
 # pylint:disable=bare-except
 
 from pathlib import Path
-from asyncio import Future
+from typing import Any, Dict
+
 import pytest
 import yaml
 
 from simcore_service_deployment_agent import docker_registries_watcher
 
 
-@pytest.fixture
-def valid_docker_config(mocks_dir: Path):
-    with Path(mocks_dir / "valid_docker_config.yaml").open() as fp:
+@pytest.fixture(scope="session")
+def valid_docker_config(mocks_dir: Path) -> Dict[str, Any]:
+    path = mocks_dir / "valid_docker_config.yaml"
+    assert path.exists()
+
+    with path.open() as fp:
         return yaml.safe_load(fp)
 
 

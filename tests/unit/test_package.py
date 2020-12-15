@@ -14,26 +14,26 @@ from pathlib import Path
 from simcore_service_deployment_agent.cli import main
 
 
-@pytest.fixture
-def pylintrc(osparc_simcore_root_dir):
-    pylintrc = osparc_simcore_root_dir / ".pylintrc"
+@pytest.fixture(scope="session")
+def pylintrc(root_dir: Path) -> Path:
+    pylintrc = root_dir / ".pylintrc"
     assert pylintrc.exists()
     return pylintrc
 
 
-def test_run_pylint(pylintrc, package_dir):
+def test_run_pylint(pylintrc: Path, package_dir: Path):
     cmd = 'pylint -j 8 --rcfile {} -v {}'.format(pylintrc, package_dir)
     assert subprocess.check_call(cmd.split()) == 0
 
 
-def test_main(here):  # pylint: disable=unused-variable
+def test_main():  # pylint: disable=unused-variable
     with pytest.raises(SystemExit) as excinfo:
         main("--help".split())
 
     assert excinfo.value.code == 0
 
 
-def test_no_pdbs_in_place(package_dir):
+def test_no_pdbs_in_place(package_dir: Path):
     # TODO: add also test_dir excluding this function!?
     # TODO: it can be commented!
     MATCH = re.compile(r'pdb.set_trace()')

@@ -22,15 +22,15 @@ logging.basicConfig(level=logging.INFO)
 
 # TODO: reduce log from openapi_core loggers
 
-@pytest.fixture
-def openapi_path(api_specs_dir):
+@pytest.fixture(scope="session")
+def openapi_path(api_specs_dir: Path) -> Path:
     specs_path = api_specs_dir / 'oas3/v0/openapi.yaml'
     assert specs_path.exits()
     return specs_path
 
 
-@pytest.fixture
-def spec_dict(openapi_path):
+@pytest.fixture(scope="session")
+def spec_dict(openapi_path: Path):
     with openapi_path.open() as f:
         spec_dict = yaml.safe_load(f)
     return spec_dict

@@ -16,7 +16,7 @@ import simcore_service_deployment_agent
 API_VERSIONS = ('v0', )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def spec_basepath():
     basepath = Path(pkg_resources.resource_filename(
         simcore_service_deployment_agent.__name__, 'oas3'))

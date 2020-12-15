@@ -6,7 +6,7 @@
 # pylint:disable=protected-access
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import pytest
 import yaml
@@ -17,8 +17,10 @@ from simcore_service_deployment_agent import notifier
 
 
 @pytest.fixture(scope="session")
-def valid_notifier_config(mocks_dir: Path):
-    with Path(mocks_dir / "valid_notifier_config.yaml").open() as fp:
+def valid_notifier_config(mocks_dir: Path) -> Dict[str, Any]:
+    path = mocks_dir / "valid_notifier_config.yaml"
+    assert path.exists()
+    with path.open() as fp:
         return yaml.safe_load(fp)
 
 @pytest.fixture

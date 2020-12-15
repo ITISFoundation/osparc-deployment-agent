@@ -18,6 +18,12 @@ current_dir = Path(sys.argv[0] if __name__ == "__main__" else __file__).resolve(
 ## DIRs
 
 @pytest.fixture(scope='session')
+def root_dir() -> Path:
+    pdir = current_dir.parent
+    assert pdir.exists()
+    return pdir
+
+@pytest.fixture(scope='session')
 def package_dir() -> Path:
     pdir = Path(simcore_service_deployment_agent.__file__).resolve().parent
     assert pdir.exists()

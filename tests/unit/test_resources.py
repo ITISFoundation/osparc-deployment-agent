@@ -4,7 +4,7 @@
 
 import io
 import logging
-import pathlib
+from pathlib import Path
 
 import pytest
 
@@ -13,9 +13,8 @@ from simcore_service_deployment_agent.resources import resources
 
 log = logging.getLogger(__name__)
 
-
 @pytest.fixture
-def app_resources(package_dir):
+def app_resources(package_dir: Path):
     resource_names = []
     base = package_dir
     for name in (resources.config_folder,):

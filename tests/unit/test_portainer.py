@@ -6,7 +6,6 @@
 # pylint:disable=protected-access
 
 import json
-from asyncio import Future
 from typing import Dict, List
 
 import pytest
@@ -16,8 +15,8 @@ from yarl import URL
 from simcore_service_deployment_agent import exceptions, portainer
 
 
-@pytest.fixture
-async def portainer_server(loop, aiohttp_server):
+@pytest.fixture(scope="module")
+async def portainer_server(aiohttp_server):
     async def serve(routes: List[Dict]):
         app = web.Application()
         # fill route table
@@ -30,7 +29,7 @@ async def portainer_server(loop, aiohttp_server):
         return server
     return serve
 
-async def test_request(loop, portainer_server, aiohttp_client):
+async def test_request(portainer_server, aiohttp_client):
     routes = []
     server = await portainer_server(routes)
     client = await aiohttp_client(server)
@@ -44,7 +43,7 @@ async def test_request(loop, portainer_server, aiohttp_client):
         test_url = origin.with_path("some_fantastic_path")
         await portainer._portainer_request(test_url, client.session, test_method)
 
-async def test_authenticate(loop, portainer_server, aiohttp_client):
+async def test_authenticate(portainer_server, aiohttp_client):
     async def handler(request):
         return web.json_response({"jwt":"someBearerCode"})
 
@@ -59,7 +58,7 @@ async def test_authenticate(loop, portainer_server, aiohttp_client):
     bearer_code = await portainer.authenticate(origin, client.session, username="testuser", password="password")
     assert bearer_code == "someBearerCode"
 
-async def test_first_endpoint_id(loop, portainer_server, aiohttp_client):
+async def test_first_endpoint_id(portainer_server, aiohttp_client):
     async def handler(request: web.Request):
         return web.json_response([{"Id": 2}, {"Id": 5}])
     routes = [{
@@ -73,7 +72,7 @@ async def test_first_endpoint_id(loop, portainer_server, aiohttp_client):
     enpoint_id = await portainer.get_first_endpoint_id(origin, client.session, bearer_code="mybearerCode")
     assert enpoint_id == 2
 
-async def test_get_swarm_id(loop, portainer_server, aiohttp_client):
+async def test_get_swarm_id(portainer_server, aiohttp_client):
     async def handler(request):
         return web.json_response({"ID":"someID"})
 
@@ -88,7 +87,7 @@ async def test_get_swarm_id(loop, portainer_server, aiohttp_client):
     swarm_id = await portainer.get_swarm_id(origin, client.session, bearer_code="mybearerCode", endpoint_id=1)
     assert swarm_id == "someID"
 
-async def test_stacks(loop, portainer_server, aiohttp_client):
+async def test_stacks(portainer_server, aiohttp_client):
     async def handler(request):
         return web.json_response([{"Name": "firstStack", "Id": "stackID"},
         {"Name": "secondStack", "Id": "secondID"}])
@@ -114,7 +113,7 @@ async def test_stacks(loop, portainer_server, aiohttp_client):
     current_stack_id = await portainer.get_current_stack_id(origin, client.session, bearer_code="mybearerCode", stack_name="fakestuff")
     assert not current_stack_id
 
-async def test_create_stack(loop, portainer_server, valid_docker_stack, aiohttp_client):
+async def test_create_stack(portainer_server, valid_docker_stack, aiohttp_client):
     swarm_id = "1"
     stack_name = "some fake name"
     async def handler(request):
@@ -165,4 +164,3 @@ async def test_create_stack(loop, portainer_server, valid_docker_stack, aiohttp_
                             swarm_id=swarm_id, endpoint_id=endpoint, stack_name=stack_name, stack_cfg=valid_docker_stack)
 
     updated_stack = await portainer.update_stack(origin, client.session, bearer_code=bearer_code, stack_id="1", endpoint_id=endpoint, stack_cfg=valid_docker_stack)
-
