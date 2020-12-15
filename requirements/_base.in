@@ -3,9 +3,7 @@
 #
 
 aiohttp
-openapi-core
 docker
-psycopg2-binary
 ptvsd
 semantic_version
 tenacity
