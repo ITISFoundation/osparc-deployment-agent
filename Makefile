@@ -112,7 +112,7 @@ PY_PIP = $(if $(IS_WIN),cd .venv/Scripts && pip.exe,.venv/bin/pip3)
 pylint: ## Runs python linter framework's wide
 	# See exit codes and command line https://pylint.readthedocs.io/en/latest/user_guide/run.html#exit-codes
 	# TODO: NOT windows friendly
-	/bin/bash -c "pylint --jobs=0 --rcfile=.pylintrc $(strip $(shell find services packages -iname '*.py' \
+	/bin/bash -c "pylint --jobs=0 --rcfile=.pylintrc $(strip $(shell find src -iname '*.py' \
 											-not -path "*egg*" \
 											-not -path "*migration*" \
 											-not -path "*contrib*" \
@@ -131,8 +131,21 @@ pylint: ## Runs python linter framework's wide
 		setuptools
 
 devenv: .venv ## create a python virtual environment with dev tools (e.g. linters, etc)
-	$</bin/pip3 install -r requirements.txt
+	$</bin/pip3 --quiet install -r requirements/devenv.txt
+	# Installing pre-commit hooks in current .git repo
+	@$</bin/pre-commit install
 	@echo "To activate the venv, execute 'source .venv/bin/activate'"
+
+.env: .env-devel ## creates .env file from defaults in .env-devel
+	$(if $(wildcard $@), \
+	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
+	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
+
+
+.vscode/settings.json: .vscode-template/settings.json
+	$(info WARNING: #####  $< is newer than $@ ####)
+	@diff -uN $@ $<
+	@false
 
 # Helpers -------------------------------------------------
 ${DEPLOYMENT_AGENT_CONFIG}:  deployment_config.template.yaml 
