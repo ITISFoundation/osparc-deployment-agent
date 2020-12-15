@@ -41,7 +41,7 @@ def valid_portainer_config(mocks_dir: Path):
         return yaml.safe_load(fp)
 
 
-async def test_wait_for_dependencies(loop, valid_portainer_config, mocker, fake_app_session):
+async def test_wait_for_dependencies(valid_portainer_config, mocker, fake_app_session):
     mock = mocker.patch(
         "simcore_service_deployment_agent.auto_deploy_task.portainer.authenticate", return_value=Future())
     mock.return_value.set_result("")
@@ -65,13 +65,13 @@ async def test_wait_for_dependencies(loop, valid_portainer_config, mocker, fake_
     assert mock.call_count == auto_deploy_task.RETRY_COUNT
 
 
-async def test_filter_services(loop, valid_config, valid_docker_stack_file):
+async def test_filter_services(valid_config, valid_docker_stack_file):
     stack_cfg = await auto_deploy_task.filter_services(valid_config, valid_docker_stack_file)
     assert "app" not in stack_cfg["services"]
     assert "some_volume" not in stack_cfg["volumes"]
     assert "build" not in stack_cfg["services"]["anotherapp"]
 
-async def test_add_parameters(loop, valid_config, valid_docker_stack):
+async def test_add_parameters(valid_config, valid_docker_stack):
     stack_cfg = await auto_deploy_task.add_parameters(valid_config, valid_docker_stack)
     assert "extra_hosts" in stack_cfg["services"]["app"]
     hosts = stack_cfg["services"]["app"]["extra_hosts"]
@@ -107,7 +107,7 @@ async def test_add_parameters(loop, valid_config, valid_docker_stack):
     assert "testimage" in stack_cfg["services"]["anotherapp"]["image"]
 
 
-async def test_setup_task(loop, fake_app, mocker):
+async def test_setup_task(fake_app, mocker):
     mock_portainer = mocker.patch(
         "simcore_service_deployment_agent.auto_deploy_task.portainer")
     mock_portainer.authenticate.return_value = Future()
