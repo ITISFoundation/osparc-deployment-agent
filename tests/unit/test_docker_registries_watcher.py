@@ -14,8 +14,8 @@ from simcore_service_deployment_agent import docker_registries_watcher
 
 
 @pytest.fixture
-def valid_docker_config(here):
-    with Path(here / "mocks" / "valid_docker_config.yaml").open() as fp:
+def valid_docker_config(mocks_dir: Path):
+    with Path(mocks_dir / "valid_docker_config.yaml").open() as fp:
         return yaml.safe_load(fp)
 
 

@@ -36,8 +36,8 @@ async def fake_app_session(fake_client):
 
 
 @pytest.fixture
-def valid_portainer_config(here):
-    with Path(here / "mocks" / "valid_portainer_config.yaml").open() as fp:
+def valid_portainer_config(mocks_dir: Path):
+    with Path(mocks_dir / "valid_portainer_config.yaml").open() as fp:
         return yaml.safe_load(fp)
 
 
@@ -141,7 +141,7 @@ async def test_setup_task(loop, fake_app, mocker):
         assert not await gen.__anext__()
         assert auto_deploy_task.TASK_NAME in fake_app
         assert fake_app[auto_deploy_task.TASK_STATE] == auto_deploy_task.State.STARTING
-        task = asyncio.ensure_future(fake_app[auto_deploy_task.TASK_NAME])        
+        task = asyncio.ensure_future(fake_app[auto_deploy_task.TASK_NAME])
         while fake_app[auto_deploy_task.TASK_STATE] != auto_deploy_task.State.RUNNING:
             if fake_app[auto_deploy_task.TASK_STATE] == auto_deploy_task.State.FAILED:
                 pytest.fail("task failed to start")

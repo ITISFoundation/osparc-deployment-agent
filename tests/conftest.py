@@ -32,28 +32,33 @@ def api_specs_dir(package_dir: Path):
     return specs_dir
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def test_config_file(here: Path) -> Path:
     return Path(here / "test-config.yaml")
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def test_config(test_config_file: Path) -> Dict[str, Any]:
     with test_config_file.open() as fp:
         return yaml.safe_load(fp)
 
+@pytest.fixture(scope="session")
+def mocks_dir(here: Path) -> Path:
+    mocks_dir = here / "mocks"
+    assert mocks_dir.exists()
+    return mocks_dir
 
-@pytest.fixture
-def valid_docker_stack_file(here: Path) -> Path:
-    return Path(here / "mocks" / "valid_docker_stack.yaml")
+@pytest.fixture(scope="session")
+def valid_docker_stack_file(mocks_dir: Path) -> Path:
+    return mocks_dir / "valid_docker_stack.yaml"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def valid_docker_stack(valid_docker_stack_file: Path) -> Dict[str, Any]:
     with valid_docker_stack_file.open() as fp:
         return yaml.safe_load(fp)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def valid_config(here: Path) -> Dict[str, Any]:
-    with Path(here / "mocks" / "valid_config.yaml").open() as fp:
+    with (mocks_dir / "valid_config.yaml").open() as fp:
         return yaml.safe_load(fp)

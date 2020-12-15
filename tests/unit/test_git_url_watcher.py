@@ -23,8 +23,8 @@ def _list_valid_configs():
 
 
 @pytest.fixture(scope="session", params=_list_valid_configs())
-def valid_git_config(here, request):
-    with Path(here / "mocks" / request.param).open() as fp:
+def valid_git_config(mocks_dir: Path, request):
+    with Path(mocks_dir / request.param).open() as fp:
         return yaml.safe_load(fp)
 
 

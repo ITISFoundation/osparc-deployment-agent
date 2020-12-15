@@ -16,13 +16,13 @@ from yarl import URL
 from simcore_service_deployment_agent import notifier
 
 
-@pytest.fixture
-def valid_notifier_config(here):
-    with Path(here / "mocks" / "valid_notifier_config.yaml").open() as fp:
+@pytest.fixture(scope="session")
+def valid_notifier_config(mocks_dir: Path):
+    with Path(mocks_dir / "valid_notifier_config.yaml").open() as fp:
         return yaml.safe_load(fp)
 
 @pytest.fixture
-async def mattermost_server(loop, aiohttp_server):
+async def mattermost_server(aiohttp_server):
     async def serve(routes: List[Dict]):
         app = web.Application()
         # fill route table
