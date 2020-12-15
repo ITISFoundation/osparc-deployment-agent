@@ -9,7 +9,7 @@
 # 'services/deployment-agent/tests/unit' dependencies
 
 # testing
-coverage==4.5.1 # TODO: Downgraded because of a bug https://github.com/nedbat/coveragepy/issues/716
+coverage
 
 pytest
 pytest-aiohttp  # incompatible with pytest-asyncio. See https://github.com/pytest-dev/pytest-asyncio/issues/76
@@ -20,10 +20,7 @@ pytest-instafail
 pytest-sugar
 
 # fixtures
-Faker
-openapi-spec-validator # TODO: this library is limiting jsonschema<3 (see base.in)
 tenacity
-docker          # for integration tests
 
 # tools
 pylint
