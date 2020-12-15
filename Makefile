@@ -1,41 +1,68 @@
 .DEFAULT_GOAL := help
+# HELPER Makefile that countains all the recipe that will be used by every services. Please include it in your Makefile if you add a new service
+SHELL := /bin/bash
 
-APP_NAME := deployment-agent
+MAKE_C := $(MAKE) --no-print-directory --directory
 
-# External VARIABLES
-include ../../repo.config
-# Internal VARIABLES ------------------------------------------------
-# STACK_NAME defaults to name of the current directory. Should not to be changed if you follow GitOps operating procedures.
-ifeq ($(PREFIX_STACK_NAME),)
-STACK_NAME := $(notdir $(shell pwd))
-else
-STACK_NAME := $(PREFIX_STACK_NAME)-$(notdir $(shell pwd))
+# Operating system
+ifeq ($(filter Windows_NT,$(OS)),)
+IS_WSL  := $(if $(findstring Microsoft,$(shell uname -a)),WSL,)
+IS_OSX  := $(filter Darwin,$(shell uname -a))
+IS_LINUX:= $(if $(or $(IS_WSL),$(IS_OSX)),,$(filter Linux,$(shell uname -a)))
 endif
-SWARM_HOSTS = $(shell docker node ls --format={{.Hostname}} 2>/dev/null)
+
+IS_WIN  := $(strip $(if $(or $(IS_LINUX),$(IS_OSX),$(IS_WSL)),,$(OS)))
+$(if $(IS_WIN),$(error Windows is not supported in all recipes. Use WSL instead. Follow instructions in README.md),)
+
+# version control
+export VCS_URL := $(shell git config --get remote.origin.url)
+export VCS_REF := $(shell git rev-parse --short HEAD)
+export VCS_STATUS_CLIENT := $(if $(shell git status -s),'modified/untracked','clean')
+export BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# APP version
+APP_NAME := $(notdir $(shell pwd))
+export APP_VERSION := $(shell cat VERSION)
+
+# version tags
+export DOCKER_IMAGE_TAG ?= latest
+export DOCKER_REGISTRY  ?= itisfoundation
+
+
+# Internal VARIABLES ------------------------------------------------
 TEMP_COMPOSE = .stack.${STACK_NAME}.yaml
 TEMP_COMPOSE-devel = .stack.${STACK_NAME}.devel.yml
-TEMP_COMPOSE-aws = .stack.${STACK_NAME}.aws.yml
 DEPLOYMENT_AGENT_CONFIG = deployment_config.yaml
 
-# TARGETS --------------------------------------------------
-include ../../scripts/common.Makefile
 
-# exports
-export VCS_URL:=$(shell git config --get remote.origin.url)
-export VCS_REF:=$(shell git rev-parse --short HEAD)
-export VCS_STATUS_CLIENT:=$(if $(shell git status -s),'modified/untracked','clean')
-export BUILD_DATE:=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+.PHONY: help
 
-export DOCKER_REGISTRY ?= itisfoundation
-export DOCKER_IMAGE_TAG ?= $(shell cat VERSION)
-$(info DOCKER_REGISTRY set to ${DOCKER_REGISTRY})
-$(info DOCKER_IMAGE_TAG set to ${DOCKER_IMAGE_TAG})
+help: ## help on rule's targets
+ifeq ($(IS_WIN),)
+	@awk --posix 'BEGIN {FS = ":.*?## "} /^[[:alpha:][:space:]_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+else
+	@awk --posix 'BEGIN {FS = ":.*?## "} /^[[:alpha:][:space:]_-]+:.*?## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+endif
 
-## docker BUILD -------------------------------
-.PHONY: build build-kit build-x build-devel build-devel-kit build-devel-x
+## DOCKER BUILD -------------------------------
+#
+# - all builds are inmediatly tagged as 'local/{service}:${BUILD_TARGET}' where BUILD_TARGET='development', 'production', 'cache'
+# - only production and cache images are released (i.e. tagged pushed into registry)
+#
+SWARM_HOSTS = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),NUL,/dev/null))
+
+define _docker_compose_build
+export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
+$(if $(findstring -x,$@),\
+	docker buildx bake --file docker-compose-build.yml;,\
+	docker-compose -f docker-compose-build.yml build $(if $(findstring -nc,$@),--no-cache,) --parallel\
+)
+endef
+
+.PHONY: build build-nc rebuild build-devel build-devel-nc build-devel-kit build-devel-x build-cache build-cache-kit build-cache-x build-cache-nc build-kit build-x
 build build-kit build-x build-devel build-devel-kit build-devel-x: ## Builds $(APP_NAME) image
 	@$(if $(findstring -kit,$@),export DOCKER_BUILDKIT=1;export COMPOSE_DOCKER_CLI_BUILD=1;,) \
-	$(if $(findstring -x,$@),docker buildx bake, docker-compose) --file docker-compose.yml $(if $(findstring -devel,$@),--file docker-compose.devel.yaml,) $(if $(findstring -x,$@),,build)
+	$(_docker_compose_build)
 
 
 .PHONY: up
@@ -49,7 +76,6 @@ up-devel: .init ${DEPLOYMENT_AGENT_CONFIG} ${TEMP_COMPOSE-devel} ## Deploys or u
 .PHONY: down
 down: ## Stops and remove stack from swarm
 	-@docker stack rm $(STACK_NAME)
-	-@docker stack rm ${SIMCORE_STACK_NAME}
 
 .PHONY: push
 push: ## Pushes service to the registry.
@@ -109,7 +135,7 @@ devenv: .venv ## create a python virtual environment with dev tools (e.g. linter
 	@echo "To activate the venv, execute 'source .venv/bin/activate'"
 
 # Helpers -------------------------------------------------
-${DEPLOYMENT_AGENT_CONFIG}:  deployment_config.default.yaml 
+${DEPLOYMENT_AGENT_CONFIG}:  deployment_config.template.yaml 
 	@set -o allexport; \
 	source $(realpath $(CURDIR)/../../repo.config); \
 	set +o allexport; \
