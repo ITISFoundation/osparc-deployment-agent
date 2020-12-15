@@ -34,6 +34,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 EXPOSE 8888
+EXPOSE 3000
 
 
 # necessary tools for running deployment-agent
@@ -43,29 +44,33 @@ RUN apt-get update &&\
       make \
       bash \
       gettext \
-      git
-
+      git \
+      && apt-get clean \
+      && rm -rf /var/lib/apt/lists/*
 
 # -------------------------- Build stage -------------------
 # Installs build/package management tools and third party dependencies
 #
 # + /build             WORKDIR
 #
+
 FROM base as build
 
 ENV SC_BUILD_TARGET=build
 
 RUN apt-get update &&\
       apt-get install -y --no-install-recommends \
-      build-essential
+      build-essential \
+      && apt-get clean \
+      && rm -rf /var/lib/apt/lists/*
 
 
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
 RUN python -m venv "${VIRTUAL_ENV}"
 
-ARG DOCKER_COMPOSE_VERSION="1.25.4"
+ARG DOCKER_COMPOSE_VERSION="1.27.4"
 RUN pip --no-cache-dir install --upgrade \
-      pip~=20.0.2  \
+      pip~=20.2.2  \
       wheel \
       setuptools \
       docker-compose~=${DOCKER_COMPOSE_VERSION}
@@ -110,6 +115,7 @@ WORKDIR /home/scu
 COPY --from=cache --chown=scu:scu ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # copy docker entrypoint and boot scripts
 COPY --chown=scu:scu docker services/deployment-agent/docker
+RUN chmod +x services/deployment-agent/docker/*.sh
 
 HEALTHCHECK --interval=30s \
       --timeout=60s \
