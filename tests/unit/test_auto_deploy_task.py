@@ -16,6 +16,7 @@ from servicelib.application_keys import APP_CONFIG_KEY
 from tenacity import RetryError
 from yarl import URL
 
+
 from simcore_service_deployment_agent import auto_deploy_task
 
 
@@ -35,13 +36,13 @@ async def fake_app_session(fake_client):
     return fake_client.session
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def valid_portainer_config(mocks_dir: Path):
     with Path(mocks_dir / "valid_portainer_config.yaml").open() as fp:
         return yaml.safe_load(fp)
 
 
-async def test_wait_for_dependencies(valid_portainer_config, mocker, fake_app_session):
+async def test_wait_for_dependencies(valid_portainer_config: Path, mocker, fake_app_session):
     mock = mocker.patch(
         "simcore_service_deployment_agent.auto_deploy_task.portainer.authenticate", return_value=Future())
     mock.return_value.set_result("")
