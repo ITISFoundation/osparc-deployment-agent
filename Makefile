@@ -33,37 +33,65 @@ build build-kit build-x build-devel build-devel-kit build-devel-x: ## Builds $(A
 
 ## DOCKER SWARM ----------------------------------
 SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),null,/dev/null))
+docker-compose-configs = $(wildcard docker-compose*.yml)
+
+.stack.${STACK_NAME}-prod.yml: .env $(docker-compose-configs)
+	# Creating config for stack with 'local/{service}:production' to $@
+	@export DOCKER_REGISTRY=local \
+	export DOCKER_IMAGE_TAG=development; \
+	docker-compose --file docker-compose.yml --log-level=ERROR config > $@
+
+.stack.${STACK_NAME}-devel.yml: .env $(docker-compose-configs)
+	# Creating config for stack with 'local/{service}:development' to $@
+	@export DOCKER_REGISTRY=local \
+	export DOCKER_IMAGE_TAG=development; \
+	docker-compose --file docker-compose.yml --file docker-compose.devel.yaml --log-level=ERROR config > $@
+
+.stack.${STACK_NAME}-version.yml: .env $(docker-compose-configs)
+	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
+	@docker-compose --file docker-compose.yml --log-level=ERROR config > $@
 
 .PHONY: up
-up: .init-swarm ${DEPLOYMENT_AGENT_CONFIG} ${TEMP_COMPOSE} ## Deploys or updates current stack "$(STACK_NAME)" using replicas=X (defaults to 1)
-	@docker stack deploy --compose-file ${TEMP_COMPOSE} $(STACK_NAME)
-
-.PHONY: up-devel
-up-devel: .init-swarm ${DEPLOYMENT_AGENT_CONFIG} ${TEMP_COMPOSE-devel} ## Deploys or updates current stack "$(STACK_NAME)" using replicas=X (defaults to 1)
-	@docker stack deploy --compose-file ${TEMP_COMPOSE-devel} $(STACK_NAME)
+up-prod up-devel up-version: .init-swarm ${DEPLOYMENT_AGENT_CONFIG} .stack.${STACK_NAME}$(subst up,,$@).yml ## Deploys or updates current stack "$(STACK_NAME)"
+	@docker stack deploy --with-registry-auth --compose-file .stack.$(STACK_NAME)$(subst up,,$@).yml $(STACK_NAME)
 
 .PHONY: down
 down: ## Stops and remove stack from swarm
 	-@docker stack rm $(STACK_NAME)
 
-.PHONY: push
-push: ## Pushes service to the registry.
-	docker push ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}
-	docker tag ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG} ${DOCKER_REGISTRY}/deployment-agent:latest
-	docker push ${DOCKER_REGISTRY}/$(APP_NAME):latest
-
-.PHONY: pull
-pull: ## Pulls service from the registry.
-	docker pull ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}
-
-.PHONY: config
-config: ${DEPLOYMENT_AGENT_CONFIG} ## Create an initial configuration file.
-
+leave: ## Forces to stop all services, networks, etc by the node leaving the swarm
+	-docker swarm leave -f
 
 .PHONY: .init-swarm
 .init-swarm:
 	# Ensures swarm is initialized
 	$(if $(SWARM_HOSTS),,docker swarm init --advertise-addr=$(get_my_ip))
+
+
+## DOCKER TAGS  -------------------------------
+
+.PHONY: tag-local tag-cache tag-version tag-latest
+
+tag-local: ## Tags version '${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}' images as 'local/$(APP_NAME):production'
+	# Tagging all '${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}' as 'local/$(APP_NAME):production'
+	docker tag ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG} local/$(APP_NAME):production
+
+tag-version: ## Tags 'local/$(APP_NAME):production' images as versioned '${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}'
+	# Tagging all 'local/$(APP_NAME):production' as '${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}'
+	docker tag local/$(APP_NAME):production ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}
+
+
+## DOCKER PULL/PUSH  -------------------------------
+.PHONY: push-version
+push-version: ## Pushes ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG} to the registry.
+	docker push ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}
+	docker tag ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG} ${DOCKER_REGISTRY}/$(APP_NAME):latest
+	docker push ${DOCKER_REGISTRY}/$(APP_NAME):latest
+
+.PHONY: pull-version
+pull-version: ## Pulls ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG} service from the registry.
+	docker pull ${DOCKER_REGISTRY}/$(APP_NAME):${DOCKER_IMAGE_TAG}
+
 
 ## TEST ---------------------------------
 
@@ -124,16 +152,7 @@ ${DEPLOYMENT_AGENT_CONFIG}:  deployment_config.template.yaml
 	envsubst < $< > $@
 
 
-docker-compose-configs = $(wildcard docker-compose*.yml)
 
-.PHONY: ${TEMP_COMPOSE}
-
-${TEMP_COMPOSE}: .env $(docker-compose-configs)
-	@docker-compose --file docker-compose.yml --log-level=ERROR config > $@
-
-.PHONY: ${TEMP_COMPOSE-devel}
-${TEMP_COMPOSE-devel}: .env $(docker-compose-configs)
-	@docker-compose --file docker-compose.yml --file docker-compose.devel.yaml --log-level=ERROR config > $@
 
 ## CLEAN -------------------------------
 
