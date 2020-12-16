@@ -32,6 +32,7 @@ $(error Windows is not supported in all recipes. Use WSL instead. Follow instruc
 # version control
 export VCS_URL       := $(shell git config --get remote.origin.url)
 export VCS_REF       := $(shell git rev-parse --short HEAD)
+VCS_STATUS_CLIENT:= $(if $(shell git status -s),'modified/untracked','clean')
 export BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 REPO_BASE_DIR := $(shell git rev-parse --show-toplevel)
 
