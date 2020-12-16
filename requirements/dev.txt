@@ -9,7 +9,7 @@
 # installs base + tests requirements
 -r _test.txt
 # osparc-simcore packages
-git+https://github.com/ITISFoundation/osparc-simcore.git#subdirectory=packages/service-library
+git+https://github.com/ITISFoundation/osparc-simcore.git@618500af1dc3fcc521a8cef214ad0ee4bf53c03c#subdirectory=packages/service-library
 
 # installs current package
 -e .
