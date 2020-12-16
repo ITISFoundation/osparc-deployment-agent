@@ -6,16 +6,12 @@ IFS=$'\n\t'
 install() {
     bash ci/helpers/ensure_python_pip.bash
     pip3 install -r ci/github/system-testing/requirements.txt
-    pushd services/deployment-agent; make build ; popd
+    make build-x
     pip list -v
     docker images
-    # start portainer (dependency)
-    pushd services/portainer; make up; popd
-    pushd services/deployment-agent;
     # use the config file for testing not the default
     cp tests/mocks/valid_system_test_config.yaml deployment_config.default.yaml
-    make up
-    popd
+    make up-prod
     docker service ls
 }
 

@@ -5,12 +5,12 @@ IFS=$'\n\t'
 
 install() {
     bash ci/helpers/ensure_python_pip.bash
-    pushd services/deployment-agent; make install-test; popd
+    make install-ci
     pip list -v
 }
 
 test() {
-    pushd services/deployment-agent; make unit-test; popd
+    make unit-test
 }
 
 # Check if the function exists (bash specific)
