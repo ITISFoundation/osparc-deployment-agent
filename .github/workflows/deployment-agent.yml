@@ -69,10 +69,11 @@ jobs:
         name: getting cached data
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/ci.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      - name: install deployment-agent
+            ${{ runner.os }}-
+      - name: install
         run: ./ci/github/system-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/system-testing/deployment-agent.bash test
