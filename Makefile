@@ -12,6 +12,8 @@ TEMP_COMPOSE = .stack.${STACK_NAME}.yaml
 TEMP_COMPOSE-devel = .stack.${STACK_NAME}.devel.yml
 DEPLOYMENT_AGENT_CONFIG = deployment_config.yaml
 
+export DOCKER_IMAGE_TAG ?= latest
+export DOCKER_REGISTRY  ?= itisfoundation
 
 ## DOCKER BUILD -------------------------------
 #
@@ -184,3 +186,41 @@ _run-test-dev: _check_venv_active
 _run-test-ci: _check_venv_active
 	# runs tests for CI (e.g. w/o pdb but w/ converage)
 	pytest --cov=$(APP_PACKAGE_NAME) --durations=10 --cov-append --color=yes --cov-report=term-missing --cov-report=xml --cov-config=.coveragerc -v -m "not travis" $(TEST_TARGET)
+
+
+## INFO -------------------------------
+
+.PHONY: info info-images info-swarm  info-tools
+info: ## displays setup information
+	# setup info:
+	@echo ' Detected OS          : $(IS_LINUX)$(IS_OSX)$(IS_WSL)$(IS_WIN)'
+	@echo ' DOCKER_REGISTRY      : $(DOCKER_REGISTRY)'
+	@echo ' DOCKER_IMAGE_TAG     : ${DOCKER_IMAGE_TAG}'
+	@echo ' BUILD_DATE           : ${BUILD_DATE}'
+	@echo ' VCS_* '
+	@echo '  - URL                : ${VCS_URL}'
+	@echo '  - REF                : ${VCS_REF}'
+	@echo '  - (STATUS)REF_CLIENT : (${VCS_STATUS_CLIENT}) ${VCS_REF_CLIENT}'
+	# dev tools version
+	@echo ' make   : $(shell make --version 2>&1 | head -n 1)'
+	@echo ' jq     : $(shell jq --version)'
+	@echo ' awk    : $(shell awk -W version 2>&1 | head -n 1)'
+	@echo ' python : $(shell python3 --version)'
+	@echo ' node   : $(shell node --version 2> /dev/null || echo ERROR nodejs missing)'
+
+
+define show-meta
+	$(foreach iid,$(shell docker images */$(1):* -q | sort | uniq),\
+		docker image inspect $(iid) | jq '.[0] | .RepoTags, .ContainerConfig.Labels, .Config.Labels';)
+endef
+
+info-images:  ## lists tags and labels of built images. To display one: 'make target=webserver info-images'
+	@$(call show-meta,$(APP_NAME))
+
+info-swarm: ## displays info about stacks and networks
+ifneq ($(SWARM_HOSTS), )
+	# Stacks in swarm
+	@docker stack ls
+	# Networks
+	@docker network ls
+endif
