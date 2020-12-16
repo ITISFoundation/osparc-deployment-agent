@@ -6,10 +6,8 @@ APP_CLI_NAME      = simcore-service-$(APP_NAME)
 APP_PACKAGE_NAME  = $(subst -,_,$(APP_CLI_NAME))
 APP_VERSION      := $(shell cat VERSION)
 SRC_DIR           = $(abspath $(CURDIR)/src/$(APP_PACKAGE_NAME))
-
+STACK_NAME        = $(APP_NAME)
 # Internal VARIABLES ------------------------------------------------
-TEMP_COMPOSE = .stack.${STACK_NAME}.yaml
-TEMP_COMPOSE-devel = .stack.${STACK_NAME}.devel.yml
 DEPLOYMENT_AGENT_CONFIG = deployment_config.yaml
 
 export DOCKER_IMAGE_TAG ?= latest
@@ -36,6 +34,7 @@ build build-kit build-x build-devel build-devel-kit build-devel-x: ## Builds $(A
 ## DOCKER SWARM ----------------------------------
 SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if $(IS_WIN),null,/dev/null))
 docker-compose-configs = $(wildcard docker-compose*.yml)
+get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
 
 .stack.${STACK_NAME}-prod.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
@@ -54,7 +53,8 @@ docker-compose-configs = $(wildcard docker-compose*.yml)
 	@docker-compose --file docker-compose.yml --log-level=ERROR config > $@
 
 .PHONY: up
-up-prod up-devel up-version: .init-swarm ${DEPLOYMENT_AGENT_CONFIG} .stack.${STACK_NAME}$(subst up,,$@).yml ## Deploys or updates current stack "$(STACK_NAME)"
+up-prod up-devel up-version: .init-swarm ${DEPLOYMENT_AGENT_CONFIG}  ## Deploys or updates current stack "$(STACK_NAME)"
+	@$(MAKE) .stack.${STACK_NAME}$(subst up,,$@).yml
 	@docker stack deploy --with-registry-auth --compose-file .stack.$(STACK_NAME)$(subst up,,$@).yml $(STACK_NAME)
 
 .PHONY: down
