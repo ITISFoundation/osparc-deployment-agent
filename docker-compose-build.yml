@@ -9,5 +9,5 @@ services:
       labels:
         org.label-schema.schema-version: "1.0"
         org.label-schema.build-date: "${BUILD_DATE}"
-        org.label-schema.vcs-url: "https://github.com/ITISFoundation/osparc-simcore"
+        org.label-schema.vcs-url: "https://github.com/ITISFoundation/osparc-deployment-agent"
         org.label-schema.vcs-ref: "${VCS_REF}"
