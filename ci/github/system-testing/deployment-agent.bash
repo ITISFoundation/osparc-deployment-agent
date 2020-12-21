@@ -5,6 +5,8 @@ IFS=$'\n\t'
 
 install() {
     bash ci/helpers/ensure_python_pip.bash
+    make devenv
+    source .venv/bin/activate
     pip3 install -r ci/github/system-testing/requirements.txt
     make build-x
     pip list -v
@@ -16,6 +18,7 @@ install() {
 }
 
 test() {
+    source .venv/bin/activate
     pytest --cov-append --color=yes --cov-report=term-missing --cov-report=xml --cov=services/deployment-agent -v ci/github/system-testing/tests
 }
 
