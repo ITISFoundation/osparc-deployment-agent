@@ -3,7 +3,7 @@
 #
 
 aiohttp
-docker
+aiodocker
 ptvsd
 semantic_version
 tenacity
