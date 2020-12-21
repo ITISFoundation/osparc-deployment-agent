@@ -6,14 +6,12 @@ IFS=$(printf '\n\t')
 
 INFO="INFO: [$(basename "$0")] "
 
-# BOOTING application ---------------------------------------------
 echo "$INFO" "Booting in ${SC_BOOT_MODE} mode ..."
-echo "  User    :$(id "$(whoami)")"
-echo "  Workdir :$(pwd)"
+echo "$INFO" "User :$(id "$(whoami)")"
+echo "$INFO" "Workdir : $(pwd)"
 
 APP_CONFIG=config-prod.yaml
-if [ "${SC_BUILD_TARGET}" = "development" ]
-then
+if [ "${SC_BUILD_TARGET}" = "development" ]; then
   echo "$INFO" "Environment :"
   printenv  | sed 's/=/: /' | sed 's/^/    /' | sort
   echo "$INFO" "Python :"
@@ -25,7 +23,6 @@ then
   cd services/deployment-agent || exit 1
   pip --no-cache-dir install -r requirements/dev.txt
   cd - || exit 1
-
   echo "$INFO" "PIP :"
   pip list | sed 's/^/    /'
 fi

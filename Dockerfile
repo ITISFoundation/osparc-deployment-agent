@@ -10,25 +10,34 @@ FROM python:${PYTHON_VERSION}-slim-buster as base
 
 LABEL maintainer=sanderegg
 
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends gosu; \
+  rm -rf /var/lib/apt/lists/*; \
+  # verify that the binary works
+  gosu nobody true
+
 # simcore-user uid=8004(scu) gid=8004(scu) groups=8004(scu)
 ENV SC_USER_ID=8004 \
-      SC_USER_NAME=scu \
-      SC_BUILD_TARGET=base \
-      SC_BOOT_MODE=default
+  SC_USER_NAME=scu \
+  SC_BUILD_TARGET=base \
+  SC_BOOT_MODE=default
 
 RUN adduser \
-      --uid ${SC_USER_ID} \
-      --disabled-password \
-      --gecos "" \
-      --shell /bin/sh \
-      --home /home/${SC_USER_NAME} \
-      ${SC_USER_NAME}
+  --uid ${SC_USER_ID} \
+  --disabled-password \
+  --gecos "" \
+  --shell /bin/sh \
+  --home /home/${SC_USER_NAME} \
+  ${SC_USER_NAME}
 
 # Sets utf-8 encoding for Python et al
 ENV LANG=C.UTF-8
+
 # Turns off writing .pyc files; superfluous on an ephemeral container.
 ENV PYTHONDONTWRITEBYTECODE=1 \
-      VIRTUAL_ENV=/home/scu/.venv
+  VIRTUAL_ENV=/home/scu/.venv
+
 # Ensures that the python and pip executables used
 # in the image will be those from our virtualenv.
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
@@ -39,14 +48,14 @@ EXPOSE 3000
 
 # necessary tools for running deployment-agent
 RUN apt-get update &&\
-      apt-get install -y --no-install-recommends \
-      docker \
-      make \
-      bash \
-      gettext \
-      git \
-      && apt-get clean \
-      && rm -rf /var/lib/apt/lists/*
+  apt-get install -y --no-install-recommends \
+  docker \
+  make \
+  bash \
+  gettext \
+  git \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 # -------------------------- Build stage -------------------
 # Installs build/package management tools and third party dependencies
@@ -59,10 +68,10 @@ FROM base as build
 ENV SC_BUILD_TARGET=build
 
 RUN apt-get update &&\
-      apt-get install -y --no-install-recommends \
-      build-essential \
-      && apt-get clean \
-      && rm -rf /var/lib/apt/lists/*
+  apt-get install -y --no-install-recommends \
+  build-essential \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
@@ -70,18 +79,20 @@ RUN python -m venv "${VIRTUAL_ENV}"
 
 ARG DOCKER_COMPOSE_VERSION="1.27.4"
 RUN pip --no-cache-dir install --upgrade \
-      pip~=20.2.2  \
-      wheel \
-      setuptools \
-      docker-compose~=${DOCKER_COMPOSE_VERSION}
+  pip~=20.2.3  \
+  wheel \
+  setuptools \
+  docker-compose~=${DOCKER_COMPOSE_VERSION}
+
+WORKDIR /build
 
 # All SC_ variables are customized
 ENV SC_PIP pip3 --no-cache-dir
 ENV SC_BUILD_TARGET base
 
-COPY --chown=scu:scu . /build/services/deployment-agent
+COPY --chown=scu:scu requirements/_base.txt .
 # install base 3rd party dependencies (NOTE: this speeds up devel mode)
-RUN pip --no-cache-dir install -r /build/services/deployment-agent/requirements/_base.txt
+RUN pip --no-cache-dir install -r _base.txt
 
 
 # --------------------------Cache stage -------------------
@@ -92,9 +103,14 @@ RUN pip --no-cache-dir install -r /build/services/deployment-agent/requirements/
 #
 FROM build as cache
 
-WORKDIR /build/services/deployment-agent
 ENV SC_BUILD_TARGET=cache
-RUN pip --no-cache-dir install -r /build/services/deployment-agent/requirements/prod.txt
+
+COPY --chown=scu:scu . /build/services/deployment-agent
+
+WORKDIR /build/services/deployment-agent
+
+RUN pip --no-cache-dir install -r requirements/prod.txt \
+  && pip3 --no-cache-dir list -v
 
 # --------------------------Production stage -------------------
 # Final cleanup up to reduce image size and startup setup
@@ -103,10 +119,11 @@ RUN pip --no-cache-dir install -r /build/services/deployment-agent/requirements/
 #  + /home/scu     $HOME = WORKDIR
 #    + services/sidecar [scu:scu]
 #
-FROM build as production
+FROM base as production
 
 ENV SC_BUILD_TARGET=production \
-      SC_BOOT_MODE=production
+  SC_BOOT_MODE=production
+
 ENV PYTHONOPTIMIZE=TRUE
 
 WORKDIR /home/scu
@@ -118,10 +135,10 @@ COPY --chown=scu:scu docker services/deployment-agent/docker
 RUN chmod +x services/deployment-agent/docker/*.sh
 
 HEALTHCHECK --interval=30s \
-      --timeout=60s \
-      --start-period=30s \
-      --retries=3 \
-      CMD python3 /home/scu/services/deployment-agent/docker/healthcheck.py 'http://localhost:8888/v0/'
+  --timeout=60s \
+  --start-period=30s \
+  --retries=3 \
+  CMD python3 /home/scu/services/deployment-agent/docker/healthcheck.py 'http://localhost:8888/v0/'
 
 ENTRYPOINT [ "/bin/sh", "services/deployment-agent/docker/entrypoint.sh" ]
 CMD ["/bin/sh", "services/deployment-agent/docker/boot.sh"]
@@ -137,9 +154,12 @@ CMD ["/bin/sh", "services/deployment-agent/docker/boot.sh"]
 #
 FROM build as development
 
-ENV SC_BUILD_TARGET=development
+ENV SC_BUILD_TARGET=development \
+  SC_DEVEL_MOUNT=/devel/services/deployment-agent
 
 WORKDIR /devel
+
 RUN chown -R scu:scu "${VIRTUAL_ENV}"
+
 ENTRYPOINT [ "/bin/sh", "services/deployment-agent/docker/entrypoint.sh" ]
 CMD ["/bin/sh", "services/deployment-agent/docker/boot.sh"]
