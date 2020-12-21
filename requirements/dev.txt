@@ -11,5 +11,8 @@
 -r _test.txt
 -r _tools.txt
 
+# osparc-simcore packages
+-e git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library
+
 # installs current package
 -e .
