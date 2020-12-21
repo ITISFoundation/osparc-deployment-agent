@@ -1,4 +1,4 @@
-# Shortcut to install 'services/deployment-agent' for production
+# Shortcut to install 'services/director-v2' for production
 #
 # - As ci.txt but w/o tests
 #
@@ -6,12 +6,8 @@
 #   pip install -r requirements/prod.txt
 #
 
-
 # installs base requirements
 -r _base.txt
-
-# installs this repo's packages
-git+https://github.com/ITISFoundation/osparc-simcore.git@618500af1dc3fcc521a8cef214ad0ee4bf53c03c#subdirectory=packages/service-library
 
 # installs current package
 .

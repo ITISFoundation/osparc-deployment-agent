@@ -1,4 +1,4 @@
-# Shortcut to install all packages for the contigous integration (CI) of 'services/deployment-agent'
+# Shortcut to install all packages for the contigous integration (CI) of 'services/director-v2'
 #
 # - As ci.txt but w/ tests
 #
@@ -6,7 +6,9 @@
 #   pip install -r requirements/ci.txt
 #
 
+
 # installs base + tests requirements
+-r _base.txt
 -r _test.txt
 
 # installs current package
