@@ -17,24 +17,27 @@ current_dir = Path(sys.argv[0] if __name__ == "__main__" else __file__).resolve(
 
 ## DIRs
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def root_dir() -> Path:
     pdir = current_dir.parent
     assert pdir.exists()
     return pdir
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def package_dir() -> Path:
     pdir = Path(simcore_service_deployment_agent.__file__).resolve().parent
     assert pdir.exists()
     return pdir
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def api_specs_dir(package_dir: Path) -> Path:
     specs_dir = package_dir / "oas3"
     assert specs_dir.exists()
     return specs_dir
+
 
 @pytest.fixture(scope="session")
 def mocks_dir() -> Path:
@@ -45,11 +48,6 @@ def mocks_dir() -> Path:
 
 ## FILEs
 
-@pytest.fixture(scope="session")
-def test_config_file() -> Path:
-    path= current_dir / "test-config.yaml"
-    assert path.exists()
-    return path
 
 @pytest.fixture(scope="session")
 def valid_config_file(mocks_dir: Path) -> Path:
@@ -57,22 +55,22 @@ def valid_config_file(mocks_dir: Path) -> Path:
     assert path.exists()
     return path
 
+
 @pytest.fixture(scope="session")
 def valid_docker_stack_file(mocks_dir: Path) -> Path:
     path = mocks_dir / "valid_docker_stack.yaml"
     assert path.exists()
     return path
 
+
+## CONFIGs
+
+
 @pytest.fixture(scope="session")
 def valid_config(valid_config_file: Path) -> Dict[str, Any]:
     with valid_config_file.open() as fp:
         return yaml.safe_load(fp)
 
-
-@pytest.fixture(scope="session")
-def test_config(test_config_file: Path) -> Dict[str, Any]:
-    with test_config_file.open() as fp:
-        return yaml.safe_load(fp)
 
 @pytest.fixture(scope="session")
 def valid_docker_stack(valid_docker_stack_file: Path) -> Dict[str, Any]:

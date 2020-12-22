@@ -1,12 +1,15 @@
 import asyncio
 import logging
 import tempfile
+from asyncio.exceptions import CancelledError
 from pathlib import Path
 from shutil import copy2
 from typing import Dict, List, Tuple
 
 import yaml
 from aiohttp import ClientError, ClientSession, web
+from aiohttp.client import ClientTimeout
+from aiohttp.client_exceptions import ClientConnectorError
 from servicelib.application_keys import APP_CONFIG_KEY
 from tenacity import (
     before_sleep_log,
@@ -28,7 +31,6 @@ from .subtask import SubTask
 
 log = logging.getLogger(__name__)
 TASK_NAME = __name__ + "_autodeploy_task"
-TASK_STATE = "{}_state".format(TASK_NAME)
 TASK_SESSION_NAME = __name__ + "session"
 
 
@@ -46,8 +48,9 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
         for service in excluded_services:
             stack_cfg["services"].pop(service, None)
         # remove excluded volumes
-        for volume in excluded_volumes:
-            stack_cfg["volumes"].pop(volume, None)
+        if "volumes" in stack_cfg:
+            for volume in excluded_volumes:
+                stack_cfg["volumes"].pop(volume, None)
         # remove build part, useless in a stack
         for service in stack_cfg["services"].keys():
             stack_cfg["services"][service].pop("build", None)
@@ -226,6 +229,7 @@ async def check_changes(subtasks: List[SubTask]) -> Dict:
     stop=stop_after_attempt(RETRY_COUNT),
     before_sleep=before_sleep_log(log, logging.INFO),
     retry=retry_if_exception_type(DependencyNotReadyError),
+    reraise=True,
 )
 async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
     log.info("waiting for dependencies to start...")
@@ -238,9 +242,11 @@ async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
                 url, app_session, config["username"], config["password"]
             )
             log.info("portainer at %s ready", url)
-        except ClientError:
+        except (ClientError, ClientConnectorError) as e:
             log.exception("portainer not ready at %s", url)
-            raise DependencyNotReadyError("Portainer not ready at {}".format(url))
+            raise DependencyNotReadyError(
+                "Portainer not ready at {}".format(url)
+            ) from e
 
 
 async def _init_deploy(
@@ -249,7 +255,7 @@ async def _init_deploy(
     try:
         log.info("initialising...")
         # get configs
-        app[TASK_STATE] = State.STARTING
+        app["state"][TASK_NAME] = State.STARTING
         app_config = app[APP_CONFIG_KEY]
         app_session = app[TASK_SESSION_NAME]
         # wait for portainer to be available
@@ -272,22 +278,14 @@ async def _init_deploy(
         await notify_state(
             app_config,
             app_session,
-            state=app[TASK_STATE],
+            state=app["state"][TASK_NAME],
             message=descriptions[main_repo] if main_repo in descriptions else "",
         )
         log.info("initialisation completed")
         return (git_task, docker_task)
     except asyncio.CancelledError:
-        log.info("cancelling task...")
-        app[TASK_STATE] = State.STOPPED
+        log.info("task cancelled")
         raise
-    except Exception:
-        log.exception("Task closing:")
-        app[TASK_STATE] = State.FAILED
-        raise
-    finally:
-        # cleanup the subtasks
-        log.info("task completed...")
 
 
 async def _deploy(
@@ -312,7 +310,10 @@ async def _deploy(
     main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
     if main_repo in changes:
         await notify_state(
-            app_config, app_session, state=app[TASK_STATE], message=changes[main_repo]
+            app_config,
+            app_session,
+            state=app["state"][TASK_NAME],
+            message=changes[main_repo],
         )
     log.info("stack re-deployed")
     return docker_task
@@ -323,24 +324,36 @@ async def auto_deploy(app: web.Application):
     app_config = app[APP_CONFIG_KEY]
     app_session = app[TASK_SESSION_NAME]
     # init
-    git_task, docker_task = await _init_deploy(app)
+    try:
+        git_task, docker_task = await _init_deploy(app)
+    except CancelledError:
+        app["state"][TASK_NAME] = State.STOPPED
+        return
+    except Exception:  # pylint: disable=broad-except
+        log.exception("Error while initializing deployment: ", exc_info=True)
+        # this will trigger a restart from the docker swarm engine
+        app["state"][TASK_NAME] = State.FAILED
+        return
     # loop forever to detect changes
     while True:
         try:
-            app[TASK_STATE] = State.RUNNING
+            app["state"][TASK_NAME] = State.RUNNING
             docker_task = await _deploy(app, git_task, docker_task)
             await asyncio.sleep(app_config["main"]["polling_interval"])
         except asyncio.CancelledError:
             log.info("cancelling task...")
-            app[TASK_STATE] = State.STOPPED
-            raise
+            app["state"][TASK_NAME] = State.STOPPED
+            break
         except Exception as exc:  # pylint: disable=broad-except
             # some unknown error happened, let's wait 5 min and restart
             log.exception("Task error:")
-            if app[TASK_STATE] != State.PAUSED:
-                app[TASK_STATE] = State.PAUSED
+            if app["state"][TASK_NAME] != State.PAUSED:
+                app["state"][TASK_NAME] = State.PAUSED
                 await notify_state(
-                    app_config, app_session, state=app[TASK_STATE], message=str(exc)
+                    app_config,
+                    app_session,
+                    state=app["state"][TASK_NAME],
+                    message=str(exc),
                 )
             await asyncio.sleep(300)
         finally:
@@ -354,17 +367,18 @@ def setup(app: web.Application):
 
 
 async def background_task(app: web.Application):
-    app[TASK_STATE] = State.STARTING
+    app["state"] = {TASK_NAME: State.STARTING}
     app[TASK_NAME] = asyncio.get_event_loop().create_task(auto_deploy(app))
     yield
     task = app[TASK_NAME]
     task.cancel()
+    await task
 
 
 async def persistent_session(app):
-    app[TASK_SESSION_NAME] = session = ClientSession()
-    yield
-    await session.close()
+    async with ClientSession(timeout=ClientTimeout(5)) as session:
+        app[TASK_SESSION_NAME] = session
+        yield
 
 
 __all__ = "setup"
