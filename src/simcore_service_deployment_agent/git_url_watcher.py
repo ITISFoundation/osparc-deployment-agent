@@ -218,7 +218,12 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[str]:
     log.debug("Changelog:\n%s", logged_changes)
     await _update_repository(repo)
     # check if a watched file has changed
-    common_files = set(modified_files.split()).intersection(set(repo.paths))
+    modified_files = modified_files.split()
+    common_files = (
+        set(modified_files).intersection(set(repo.paths))
+        if repo.paths
+        else modified_files
+    )
     if not common_files:
         # no change affected the watched files
         return

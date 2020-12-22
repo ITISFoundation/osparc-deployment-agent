@@ -107,57 +107,30 @@ def git_config(git_repository: str) -> Dict[str, Any]:
     yield cfg
 
 
-async def test_git_url_watcher(git_config: Dict[str, Any], git_repo_path: Path):
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
-    with pytest.raises(AssertionError):
-        await git_watcher.check_for_changes()
-
-    import pdb
-
-    pdb.set_trace()
-    init_result = await git_watcher.init()
-
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-
+async def test_git_url_watcher_find_new_file(
+    git_config: Dict[str, Any], git_repo_path: Path
+):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
 
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
+    init_result = await git_watcher.init()
+
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
     assert init_result == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
 
     # now add a file in the repo
-    _run_cmd("touch my_file.txt; git add .; git commit -m 'I added a file';")
+    _run_cmd(
+        "touch my_file.txt; git add .; git commit -m 'I added a file';",
+        cwd=git_repo_path,
+    )
     # we should have some changes here now
     change_results = await git_watcher.check_for_changes()
-
-
-async def test_watcher_workflow(mocked_cmd_utils, mock_git_fcts, valid_git_config):
-    git_watcher = git_url_watcher.GitUrlWatcher(valid_git_config)
-
-    with pytest.raises(AssertionError):
-        await git_watcher.check_for_changes()
-    mocked_cmd_utils.assert_not_called()
-
-    REPO_ID = valid_git_config["main"]["watched_git_repositories"][0]["id"]
-    BRANCH = valid_git_config["main"]["watched_git_repositories"][0]["branch"]
-    TAGS = (
-        valid_git_config["main"]["watched_git_repositories"][0]["tags"]
-        if "tags" in valid_git_config["main"]["watched_git_repositories"][0]
-        else None
-    )
-    description = (
-        f"{REPO_ID}:{BRANCH}:{TAG}:{SHA}" if TAGS else f"{REPO_ID}:{BRANCH}:{SHA}"
-    )
-
-    assert await git_watcher.init() == {REPO_ID: description}
-    assert not await git_watcher.check_for_changes()
-
-    CHANGED_FILE = valid_git_config["main"]["watched_git_repositories"][0]["paths"][0]
-    mock_git_fcts["_git_diff_filenames"].return_value = CHANGED_FILE
-    NEW_TAG = "2.3.4"
-    mock_git_fcts["_git_get_latest_matching_tag"] = NEW_TAG
-    assert await git_watcher.check_for_changes() == {REPO_ID: description}
+    # get new sha
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
+    assert change_results == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
 
     await git_watcher.cleanup()
