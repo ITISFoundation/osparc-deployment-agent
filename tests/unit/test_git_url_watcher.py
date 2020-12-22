@@ -111,6 +111,10 @@ async def test_git_url_watcher(git_config: Dict[str, Any], git_repo_path: Path):
     git_watcher = git_url_watcher.GitUrlWatcher(git_config)
     with pytest.raises(AssertionError):
         await git_watcher.check_for_changes()
+
+    import pdb
+
+    pdb.set_trace()
     init_result = await git_watcher.init()
 
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
@@ -127,10 +131,6 @@ async def test_git_url_watcher(git_config: Dict[str, Any], git_repo_path: Path):
     _run_cmd("touch my_file.txt; git add .; git commit -m 'I added a file';")
     # we should have some changes here now
     change_results = await git_watcher.check_for_changes()
-
-    import pdb
-
-    pdb.set_trace()
 
 
 async def test_watcher_workflow(mocked_cmd_utils, mock_git_fcts, valid_git_config):
