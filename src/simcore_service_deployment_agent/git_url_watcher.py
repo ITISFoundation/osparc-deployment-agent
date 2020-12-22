@@ -25,7 +25,7 @@ async def _git_clone_repo(
     username: str = None,
     password: str = None,
 ):
-    cmd = f"git clone -n {URL(repository).with_user(username).with_password(password)} --depth 1 {directory} --single-branch --branch {branch}"
+    cmd = f"git clone {URL(repository).with_user(username).with_password(password)} --depth 1 {directory} --single-branch --branch {branch}"
     await run_cmd_line(cmd)
 
 
