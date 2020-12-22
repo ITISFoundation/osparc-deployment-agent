@@ -7,11 +7,31 @@
 
 from pathlib import Path
 from typing import Any, Dict
+from unittest.mock import call
 
 import pytest
 import yaml
 
+import docker
 from simcore_service_deployment_agent import docker_registries_watcher
+
+
+def _assert_docker_client_calls(
+    mocked_docker_client, registry_config: Dict[str, Any], docker_stack: Dict[str, Any]
+):
+    mocked_docker_client.assert_has_calls(
+        [
+            call(),
+            call().ping(),
+            call().login(
+                registry=registry_config["url"],
+                username=registry_config["username"],
+                password=registry_config["password"],
+            ),
+            call().images.get_registry_data(docker_stack["services"]["app"]["image"]),
+        ]
+    )
+    mocked_docker_client.reset_mock()
 
 
 @pytest.fixture(scope="session")
@@ -23,63 +43,57 @@ def valid_docker_config(mocks_dir: Path) -> Dict[str, Any]:
         return yaml.safe_load(fp)
 
 
-def _assert_docker_client_calls(mocked_docker_client, mocker, registry_config, docker_stack):
-    mocked_docker_client.assert_has_calls(
-        [
-            mocker.call.from_env(),
-            mocker.call.from_env().ping(),
-            mocker.call.from_env().login(**{
-                "password": registry_config["password"],
-                "registry": registry_config["url"],
-                "username": registry_config["username"]
-            }),
-            mocker.call.from_env().images.get_registry_data(
-                docker_stack["services"]["app"]["image"])
-        ])
+@pytest.fixture()
+def mock_docker_client(mocker):
+    mocked_docker_package = mocker.patch("docker.from_env", autospec=True)
+    mocked_docker_package.return_value.images.get_registry_data.return_value.attrs = {
+        "Descriptor": "somesignature"
+    }
+
+    yield mocked_docker_package
 
 
-async def test_watcher_workflow(loop, valid_docker_config, valid_docker_stack, mocker):
-    docker_registries_watcher.NUMBER_OF_ATTEMPS = 1
-    mocked_docker_client = mocker.patch(
-        "simcore_service_deployment_agent.docker_registries_watcher.docker",
-        **{"from_env.return_value.images.get_registry_data.return_value.attrs": {"Descriptor":"somesignature"},
-           "errors.APIError": BaseException})
-    docker_watcher = docker_registries_watcher.DockerRegistriesWatcher(
-        valid_docker_config, valid_docker_stack)
+def test_mock_docker_client(mock_docker_client, valid_docker_config: Dict[str, Any]):
     registry_config = valid_docker_config["main"]["docker_private_registries"][0]
-    with pytest.raises(KeyError):
-        await docker_watcher.check_for_changes()
-    _assert_docker_client_calls(
-        mocked_docker_client, mocker, registry_config, valid_docker_stack)
 
-    try:
-        await docker_watcher.init()
-    except:
-        pytest.fail("Unexpected error initializing docker watcher...")
-    _assert_docker_client_calls(
-        mocked_docker_client, mocker, registry_config, valid_docker_stack)
+    client = docker.from_env()
+    client.ping()
+    client.login(
+        registry=registry_config["url"],
+        username=registry_config["username"],
+        password=registry_config["password"],
+    )
+    assert client.images.get_registry_data().attrs == { # pylint: disable=no-value-for-parameter
+        "Descriptor": "somesignature"
+    }, "issue in mocking docker library"
 
-    try:
-        assert not await docker_watcher.check_for_changes()
-    except:
-        pytest.fail("Unexpected error checking for changes docker watcher...")
-    _assert_docker_client_calls(
-        mocked_docker_client, mocker, registry_config, valid_docker_stack)
 
-    # generate a change
-    mocked_docker_client.configure_mock(**{
-        "from_env.return_value.images.get_registry_data.return_value.attrs": {"Descriptor":"someothersignature"}
-    })
-    try:
-        assert await docker_watcher.check_for_changes() == \
-            {
-                'jenkins:latest': 'image signature changed',
-                'ubuntu': 'image signature changed',
-            }
-    except:
-        pytest.fail("Unexpected error checking for changes docker watcher...")
+async def test_docker_registries_watcher(
+    mock_docker_client,
+    valid_docker_config: Dict[str, Any],
+    valid_docker_stack: Dict[str, Any],
+):
+    docker_registries_watcher.NUMBER_OF_ATTEMPS = 1
+    docker_registries_watcher.MAX_TIME_TO_WAIT_S = 1
+    registry_config = valid_docker_config["main"]["docker_private_registries"][0]
+    docker_watcher = docker_registries_watcher.DockerRegistriesWatcher(
+        valid_docker_config, valid_docker_stack
+    )
+    # initialize it now
+    await docker_watcher.init()
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
 
-    try:
-        await docker_watcher.cleanup()
-    except:
-        pytest.fail("Unexpected error cleaning up repos...")
+    # check there is no change for now
+    assert not await docker_watcher.check_for_changes()
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
+
+    # create a change
+    mock_docker_client.return_value.images.get_registry_data.return_value.attrs = {
+        "Descriptor": "somenewsignature"
+    }
+    change_result = await docker_watcher.check_for_changes()
+    assert change_result == {
+        "jenkins:latest": "image signature changed",
+        "ubuntu": "image signature changed",
+    }
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)

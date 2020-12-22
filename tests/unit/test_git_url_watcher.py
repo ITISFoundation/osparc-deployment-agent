@@ -6,54 +6,13 @@
 # pylint:disable=bare-except
 
 import subprocess
-from asyncio import Future
 from pathlib import Path
 from typing import Any, Dict
 
 import pytest
-import yaml
-from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
 from simcore_service_deployment_agent.cmd_utils import CmdLineError
-
-
-def _list_valid_configs():
-    return [
-        "valid_git_config.yaml",
-        "valid_git_config_path.yaml",
-        "valid_git_config_staging.yaml",
-        "valid_git_config_staging_tags.yaml",
-    ]
-
-
-@pytest.fixture(scope="session", params=_list_valid_configs())
-def valid_git_config(mocks_dir: Path, request) -> Dict[str, Any]:
-    with Path(mocks_dir / request.param).open() as fp:
-        return yaml.safe_load(fp)
-
-
-TAG = "1.2.3"
-SHA = "asdhjfs"
-
-
-@pytest.fixture()
-def mock_git_fcts(mocker, valid_git_config) -> Dict[str, Any]:
-    mock_git_fcts = {
-        "_git_get_latest_matching_tag": mocker.patch.object(
-            git_url_watcher, "_git_get_latest_matching_tag", return_value=TAG
-        ),
-        "_git_get_current_matching_tag": mocker.patch.object(
-            git_url_watcher, "_git_get_current_matching_tag", return_value=TAG
-        ),
-        "_git_get_current_sha": mocker.patch.object(
-            git_url_watcher, "_git_get_current_sha", return_value=SHA
-        ),
-        "_git_diff_filenames": mocker.patch.object(
-            git_url_watcher, "_git_diff_filenames", return_value=""
-        ),
-    }
-    yield mock_git_fcts
 
 
 @pytest.fixture()
