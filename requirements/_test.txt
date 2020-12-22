@@ -15,7 +15,7 @@ bcrypt==3.2.0             # via paramiko
 billiard==3.6.3.0         # via celery
 cached-property==1.5.2    # via docker-compose
 celery==5.0.5             # via pytest-celery
-certifi==2020.12.5        # via requests
+certifi==2020.12.5        # via -c requirements/_base.txt, requests
 cffi==1.14.4              # via bcrypt, cryptography, pynacl
 chardet==3.0.4            # via -c requirements/_base.txt, aiohttp, requests
 click-didyoumean==0.0.3   # via celery
@@ -28,7 +28,7 @@ coveralls==2.2.0          # via -r requirements/_test.in
 cryptography==3.3.1       # via paramiko
 distro==1.5.0             # via docker-compose
 docker-compose==1.27.4    # via pytest-docker
-docker[ssh]==4.4.0        # via docker-compose
+docker[ssh]==4.4.0        # via -c requirements/_base.txt, docker-compose
 dockerpty==0.4.1          # via docker-compose
 docopt==0.6.2             # via coveralls, docker-compose
 execnet==1.7.1            # via pytest-xdist
@@ -66,15 +66,15 @@ pytest==6.2.1             # via -r requirements/_test.in, pytest-aiohttp, pytest
 python-dotenv==0.15.0     # via docker-compose
 pytz==2020.4              # via celery
 pyyaml==5.3.1             # via -c requirements/_base.txt, docker-compose
-requests==2.25.1          # via codecov, coveralls, docker, docker-compose
+requests==2.25.1          # via -c requirements/_base.txt, codecov, coveralls, docker, docker-compose
 six==1.15.0               # via -c requirements/_base.txt, astroid, bcrypt, click-repl, cryptography, docker, dockerpty, jsonschema, pynacl, websocket-client
 texttable==1.6.3          # via docker-compose
 toml==0.10.2              # via pylint, pytest
 typing-extensions==3.7.4.3  # via -c requirements/_base.txt, aiohttp
-urllib3==1.26.2           # via requests
+urllib3==1.26.2           # via -c requirements/_base.txt, requests
 vine==5.0.0               # via amqp, celery
 wcwidth==0.2.5            # via prompt-toolkit
-websocket-client==0.57.0  # via docker, docker-compose
+websocket-client==0.57.0  # via -c requirements/_base.txt, docker, docker-compose
 wrapt==1.12.1             # via astroid
 yarl==1.6.3               # via -c requirements/_base.txt, aiohttp
 
