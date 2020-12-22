@@ -23,19 +23,15 @@ def _list_valid_configs():
         "valid_git_config_staging_tags.yaml",
     ]
 
+
 @pytest.fixture(scope="session", params=_list_valid_configs())
 def valid_git_config(mocks_dir: Path, request) -> Dict[str, Any]:
     with Path(mocks_dir / request.param).open() as fp:
         return yaml.safe_load(fp)
 
 
-async def test_watcher_workflow(valid_git_config, mocker):
+async def test_watcher_workflow(mocked_cmd_utils, valid_git_config, mocker):
 
-    mock_general = mocker.patch(
-        "simcore_service_deployment_agent.git_url_watcher.run_cmd_line",
-        return_value=Future(),
-    )
-    mock_general.return_value.set_result("")
     mock_latest_tag = mocker.patch.object(
         git_url_watcher, "_git_get_latest_matching_tag", return_value=Future()
     )
@@ -54,7 +50,7 @@ async def test_watcher_workflow(valid_git_config, mocker):
 
     with pytest.raises(AssertionError):
         await git_watcher.check_for_changes()
-    mock_general.assert_not_called()
+    mocked_cmd_utils.assert_not_called()
 
     REPO_ID = valid_git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = valid_git_config["main"]["watched_git_repositories"][0]["branch"]

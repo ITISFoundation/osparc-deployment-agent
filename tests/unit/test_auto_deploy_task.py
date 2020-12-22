@@ -46,15 +46,6 @@ def mocked_git_url_watcher(mocker) -> Dict[str, Any]:
     }
 
 
-@pytest.fixture()
-def mocked_cmd_utils(mocker):
-    mock_run_cmd_line = mocker.patch.object(
-        auto_deploy_task,
-        "run_cmd_line",
-        return_value="",
-    )
-
-
 @pytest.fixture(scope="session")
 def mock_stack_config() -> Dict[str, Any]:
     cfg = {

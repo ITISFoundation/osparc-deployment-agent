@@ -4,6 +4,8 @@ import pytest
 from aioresponses import aioresponses
 from aioresponses.core import CallbackResult
 
+from simcore_service_deployment_agent import auto_deploy_task
+
 
 @pytest.fixture()
 async def portainer_service_mock(valid_config) -> aioresponses:
@@ -35,3 +37,13 @@ async def portainer_service_mock(valid_config) -> aioresponses:
         mock.get(get_stacks_pattern, callback=get_stacks_cb, repeat=True)
         mock.put(update_stack_pattern, status=200, repeat=True)
         yield mock
+
+
+@pytest.fixture()
+def mocked_cmd_utils(mocker):
+    mock_run_cmd_line = mocker.patch.object(
+        auto_deploy_task,
+        "run_cmd_line",
+        return_value="",
+    )
+    yield mock_run_cmd_line
