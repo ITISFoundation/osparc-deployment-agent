@@ -13,7 +13,7 @@ install() {
 
 test() {
     source .venv/bin/activate
-    make unit-test
+    make test-ci-unit
 }
 
 # Check if the function exists (bash specific)
