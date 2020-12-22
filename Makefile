@@ -185,7 +185,7 @@ _run-test-dev: _check_venv_active
 
 _run-test-ci: _check_venv_active
 	# runs tests for CI (e.g. w/o pdb but w/ converage)
-	pytest --cov=$(APP_PACKAGE_NAME) --durations=10 --cov-append --color=yes --cov-report=term-missing --cov-report=xml --cov-config=.coveragerc -v -m "not travis" $(TEST_TARGET)
+	pytest --cov=$(APP_PACKAGE_NAME) --durations=10 --cov-append --color=yes --cov-report=term-missing --cov-report=xml --cov-config=.coveragerc -v $(TEST_TARGET)
 
 
 ## INFO -------------------------------
