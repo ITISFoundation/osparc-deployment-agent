@@ -30,22 +30,110 @@ def valid_git_config(mocks_dir: Path, request) -> Dict[str, Any]:
         return yaml.safe_load(fp)
 
 
-async def test_watcher_workflow(mocked_cmd_utils, valid_git_config, mocker):
+TAG = "1.2.3"
+SHA = "asdhjfs"
 
-    mock_latest_tag = mocker.patch.object(
-        git_url_watcher, "_git_get_latest_matching_tag", return_value=Future()
+
+@pytest.fixture()
+def mock_git_fcts(mocker, valid_git_config) -> Dict[str, Any]:
+    mock_git_fcts = {
+        "_git_get_latest_matching_tag": mocker.patch.object(
+            git_url_watcher, "_git_get_latest_matching_tag", return_value=TAG
+        ),
+        "_git_get_current_matching_tag": mocker.patch.object(
+            git_url_watcher, "_git_get_current_matching_tag", return_value=TAG
+        ),
+        "_git_get_current_sha": mocker.patch.object(
+            git_url_watcher, "_git_get_current_sha", return_value=SHA
+        ),
+        "_git_diff_filenames": mocker.patch.object(
+            git_url_watcher, "_git_diff_filenames", return_value=""
+        ),
+    }
+    yield mock_git_fcts
+
+
+from yarl import URL
+import subprocess
+
+
+@pytest.fixture()
+def git_repo_path(tmpdir: Path) -> Path:
+    p = tmpdir.mkdir("test_git_repo")
+    assert p.exists()
+    return p
+
+
+def _run_cmd(cmd: str, **kwargs) -> str:
+    result = subprocess.run(
+        cmd, capture_output=True, check=True, shell=True, encoding="utf-8", **kwargs
     )
-    TAG = "1.2.3"
-    mock_latest_tag.return_value.set_result(TAG)
-    mock_latest_tag = mocker.patch.object(
-        git_url_watcher, "_git_get_current_matching_tag", return_value=Future()
+    assert result.returncode == 0
+    return result.stdout.rstrip() if result.stdout else ""
+
+
+@pytest.fixture()
+def git_repository(git_repo_path: Path) -> str:
+    _run_cmd(
+        "git init; git config user.name tester; git config user.email tester@test.com",
+        cwd=git_repo_path,
     )
-    mock_latest_tag.return_value.set_result([TAG])
-    mock_sha = mocker.patch.object(
-        git_url_watcher, "_git_get_current_sha", return_value=Future()
+    _run_cmd(
+        "touch initial_file.txt; git add .; git commit -m 'initial commit';",
+        cwd=git_repo_path,
     )
-    SHA = "asdhjfs"
-    mock_sha.return_value.set_result(SHA)
+
+    yield f"file://localhost{git_repo_path}"
+
+
+@pytest.fixture()
+def git_config(git_repository: str) -> Dict[str, Any]:
+    cfg = {
+        "main": {
+            "watched_git_repositories": [
+                {
+                    "id": "test-repo-1",
+                    "url": str(git_repository),
+                    "branch": "master",
+                    "tags": "",
+                    "pull_only_files": False,
+                    "paths": [],
+                    "username": "fakeuser",
+                    "password": "fakepassword",
+                }
+            ]
+        }
+    }
+    yield cfg
+
+
+async def test_git_url_watcher(git_config: Dict[str, Any], git_repo_path: Path):
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
+    with pytest.raises(AssertionError):
+        await git_watcher.check_for_changes()
+    init_result = await git_watcher.init()
+
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
+
+    REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
+    BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
+
+    assert init_result == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
+
+    # there was no changes
+    assert not await git_watcher.check_for_changes()
+
+    # now add a file in the repo
+    _run_cmd("touch my_file.txt; git add .; git commit -m 'I added a file';")
+    # we should have some changes here now
+    change_results = await git_watcher.check_for_changes()
+
+    import pdb
+
+    pdb.set_trace()
+
+
+async def test_watcher_workflow(mocked_cmd_utils, mock_git_fcts, valid_git_config):
     git_watcher = git_url_watcher.GitUrlWatcher(valid_git_config)
 
     with pytest.raises(AssertionError):
@@ -66,17 +154,10 @@ async def test_watcher_workflow(mocked_cmd_utils, valid_git_config, mocker):
     assert await git_watcher.init() == {REPO_ID: description}
     assert not await git_watcher.check_for_changes()
 
-    mock_changed_files = mocker.patch.object(
-        git_url_watcher, "_git_diff_filenames", return_value=Future()
-    )
     CHANGED_FILE = valid_git_config["main"]["watched_git_repositories"][0]["paths"][0]
-    mock_changed_files.return_value.set_result(CHANGED_FILE)
+    mock_git_fcts["_git_diff_filenames"].return_value = CHANGED_FILE
     NEW_TAG = "2.3.4"
-    mock_latest_tag.return_value = Future()
-    mock_latest_tag.return_value.set_result(NEW_TAG)
+    mock_git_fcts["_git_get_latest_matching_tag"] = NEW_TAG
     assert await git_watcher.check_for_changes() == {REPO_ID: description}
 
-    try:
-        await git_watcher.cleanup()
-    except:
-        pytest.fail("Unexpected error deleting repos...")
+    await git_watcher.cleanup()
