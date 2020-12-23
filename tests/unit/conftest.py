@@ -28,13 +28,13 @@ def portainer_stacks(valid_config: Dict[str, Any]) -> Dict[str, Any]:
     stacks = [
         # some of the Portainer API fields here
         {
-            "Id": fake.name(),
+            "Id": randint(1, 10),
             "Name": valid_config["main"]["portainer"][0]["stack_name"],
             "Type": 1,
             "EndpointID": randint(1, 10),
         },
         {
-            "Id": fake.name(),
+            "Id": randint(1, 10),
             "Name": fake.name(),
             "Type": 1,
             "EndpointID": randint(1, 10),
@@ -48,7 +48,6 @@ async def portainer_service_mock(
     bearer_code: str, portainer_stacks: Dict[str, Any], valid_config: Dict[str, Any]
 ) -> aioresponses:
     PASSTHROUGH_REQUESTS_PREFIXES = ["http://127.0.0.1", "ws://"]
-    post_authenticate_pattern = re.compile(r"http://[a-z\-0-9_]+:[0-9]+/api/auth")
 
     def _check_auth(**kwargs) -> bool:
         return (
@@ -81,7 +80,7 @@ async def portainer_service_mock(
                 "Name": body["Name"],
                 "EndpointID": url.query["endpointId"],
                 "Type": url.query["type"],
-                "Id": fake.name(),
+                "Id": randint(1, 10),
             },
         )
 
@@ -105,6 +104,7 @@ async def portainer_service_mock(
             payload={"ID": "abajmipo7b4xz5ip2nrla6b11"},
         )
 
+    post_authenticate_pattern = re.compile(r"http://[a-z\-0-9_]+:[0-9]+/api/auth")
     get_endpoints_pattern = re.compile(r"http://[a-z\-0-9_]+:[0-9]+/api/endpoints")
     get_swarm_id_pattern = re.compile(
         r"http://[a-z\-0-9_]+:[0-9]+/api/endpoints/[0-9]+/docker/swarm"
