@@ -53,7 +53,7 @@ def mock_docker_client(mocker):
     yield mocked_docker_package
 
 
-def test_mock_docker_client(mock_docker_client, valid_docker_config: Dict[str, Any]):
+def test_mock_docker_client(loop, mock_docker_client, valid_docker_config: Dict[str, Any]):
     registry_config = valid_docker_config["main"]["docker_private_registries"][0]
 
     client = docker.from_env()
@@ -68,7 +68,7 @@ def test_mock_docker_client(mock_docker_client, valid_docker_config: Dict[str, A
     }, "issue in mocking docker library"
 
 
-async def test_docker_registries_watcher(
+async def test_docker_registries_watcher(loop,
     mock_docker_client,
     valid_docker_config: Dict[str, Any],
     valid_docker_stack: Dict[str, Any],

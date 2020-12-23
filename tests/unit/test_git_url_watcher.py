@@ -66,7 +66,7 @@ def git_config(git_repository: str) -> Dict[str, Any]:
 
 
 async def test_git_url_watcher_find_new_file(
-    git_config: Dict[str, Any], git_repo_path: Path
+    loop, git_config: Dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -102,7 +102,7 @@ def git_config_pull_only_files(git_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def test_git_url_watcher_pull_only_selected_files(
-    git_config_pull_only_files: Dict[str, Any], git_repo_path: Path
+    loop, git_config_pull_only_files: Dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]
@@ -157,7 +157,7 @@ def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any
 
 
 async def test_git_url_watcher_pull_only_selected_files_tags(
-    git_config_pull_only_files_tags: Dict[str, Any], git_repo_path: Path
+    loop, git_config_pull_only_files_tags: Dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
         "id"
