@@ -9,6 +9,7 @@ from servicelib.rest_responses import wrap_as_envelope
 from servicelib.rest_utils import body_to_dict, extract_and_validate
 
 from . import __version__
+from .app_state import State
 from .auto_deploy_task import TASK_NAME
 
 log = logging.getLogger(__name__)
@@ -21,11 +22,11 @@ async def check_health(request: web.Request):
     assert not params
     assert not query
     assert not body
-
+    app_state = app.get("state", {TASK_NAME: State.FAILED})
     data = {
         "name": __name__.split(".")[0],
         "version": __version__,
-        "status": f"SERVICE_{app['state'][TASK_NAME].name}",
+        "status": f"SERVICE_{app_state[TASK_NAME].name}",
         "api_version": __version__,
     }
 
