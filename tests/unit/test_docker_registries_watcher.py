@@ -34,15 +34,6 @@ def _assert_docker_client_calls(
     mocked_docker_client.reset_mock()
 
 
-@pytest.fixture(scope="session")
-def valid_docker_config(mocks_dir: Path) -> Dict[str, Any]:
-    path = mocks_dir / "valid_docker_config.yaml"
-    assert path.exists()
-
-    with path.open() as fp:
-        return yaml.safe_load(fp)
-
-
 @pytest.fixture()
 def mock_docker_client(mocker):
     mocked_docker_package = mocker.patch("docker.from_env", autospec=True)
@@ -53,8 +44,8 @@ def mock_docker_client(mocker):
     yield mocked_docker_package
 
 
-def test_mock_docker_client(loop, mock_docker_client, valid_docker_config: Dict[str, Any]):
-    registry_config = valid_docker_config["main"]["docker_private_registries"][0]
+def test_mock_docker_client(loop, mock_docker_client, valid_config: Dict[str, Any]):
+    registry_config = valid_config["main"]["docker_private_registries"][0]
 
     client = docker.from_env()
     client.ping()
@@ -70,14 +61,14 @@ def test_mock_docker_client(loop, mock_docker_client, valid_docker_config: Dict[
 
 async def test_docker_registries_watcher(loop,
     mock_docker_client,
-    valid_docker_config: Dict[str, Any],
+    valid_config: Dict[str, Any],
     valid_docker_stack: Dict[str, Any],
 ):
     docker_registries_watcher.NUMBER_OF_ATTEMPS = 1
     docker_registries_watcher.MAX_TIME_TO_WAIT_S = 1
-    registry_config = valid_docker_config["main"]["docker_private_registries"][0]
+    registry_config = valid_config["main"]["docker_private_registries"][0]
     docker_watcher = docker_registries_watcher.DockerRegistriesWatcher(
-        valid_docker_config, valid_docker_stack
+        valid_config, valid_docker_stack
     )
     # initialize it now
     await docker_watcher.init()

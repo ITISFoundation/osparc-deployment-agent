@@ -7,6 +7,8 @@
 
 from pathlib import Path
 from typing import Any, Dict, List
+import aiohttp
+from aioresponses.core import aioresponses
 
 import pytest
 import yaml
@@ -16,59 +18,45 @@ from yarl import URL
 from simcore_service_deployment_agent import notifier
 
 
-@pytest.fixture(scope="session")
-def valid_notifier_config(mocks_dir: Path) -> Dict[str, Any]:
-    path = mocks_dir / "valid_notifier_config.yaml"
-    assert path.exists()
-    with path.open() as fp:
-        return yaml.safe_load(fp)
-
-@pytest.fixture
-async def mattermost_server(aiohttp_server):
-    async def serve(routes: List[Dict]):
-        app = web.Application()
-        # fill route table
-        async def hello(request):
-            return web.json_response('Hello World')
-        app.router.add_route('GET', '/', hello)
-        for route in routes:
-            app.router.add_route(route["method"], route["path"], route["handler"])
-        server = await aiohttp_server(app)
-        return server
-    return serve
-
 def _list_messages():
-    return [
-        "",
-        "some fantastic message"
-    ]
+    return ["", "some fantastic message"]
+
+
+import asyncio
+
 
 @pytest.mark.parametrize("message", _list_messages())
-async def test_notify_mattermost(loop, valid_notifier_config, mattermost_server, message, aiohttp_client):
-
+async def test_notify_mattermost(
+    loop: asyncio.AbstractEventLoop,
+    mattermost_service_mock: aioresponses,
+    valid_config: Dict[str, Any],
+    message: str,
+):
     async def handler(request):
         assert "Authorization" in request.headers
-        assert valid_notifier_config["main"]["notifications"][0]["personal_token"] in request.headers["Authorization"]
+        assert (
+            valid_config["main"]["notifications"][0]["personal_token"]
+            in request.headers["Authorization"]
+        )
 
         data = await request.json()
         assert "channel_id" in data
-        assert data["channel_id"] == valid_notifier_config["main"]["notifications"][0]["channel_id"]
+        assert (
+            data["channel_id"] == valid_config["main"]["notifications"][0]["channel_id"]
+        )
         assert "message" in data
-        assert valid_notifier_config["main"]["notifications"][0]["message"] in data["message"]
+        assert valid_config["main"]["notifications"][0]["message"] in data["message"]
         if message:
             assert message in data["message"]
-            assert data["message"] == "{}\n{}".format(valid_notifier_config["main"]["notifications"][0]["message"], message)
+            assert data["message"] == "{}\n{}".format(
+                valid_config["main"]["notifications"][0]["message"], message
+            )
         else:
-            assert data["message"] == valid_notifier_config["main"]["notifications"][0]["message"]
+            assert (
+                data["message"] == valid_config["main"]["notifications"][0]["message"]
+            )
         return web.json_response("message_sent", status=201)
 
-    routes = [{
-        "method": "POST",
-        "path": "/api/v4/posts",
-        "handler": handler
-        }]
-    server = await mattermost_server(routes)
-    origin = URL.build(**{ k:getattr(server, k) for k in ("scheme", "host", "port")})
-    valid_notifier_config["main"]["notifications"][0]["url"] = origin
-    client = await aiohttp_client(server)
-    await notifier.notify(valid_notifier_config, client.session, message)
+    origin = valid_config["main"]["notifications"][0]["url"]
+    async with aiohttp.ClientSession() as session:
+        await notifier.notify(valid_config, session, message)

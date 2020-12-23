@@ -157,6 +157,7 @@ async def test_setup_task(
     mocked_cmd_utils,
     mocked_stack_file,
     portainer_service_mock: aioresponses,
+    mattermost_service_mock: aioresponses,
     client: TestClient,
 ):
     assert auto_deploy_task.TASK_NAME in client.app
