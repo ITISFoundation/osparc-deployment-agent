@@ -13,8 +13,8 @@ main:
     - id: simcore-github-repo
       url: https://github.com/ITISFoundation/osparc-simcore.git
       branch: master
-      username: ""
-      password: ""
+      username: "blahblag"
+      password: "somestuffverysecret"
       tags: ""
       pull_only_files: false # if true will only pull the files define in paths
       paths:
@@ -58,7 +58,7 @@ main:
     - service: mattermost
       url: http://mattermost.com
       message: "[A new staging version of oSparc has been deployed !!!](the_url_to_go_for/)"
-      enabled: false
+      enabled: true
       channel_id: some_token
       personal_token: some_token
       header_unique_name: master
