@@ -53,7 +53,7 @@ async def get_first_endpoint_id(
 ) -> int:
     log.debug("getting first endpoint id %s", base_url)
     headers = {"Authorization": "Bearer {}".format(bearer_code)}
-    url = base_url.with_path(f"api/endpoints")
+    url = base_url.with_path("api/endpoints")
     data = await _portainer_request(url, app_session, "GET", headers=headers)
     log.debug("received list of endpoints: %s", data)
     if not data:
@@ -88,7 +88,7 @@ async def get_stacks_list(
 
 async def get_current_stack_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, stack_name: str
-) -> Optional[str]:
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     log.debug("getting current stack id %s", base_url)
     stacks_list = await get_stacks_list(base_url, app_session, bearer_code)
     for stack in stacks_list:
