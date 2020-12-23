@@ -146,9 +146,9 @@ async def test_add_parameters(valid_config: Dict[str, Any], valid_docker_stack: 
     assert envs["ANOTHER_TEST_ENV"] == "some other test"
 
     assert "image" in stack_cfg["services"]["app"]
-    assert "testimage" in stack_cfg["services"]["app"]["image"]
+    assert "jenkins:latest" in stack_cfg["services"]["app"]["image"]
     assert "image" in stack_cfg["services"]["anotherapp"]
-    assert "testimage" in stack_cfg["services"]["anotherapp"]["image"]
+    assert "ubuntu" in stack_cfg["services"]["anotherapp"]["image"]
 
 
 async def test_setup_task(

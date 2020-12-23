@@ -44,7 +44,6 @@ main:
         TEST_ENV: "some test"
         ANOTHER_TEST_ENV: "some other test"
         YET_ANOTHER_ENV: "this one is replaced"
-      image: testimage
     services_prefix: test_prefix
   portainer:
     # lists the portainer instances to call upon
