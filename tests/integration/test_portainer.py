@@ -6,7 +6,9 @@ import subprocess
 from typing import Tuple
 
 import pytest
+import requests
 from aiohttp import ClientSession
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random
 from yarl import URL
 
 from simcore_service_deployment_agent import portainer
@@ -18,6 +20,20 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     )
     assert result.returncode == 0
     return result.stdout.rstrip() if result.stdout else ""
+
+
+@retry(
+    reraise=True,
+    stop=stop_after_attempt(10),
+    wait=wait_random(min=1, max=5),
+    retry=retry_if_exception_type(AssertionError),
+)
+def _wait_for_instance(url: URL, code: int = 200):
+    r = requests.get(url)
+    import pdb
+
+    pdb.set_trace()
+    assert r.status_code == code
 
 
 @pytest.fixture(
@@ -35,8 +51,9 @@ def portainer_container(request) -> Tuple[URL, str]:
     _run_cmd(
         f"docker run --detach --init --publish 8000:8000 --publish 9000:9000 --name=portainer --restart=always --volume /var/run/docker.sock:/var/run/docker.sock {portainer_image} --admin-password='{encrypted_password}' --host unix:///var/run/docker.sock"
     )
-
-    yield (URL("http://127.0.0.1:9000"), password)
+    url = URL("http://127.0.0.1:9000")
+    _wait_for_instance(url, code=200)
+    yield (url, password)
 
     _run_cmd("docker rm --force portainer")
 
