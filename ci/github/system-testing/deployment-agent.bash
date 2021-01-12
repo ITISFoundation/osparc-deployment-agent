@@ -7,7 +7,7 @@ install() {
     bash ci/helpers/ensure_python_pip.bash
     make devenv
     source .venv/bin/activate
-    pip3 install -r ci/github/system-testing/requirements.txt
+    pip install -r ci/github/system-testing/requirements.txt
     make build-x
     pip list -v
     docker images
