@@ -12,7 +12,7 @@ env:
 
 jobs:
   unit-test-deployment-agent:
-    name: Unit-testing deployment-agent
+    name: "[unit] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -43,8 +43,40 @@ jobs:
         with:
           flags: unittests #optional
 
+  integration-test-deployment-agent:
+    name: "[integration] deployment-agent"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python: [3.9]
+        os: [ubuntu-20.04]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: show system versions
+        run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: install
+        run: ./ci/github/integration-testing/deployment-agent.bash install
+      - name: test
+        run: ./ci/github/integration-testing/deployment-agent.bash test
+      - uses: codecov/codecov-action@v1
+        with:
+          flags: integrationtests #optional
+
   system-test-deployment-agent:
-    name: System-testing deployment-agent
+    name: "[system] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
