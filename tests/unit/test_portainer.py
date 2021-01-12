@@ -6,17 +6,14 @@
 # pylint:disable=protected-access
 
 import asyncio
-import json
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
-import yaml
-from aiohttp import ClientSession, web
+from aiohttp import ClientSession
 from aioresponses.core import aioresponses
 from yarl import URL
 
-from simcore_service_deployment_agent import exceptions, portainer
+from simcore_service_deployment_agent import portainer
 
 
 @pytest.fixture()
