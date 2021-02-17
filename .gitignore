@@ -133,5 +133,5 @@ dmypy.json
 .vscode/settings.json
 
 # outputs from make
-.stack-*.yml
+.stack.*.yml
 .deployment_config.yaml
