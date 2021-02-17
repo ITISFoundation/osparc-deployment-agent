@@ -37,7 +37,11 @@ def _wait_for_instance(url: URL, code: int = 200):
 
 @pytest.fixture(
     scope="module",
-    params=["portainer/portainer:1.24.1", "portainer/portainer-ce:2.1.1"],
+    params=[
+        "portainer/portainer:1.24.1",
+        "portainer/portainer-ce:2.1.1",
+        "portainer/portainer-ce:latest",
+    ],
 )
 def portainer_container(request) -> Tuple[URL, str]:
     portainer_image = request.param
