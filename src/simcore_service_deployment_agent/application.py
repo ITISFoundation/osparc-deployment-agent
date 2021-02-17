@@ -2,9 +2,7 @@
 
     Functions to create, setup and run an aiohttp application provided a configuration object
 """
-import asyncio
 import logging
-import platform
 
 from aiohttp import web
 from servicelib.application_keys import APP_CONFIG_KEY
@@ -14,9 +12,10 @@ from .rest import setup_rest
 
 log = logging.getLogger(__name__)
 
-def create(config, loop):
+
+def create(config):
     log.debug("Initializing ... ")
-    app = web.Application(loop=loop)
+    app = web.Application()
     app[APP_CONFIG_KEY] = config
 
     # TODO: here goes every package/plugin setups
@@ -25,17 +24,10 @@ def create(config, loop):
 
     return app
 
+
 def run(config, app=None):
     log.debug("Serving app ... ")
-    if platform.system() == "Windows":
-        loop = asyncio.ProactorEventLoop()
-        asyncio.set_event_loop(loop)
-    loop = asyncio.get_event_loop()
-
     if not app:
-        app = create(config, loop)
+        app = create(config)
 
-
-    web.run_app(app,
-        host=config["main"]["host"],
-        port=config["main"]["port"])
+    web.run_app(app, host=config["main"]["host"], port=config["main"]["port"])

@@ -30,7 +30,7 @@ async def _git_clone_repo(
 
 
 async def _git_get_current_sha(directory: Path) -> str:
-    cmd = f"cd {directory} && git rev-parse --short HEAD"
+    cmd = f"cd {directory} && git rev-parse --short FETCH_HEAD"
     sha = await run_cmd_line(cmd)
     return sha.strip("\n")
 
@@ -66,13 +66,15 @@ async def _git_fetch(directory: Path):
     await run_cmd_line(cmd)
 
 
-async def _git_get_latest_matching_tag(directory: Path, regexp: str) -> Optional[str]:
-    cmd = f'cd {directory} && git tag --list --sort=committerdate | grep --extended-regexp --only-matching "{regexp}"'
+async def _git_get_latest_matching_tag(
+    directory: Path, regexp: str
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+    cmd = f'cd {directory} && git tag --list --sort=taggerdate | grep --extended-regexp --only-matching "{regexp}"'
     all_tags = await run_cmd_line(cmd)
 
     list_tags = [t.strip() for t in all_tags.split("\n") if t.strip()]
 
-    return list_tags[-1] if list_tags else None
+    return list_tags[0] if list_tags else None
 
 
 async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[str]:
@@ -87,19 +89,25 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
     return all_tags.split("\n")
 
 
-async def _git_diff_filenames(directory: Path) -> Optional[str]:
+async def _git_diff_filenames(
+    directory: Path,
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     cmd = f"cd {directory} && git --no-pager diff --name-only FETCH_HEAD"
     modified_files = await run_cmd_line(cmd)
     return modified_files
 
 
-async def _git_get_logs(directory: Path, branch1: str, branch2: str) -> Optional[str]:
+async def _git_get_logs(
+    directory: Path, branch1: str, branch2: str
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     cmd = f"cd {directory} && git --no-pager log --oneline {branch1}..origin/{branch2}"
     logs = await run_cmd_line(cmd)
     return logs
 
 
-async def _git_get_logs_tags(directory: Path, tag1: str, tag2: str) -> Optional[str]:
+async def _git_get_logs_tags(
+    directory: Path, tag1: str, tag2: str
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     cmd = f"cd {directory} && git --no-pager log --oneline {tag1}{'..' + tag2 if tag1 else tag2}"
     logs = await run_cmd_line(cmd)
     return logs
@@ -171,7 +179,9 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
     return description
 
 
-async def _update_repo_using_tags(repo: GitRepo) -> Optional[str]:
+async def _update_repo_using_tags(
+    repo: GitRepo,
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     log.debug("checking %s using tags", repo.repo_id)
     # check if current tag is the latest and greatest
     list_current_tags = await _git_get_current_matching_tag(repo.directory, repo.tags)
@@ -208,7 +218,9 @@ async def _update_repo_using_tags(repo: GitRepo) -> Optional[str]:
     return f"{repo.repo_id}:{repo.branch}:{latest_tag}:{sha}"
 
 
-async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[str]:
+async def _update_repo_using_branch_head(
+    repo: GitRepo,
+) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     modified_files = await _git_diff_filenames(repo.directory)
     if not modified_files:
         # no modifications
@@ -218,7 +230,12 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[str]:
     log.debug("Changelog:\n%s", logged_changes)
     await _update_repository(repo)
     # check if a watched file has changed
-    common_files = set(modified_files.split()).intersection(set(repo.paths))
+    modified_files = modified_files.split()
+    common_files = (
+        set(modified_files).intersection(set(repo.paths))
+        if repo.paths
+        else modified_files
+    )
     if not common_files:
         # no change affected the watched files
         return

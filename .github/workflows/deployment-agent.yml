@@ -2,30 +2,21 @@ name: Deployment-agent
 
 on:
   push:
-    paths:
-      - "services/deployment-agent/**"
-      - "!**.md"
   pull_request:
-    paths:
-      - "services/deployment-agent/**"
-      - "!**.md"
 
 env:
   # secrets can be set in settings/secrets on github
   DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  # no buildkit right now since the labels from docker-compsoe are not used (bug that will be fixed soon)
-  # DOCKER_BUILDKIT: 1
-  # COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
   unit-test-deployment-agent:
-    name: Unit-testing deployment-agent
+    name: "[unit] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python: [3.6, 3.7]
+        python: [3.9]
         os: [ubuntu-20.04]
       fail-fast: false
     steps:
@@ -34,16 +25,17 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
-      - name: show versions
+      - name: show system versions
         run: ./ci/helpers/show_system_versions.bash
-      - uses: actions/cache@v1
+      - uses: actions/cache@v2
         name: getting cached data
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/ci.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      - name: install deployment-agent
+            ${{ runner.os }}-
+      - name: install
         run: ./ci/github/unit-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/unit-testing/deployment-agent.bash test
@@ -51,12 +43,44 @@ jobs:
         with:
           flags: unittests #optional
 
-  system-test-deployment-agent:
-    name: System-testing deployment-agent
+  integration-test-deployment-agent:
+    name: "[integration] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python: [3.6, 3.7]
+        python: [3.9]
+        os: [ubuntu-20.04]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: show system versions
+        run: ./ci/helpers/show_system_versions.bash
+      - uses: actions/cache@v2
+        name: getting cached data
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: install
+        run: ./ci/github/integration-testing/deployment-agent.bash install
+      - name: test
+        run: ./ci/github/integration-testing/deployment-agent.bash test
+      - uses: codecov/codecov-action@v1
+        with:
+          flags: integrationtests #optional
+
+  system-test-deployment-agent:
+    name: "[system] deployment-agent"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python: [3.9]
         os: [ubuntu-20.04]
       fail-fast: false
     steps:
@@ -71,22 +95,23 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
-      - name: show versions
+      - name: show system versions
         run: ./ci/helpers/show_system_versions.bash
-      - uses: actions/cache@v1
+      - uses: actions/cache@v2
         name: getting cached data
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/ci.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      - name: install deployment-agent
+            ${{ runner.os }}-
+      - name: install
         run: ./ci/github/system-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/system-testing/deployment-agent.bash test
       - uses: codecov/codecov-action@v1
         with:
-          flags: unittests #optional
+          flags: systemtests #optional
       - name: set owner variable
         run: echo "OWNER=${GITHUB_REPOSITORY%/*}" >> $GITHUB_ENV
       - name: deploy master

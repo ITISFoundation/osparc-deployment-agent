@@ -1,4 +1,4 @@
-# Shortcut to install all packages for the contigous integration (CI) of 'services/deployment-agent'
+# Shortcut to install all packages for the contigous integration (CI) of 'services/director-v2'
 #
 # - As ci.txt but w/ tests
 #
@@ -6,8 +6,13 @@
 #   pip install -r requirements/ci.txt
 #
 
+
 # installs base + tests requirements
+-r _base.txt
 -r _test.txt
+
+# osparc-simcore packages
+git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library
 
 # installs current package
 .

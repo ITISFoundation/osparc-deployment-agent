@@ -3,27 +3,24 @@
 #  both for unit and integration tests!!
 #
 
-# frozen specs
--r _base.txt
+# Adds base AS CONSTRAINT specs, not requirement.
+#  - Resulting _text.txt is a frozen list of EXTRA packages for testing, besides _base.txt
+#
+-c _base.txt
 
-# 'services/deployment-agent/tests/unit' dependencies
 
 # testing
-coverage==4.5.1 # TODO: Downgraded because of a bug https://github.com/nedbat/coveragepy/issues/716
-
+aioresponses
+faker
 pytest
 pytest-aiohttp  # incompatible with pytest-asyncio. See https://github.com/pytest-dev/pytest-asyncio/issues/76
 pytest-cov
 pytest-mock
 pytest-runner
-pytest-instafail
-pytest-sugar
-
-# fixtures
-Faker
-openapi-spec-validator # TODO: this library is limiting jsonschema<3 (see base.in)
-tenacity
-docker          # for integration tests
+pytest-docker
+pytest-celery
+pytest-xdist
+pytest-icdiff
 
 # tools
 pylint
