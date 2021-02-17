@@ -1,6 +1,0 @@
-docker>=4.0
-pytest
-pytest-cov
-pytest-aiohttp
-pyyaml
-tenacity
