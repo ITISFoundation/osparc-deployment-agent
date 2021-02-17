@@ -12,10 +12,11 @@ from pathlib import Path
 from pprint import pformat
 from typing import Dict
 
-import docker
 import pytest
 import tenacity
 import yaml
+
+import docker
 
 logger = logging.getLogger(__name__)
 
@@ -38,18 +39,21 @@ def here() -> Path:
 def _osparc_simcore_root_dir(here) -> Path:
     root_dir = here.parent.parent.parent.parent.resolve()
     assert root_dir.exists(), "Is this service within osparc-ops repo?"
-    assert any(root_dir.glob("services/deployment-agent")
-               ), "%s not look like rootdir" % root_dir
+    assert any(root_dir.glob("services/deployment-agent")), (
+        "%s not look like rootdir" % root_dir
+    )
     return root_dir
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def osparc_simcore_root_dir(here) -> Path:
     return _osparc_simcore_root_dir(here)
 
 
 def _services_docker_compose(osparc_simcore_root_dir) -> Dict[str, str]:
-    docker_compose_path = osparc_simcore_root_dir / "services" / "deployment-agent" / "docker-compose.yml"
+    docker_compose_path = (
+        osparc_simcore_root_dir / "services" / "deployment-agent" / "docker-compose.yml"
+    )
     assert docker_compose_path.exists()
 
     content = {}
@@ -68,8 +72,8 @@ def _list_services():
     content = _services_docker_compose(_osparc_simcore_root_dir(_here()))
     return [name for name in content["services"].keys() if name not in exclude]
 
-@pytest.fixture(scope="session",
-                params=_list_services())
+
+@pytest.fixture(scope="session", params=_list_services())
 def service_name(request, services_docker_compose):
     return str(request.param)
 
@@ -82,46 +86,53 @@ def docker_client():
 
 # UTILS --------------------------------
 
+
 def get_tasks_summary(tasks):
     msg = ""
     for t in tasks:
-        t["Status"].setdefault("Err", '')
-        msg += "- task ID:{ID}, STATE: {Status[State]}, ERROR: '{Status[Err]}' \n".format(
-            **t)
+        t["Status"].setdefault("Err", "")
+        msg += (
+            "- task ID:{ID}, STATE: {Status[State]}, ERROR: '{Status[Err]}' \n".format(
+                **t
+            )
+        )
     return msg
 
 
 def get_failed_tasks_logs(service, docker_client):
-    failed_states = ["COMPLETE", "FAILED",
-                     "SHUTDOWN", "REJECTED", "ORPHANED", "REMOVE"]
+    failed_states = ["COMPLETE", "FAILED", "SHUTDOWN", "REJECTED", "ORPHANED", "REMOVE"]
     failed_logs = ""
     for t in service.tasks():
-        if t['Status']['State'].upper() in failed_states:
-            cid = t['Status']['ContainerStatus']['ContainerID']
+        if t["Status"]["State"].upper() in failed_states:
+            cid = t["Status"]["ContainerStatus"]["ContainerID"]
             failed_logs += "{2} {0} - {1} BEGIN {2}\n".format(
-                service.name, t['ID'], "="*10)
+                service.name, t["ID"], "=" * 10
+            )
             if cid:
                 container = docker_client.containers.get(cid)
-                failed_logs += container.logs().decode('utf-8')
+                failed_logs += container.logs().decode("utf-8")
             else:
                 failed_logs += "  log unavailable. container does not exists\n"
             failed_logs += "{2} {0} - {1} END {2}\n".format(
-                service.name, t['ID'], "="*10)
+                service.name, t["ID"], "=" * 10
+            )
 
     return failed_logs
+
 
 # TESTS -------------------------------
 
 
 async def test_service_running(service_name, docker_client, loop):
     """
-        NOTE: Assumes `make up-swarm` executed
-        NOTE: loop fixture makes this test async
+    NOTE: Assumes `make up-swarm` executed
+    NOTE: loop fixture makes this test async
     """
     running_services = docker_client.services.list()
     # find the service
     running_service = [
-        s for s in running_services if service_name == s.name.split("_")[1]]
+        s for s in running_services if service_name == s.name.split("_")[1]
+    ]
     assert len(running_service) == 1
 
     running_service = running_service[0]
@@ -134,10 +145,13 @@ async def test_service_running(service_name, docker_client, loop):
     # j5xtlrnn684y         \_ services_storage.1   services_storage:latest   crespo-wkstn        Shutdown            Failed 18 minutes ago    "task: non-zero exit (1)"
     tasks = running_service.tasks()
 
-    assert len(tasks) == 1, "Expected a single task for '{0}',"\
-        " got:\n{1}\n{2}".format(service_name,
-                                 get_tasks_summary(tasks),
-                                 get_failed_tasks_logs(running_service, docker_client))
+    assert (
+        len(tasks) == 1
+    ), "Expected a single task for '{0}'," " got:\n{1}\n{2}".format(
+        service_name,
+        get_tasks_summary(tasks),
+        get_failed_tasks_logs(running_service, docker_client),
+    )
 
     # wait if running pre-state
     # https://docs.docker.com/engine/swarm/how-swarm-mode-works/swarm-task-states/
@@ -145,15 +159,19 @@ async def test_service_running(service_name, docker_client, loop):
 
     for n in range(RETRY_COUNT):
         task = running_service.tasks()[0]
-        if task['Status']['State'].upper() in pre_states:
-            print("Waiting [{}/{}] ...\n{}".format(n,
-                                                   RETRY_COUNT, get_tasks_summary(tasks)))
+        if task["Status"]["State"].upper() in pre_states:
+            print(
+                "Waiting [{}/{}] ...\n{}".format(
+                    n, RETRY_COUNT, get_tasks_summary(tasks)
+                )
+            )
             await asyncio.sleep(WAIT_TIME_SECS)
         else:
             break
 
     # should be running
-    assert task['Status']['State'].upper() == "RUNNING", \
-        "Expected running, got \n{}\n{}".format(
-        pformat(task),
-        get_failed_tasks_logs(running_service, docker_client))
+    assert (
+        task["Status"]["State"].upper() == "RUNNING"
+    ), "Expected running, got \n{}\n{}".format(
+        pformat(task), get_failed_tasks_logs(running_service, docker_client)
+    )
