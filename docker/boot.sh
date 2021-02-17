@@ -10,7 +10,7 @@ echo "$INFO" "Booting in ${SC_BOOT_MODE} mode ..."
 echo "$INFO" "User :$(id "$(whoami)")"
 echo "$INFO" "Workdir : $(pwd)"
 
-APP_CONFIG=config-prod.yaml
+APP_CONFIG=/home/scu/config-prod.yaml
 if [ "${SC_BUILD_TARGET}" = "development" ]; then
   echo "$INFO" "Environment :"
   printenv  | sed 's/=/: /' | sed 's/^/    /' | sort
@@ -18,7 +18,7 @@ if [ "${SC_BUILD_TARGET}" = "development" ]; then
   python --version | sed 's/^/    /'
   command -v python | sed 's/^/    /'
 
-  APP_CONFIG=/home/scu/host-dev.yaml
+  # APP_CONFIG=/home/scu/host-dev.yaml
 
   cd services/deployment-agent || exit 1
   pip --no-cache-dir install -r requirements/dev.txt

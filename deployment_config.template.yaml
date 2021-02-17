@@ -42,15 +42,6 @@ main:
           - services/simcore/.env
     workdir: simcore-github-repo # defines where the files above shall be copied. Can be defined as temp also to copy them in a temporary directory
     command: >
-      export DOCKER_REGISTRY=${SIMCORE_DOCKER_REGISTRY} &&
-      export DOCKER_IMAGE_TAG=${SIMCORE_IMAGE_TAG} &&
-      export SWARM_STACK_NAME=${SIMCORE_STACK_NAME} &&
-      export OPS_PUBLIC_NETWORK=${PUBLIC_NETWORK} &&
-      export OPS_MONITORED_NETWORK=${MONITORED_NETWORK} &&
-      export PREFIX_STACK_NAME=${PREFIX_STACK_NAME} &&
-      export MANAGER_ENDPOINT_IP=${MANAGER_ENDPOINT_IP} &&
-      export REGISTRY_DOMAIN=${REGISTRY_DOMAIN} &&
-      export STORAGE_DOMAIN=${STORAGE_DOMAIN} &&
       mv .env .env.platform &&
       cat .env-devel >> .env.nosub && cat .env.platform >> .env.nosub &&
       envsubst < .env.nosub > .env &&
@@ -69,8 +60,8 @@ main:
     # lists the portainer instances to call upon
     - url: http://portainer:9000
       endpoint_id: -1
-      username: ${SERVICES_USER}
-      password: ${SERVICES_PASSWORD}
+      username: admin
+      password: adminadmin
       stack_name: ${SIMCORE_STACK_NAME}
   polling_interval: 60
   notifications:
