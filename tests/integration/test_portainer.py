@@ -26,13 +26,12 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     reraise=True,
     stop=stop_after_attempt(10),
     wait=wait_random(min=1, max=5),
-    retry=retry_if_exception_type(AssertionError),
+    retry=retry_if_exception_type(
+        (AssertionError, requests.exceptions.ConnectionError)
+    ),
 )
 def _wait_for_instance(url: URL, code: int = 200):
     r = requests.get(url)
-    import pdb
-
-    pdb.set_trace()
     assert r.status_code == code
 
 
@@ -51,7 +50,7 @@ def portainer_container(request) -> Tuple[URL, str]:
     _run_cmd(
         f"docker run --detach --init --publish 8000:8000 --publish 9000:9000 --name=portainer --restart=always --volume /var/run/docker.sock:/var/run/docker.sock {portainer_image} --admin-password='{encrypted_password}' --host unix:///var/run/docker.sock"
     )
-    url = URL("http://127.0.0.1:9000")
+    url = URL("http://127.0.0.1:9000/")
     _wait_for_instance(url, code=200)
     yield (url, password)
 
