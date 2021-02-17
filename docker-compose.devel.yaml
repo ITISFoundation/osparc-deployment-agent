@@ -10,6 +10,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
   auto-deployment-agent:
+    configs:
+      - source: deployment_config
+        target: /home/scu/host-dev.yaml
     volumes:
       - ./:/devel/services/deployment-agent
     environment:

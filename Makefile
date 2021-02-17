@@ -8,7 +8,7 @@ APP_VERSION      := $(shell cat VERSION)
 SRC_DIR           = $(abspath $(CURDIR)/src/$(APP_PACKAGE_NAME))
 STACK_NAME        = $(APP_NAME)
 # Internal VARIABLES ------------------------------------------------
-DEPLOYMENT_AGENT_CONFIG = .deployment_config.yaml
+export DEPLOYMENT_AGENT_CONFIG = .deployment_config.yaml
 
 export DOCKER_IMAGE_TAG ?= latest
 export DOCKER_REGISTRY  ?= itisfoundation
