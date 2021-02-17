@@ -131,3 +131,7 @@ dmypy.json
 # IDEs config
 .vscode/launch.json
 .vscode/settings.json
+
+# outputs from make
+.stack-*.yml
+.deployment_config.yaml
