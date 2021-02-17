@@ -11,8 +11,6 @@ services:
     environment:
       - PREFIX_STACK_NAME=${PREFIX_STACK_NAME}
       - SIMCORE_STACK_NAME=${SIMCORE_STACK_NAME}
-      - SIMCORE_IMAGE_TAG=${SIMCORE_IMAGE_TAG}
-      - SIMCORE_DOCKER_REGISTRY=${SIMCORE_DOCKER_REGISTRY}
     deploy:
       mode: replicated
       replicas: 1
