@@ -50,7 +50,7 @@ main:
     excluded_services: [webclient]
     excluded_volumes: []
     additional_parameters:
-      extra_hosts: {}
+      extra_hosts: []
       environment:
         S3_ENDPOINT: storage.osparc.local
         S3_ACCESS_KEY: adminadmin
