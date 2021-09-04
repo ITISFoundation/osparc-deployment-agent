@@ -1,5 +1,5 @@
 import subprocess
-from typing import Tuple
+from typing import Literal
 
 import pytest
 import requests
@@ -36,7 +36,7 @@ def _wait_for_instance(url: URL, code: int = 200):
         "portainer/portainer-ce:latest",
     ],
 )
-def portainer_container(request) -> Tuple[URL, str]:
+def portainer_container(request) -> tuple[URL, Literal]:
     portainer_image = request.param
     # create a password (https://documentation.portainer.io/v2.0/deploy/cli/)
     password = "adminadmin"
@@ -49,6 +49,6 @@ def portainer_container(request) -> Tuple[URL, str]:
     )
     url = URL("http://127.0.0.1:9000/")
     _wait_for_instance(url, code=200)
-    yield (url, password)
+    yield url, password
 
     _run_cmd("docker rm --force portainer")
