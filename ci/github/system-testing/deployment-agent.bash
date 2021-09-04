@@ -8,7 +8,7 @@ install() {
     make devenv
     source .venv/bin/activate
     pip install -r ci/github/system-testing/requirements.txt
-    make build-x
+    make build
     pip list -v
     docker images
     # use the config file for testing not the default
