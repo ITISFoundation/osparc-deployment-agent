@@ -2,7 +2,19 @@ name: Deployment-agent
 
 on:
   push:
+    paths-ignore:
+      - "*.md"
+      - "*.png"
+      - "*.svg"
+      - "docs/**"
+      - ".vscode/**"
   pull_request:
+    paths-ignore:
+      - "*.md"
+      - "*.png"
+      - "*.svg"
+      - "docs/**"
+      - ".vscode/**"
 
 env:
   # secrets can be set in settings/secrets on github
@@ -12,15 +24,23 @@ env:
 
 jobs:
   unit-test-deployment-agent:
+    timeout-minutes: 10
     name: "[unit] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python: [3.9]
         os: [ubuntu-20.04]
+        docker_buildx: [v0.5.1]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
+      - name: setup docker buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          version: ${{ matrix.docker_buildx }}
+          driver: docker
       - name: setup python environment
         uses: actions/setup-python@v2
         with:
@@ -44,15 +64,23 @@ jobs:
           flags: unittests #optional
 
   integration-test-deployment-agent:
+    timeout-minutes: 10
     name: "[integration] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python: [3.9]
         os: [ubuntu-20.04]
+        docker_buildx: [v0.5.1]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
+      - name: setup docker buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          version: ${{ matrix.docker_buildx }}
+          driver: docker
       - name: setup python environment
         uses: actions/setup-python@v2
         with:
@@ -76,12 +104,14 @@ jobs:
           flags: integrationtests #optional
 
   system-test-deployment-agent:
+    timeout-minutes: 10
     name: "[system] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python: [3.9]
         os: [ubuntu-20.04]
+        docker_buildx: [v0.5.1]
       fail-fast: false
     steps:
       - name: set PR default variables
@@ -91,6 +121,12 @@ jobs:
           export TMP_DOCKER_REGISTRY=${GITHUB_REPOSITORY%/*}
           echo "DOCKER_REGISTRY=${TMP_DOCKER_REGISTRY,,}" >> $GITHUB_ENV
       - uses: actions/checkout@v2
+      - name: setup docker buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          version: ${{ matrix.docker_buildx }}
+          driver: docker
       - name: setup python environment
         uses: actions/setup-python@v2
         with:

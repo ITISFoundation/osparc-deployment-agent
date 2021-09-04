@@ -2,7 +2,19 @@ name: Deployment-agent
 
 on:
   push:
+    paths-ignore:
+      - "*.md"
+      - "*.png"
+      - "*.svg"
+      - "docs/**"
+      - ".vscode/**"
   pull_request:
+    paths-ignore:
+      - "*.md"
+      - "*.png"
+      - "*.svg"
+      - "docs/**"
+      - ".vscode/**"
 
 jobs:
   unit-test-deployment-agent:
