@@ -36,7 +36,7 @@ get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=
 .stack.${STACK_NAME}-prod.yml: .env $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
 	@export DOCKER_REGISTRY=local \
-	export DOCKER_IMAGE_TAG=development; \
+	export DOCKER_IMAGE_TAG=production; \
 	docker-compose --file docker-compose.yml --log-level=ERROR config > $@
 
 .stack.${STACK_NAME}-devel.yml: .env $(docker-compose-configs)
