@@ -20,14 +20,11 @@ export DOCKER_REGISTRY  ?= itisfoundation
 #
 define _docker_compose_build
 export BUILD_TARGET=$(if $(findstring -devel,$@),development,production);\
-$(if $(findstring -x,$@),\
-	docker buildx bake --file docker-compose-build.yml;,\
-	docker-compose -f docker-compose-build.yml build $(if $(findstring -nc,$@),--no-cache,) --parallel\
-)
+	docker buildx bake --file docker-compose-build.yml;
 endef
 
-.PHONY: build build-nc rebuild build-devel build-devel-nc build-devel-kit build-devel-x build-cache build-cache-kit build-cache-x build-cache-nc build-kit build-x
-build build-kit build-x build-devel build-devel-kit build-devel-x: ## Builds $(APP_NAME) image
+.PHONY: build build-nc rebuild build-devel build-devel-nc build-cache build-cache-nc
+build build-devel: ## Builds $(APP_NAME) image
 	@$(if $(findstring -kit,$@),export DOCKER_BUILDKIT=1;export COMPOSE_DOCKER_CLI_BUILD=1;,) \
 	$(_docker_compose_build)
 
