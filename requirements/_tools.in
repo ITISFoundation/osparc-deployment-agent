@@ -1,7 +1,7 @@
--c _base.txt
--c _test.txt
+--constraint _base.txt
+--constraint _test.txt
 
--r devenv.txt
+--requirement devenv.txt
 
 # basic dev tools
 watchdog[watchmedo]
