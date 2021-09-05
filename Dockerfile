@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION="3.9.1"
+ARG PYTHON_VERSION="3.9.6"
 FROM python:${PYTHON_VERSION}-slim-buster as base
 #
 #  USAGE:
