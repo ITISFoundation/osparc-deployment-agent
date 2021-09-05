@@ -84,7 +84,7 @@ requests==2.26.0
     # via docker
 semantic-version==2.8.5
     # via -r requirements/_base.in
-git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#egg=simcore-service-library&subdirectory=packages/service-library
+git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library
     # via -r requirements/_base.in
 six==1.16.0
     # via

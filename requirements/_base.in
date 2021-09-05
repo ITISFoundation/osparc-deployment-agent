@@ -11,4 +11,4 @@ trafaret_config
 
 
 # osparc-simcore packages
-simcore-service-library @ git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#egg=simcore-service-library&subdirectory=packages/service-library
+simcore-service-library @ git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library
