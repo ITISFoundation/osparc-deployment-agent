@@ -136,7 +136,7 @@ version-major: ## commits version with backwards-INcompatible addition or change
 
 _check_python_version:
 	# Checking that runs with correct python version
-	@python3 -c "import sys; assert sys.version_info[:2]==(3,9), f'Expected python 3.9, got {sys.version_info}'"
+	@python3 -c "import sys; assert sys.version_info[:2]==(3,8), f'Expected python 3.8, got {sys.version_info}'"
 
 
 _check_venv_active: _check_python_version
