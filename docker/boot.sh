@@ -7,11 +7,13 @@ IFS=$(printf '\n\t')
 INFO="INFO: [$(basename "$0")] "
 
 echo "$INFO" "Booting in ${SC_BOOT_MODE} mode ..."
-echo "$INFO" "User :$(id "$(whoami)")"
-echo "$INFO" "Workdir : $(pwd)"
+echo "SC_BUILD_TARGET is ${SC_BUILD_TARGET}"
+echo "  User    :$(id "$(whoami)")"
+echo "  Workdir :$(pwd)"
 
 APP_CONFIG=/home/scu/config-prod.yaml
-if [ "${SC_BUILD_TARGET}" = "development" ]; then
+if [ "${SC_BUILD_TARGET}" = "development" ]
+then
   echo "$INFO" "Environment :"
   printenv  | sed 's/=/: /' | sed 's/^/    /' | sort
   echo "$INFO" "Python :"
@@ -27,6 +29,7 @@ if [ "${SC_BUILD_TARGET}" = "development" ]; then
   pip list | sed 's/^/    /'
 fi
 
+echo "  APP_CONFIG is: ${APP_CONFIG}"
 
 # RUNNING application ----------------------------------------
 if [ "${SC_BOOT_MODE}" = "debug-ptvsd" ]

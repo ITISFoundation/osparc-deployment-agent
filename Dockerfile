@@ -1,5 +1,6 @@
-ARG PYTHON_VERSION="3.8.10"
+ARG PYTHON_VERSION="3.9.0"
 FROM python:${PYTHON_VERSION}-slim-buster as base
+
 #
 #  USAGE:
 #     cd sercices/deployment-agent
