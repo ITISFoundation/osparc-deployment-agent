@@ -126,7 +126,7 @@ async def _git_get_logs_tags(
     return logs
 
 
-watched_repos = list()
+watched_repos = []
 
 
 @attr.s(auto_attribs=True)
@@ -317,4 +317,4 @@ class GitUrlWatcher(SubTask):
         await _delete_repositories(self.watched_repos)
 
 
-__all__ = "GitUrlWatcher"
+__all__ = ["GitUrlWatcher"]

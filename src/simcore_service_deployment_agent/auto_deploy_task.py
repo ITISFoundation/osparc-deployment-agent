@@ -43,7 +43,7 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
     excluded_services = app_config["main"]["docker_stack_recipe"]["excluded_services"]
     excluded_volumes = app_config["main"]["docker_stack_recipe"]["excluded_volumes"]
     log.debug("filtering services and volumes")
-    with Path(stack_file).open() as fp:
+    with Path(stack_file).open("r+", encoding="UTF-8") as fp:
         stack_cfg = yaml.safe_load(fp)
         # remove excluded services
         for service in excluded_services:
@@ -383,4 +383,4 @@ async def persistent_session(app):
         yield
 
 
-__all__ = "setup"
+__all__ = ["setup"]
