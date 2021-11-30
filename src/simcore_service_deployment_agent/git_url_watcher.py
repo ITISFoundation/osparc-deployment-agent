@@ -159,7 +159,9 @@ async def _update_repository(repo: GitRepo):
 async def _init_repositories(repos: List[GitRepo]) -> Dict:
     description = {}
     for repo in repos:
-        repo.directory = tempfile.TemporaryDirectory().name
+        with tempfile.TemporaryDirectory() as tmpfile:
+            directoryName = copy.deepcopy(tmpfile)
+        repo.directory = directoryName
         log.debug("cloning %s in %s...", repo.repo_id, repo.directory)
         await _git_clone_repo(
             repo.repo_url, repo.directory, repo.branch, repo.username, repo.password

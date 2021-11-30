@@ -108,7 +108,8 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
     dest_dir = stack_recipe_cfg["workdir"]
     if dest_dir == "temp":
         # create a temp folder
-        dest_dir = tempfile.TemporaryDirectory().name
+        with tempfile.TemporaryDirectory() as tmpfile:
+            dest_dir = tmpfile.name
     elif dest_dir in git_repos:
         # we use one of the git repos
         dest_dir = git_repos[dest_dir].directory
