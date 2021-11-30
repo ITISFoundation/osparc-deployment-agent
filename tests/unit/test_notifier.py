@@ -5,14 +5,15 @@
 # pylint:disable=redefined-outer-name
 # pylint:disable=protected-access
 
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, List
-import aiohttp
-from aioresponses.core import aioresponses
 
+import aiohttp
 import pytest
 import yaml
 from aiohttp import web
+from aioresponses.core import aioresponses
 from yarl import URL
 
 from simcore_service_deployment_agent import notifier
@@ -20,9 +21,6 @@ from simcore_service_deployment_agent import notifier
 
 def _list_messages():
     return ["", "some fantastic message"]
-
-
-import asyncio
 
 
 @pytest.mark.parametrize("message", _list_messages())
@@ -57,6 +55,7 @@ async def test_notify_mattermost(
             )
         return web.json_response("message_sent", status=201)
 
-    origin = valid_config["main"]["notifications"][0]["url"]
-    async with aiohttp.ClientSession() as session:
-        await notifier.notify(valid_config, session, message)
+    if "notifications" in valid_config["main"]:
+        origin = valid_config["main"]["notifications"][0]["url"]
+        async with aiohttp.ClientSession() as session:
+            await notifier.notify(valid_config, session, message)

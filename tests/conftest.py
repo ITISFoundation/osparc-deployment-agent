@@ -9,6 +9,7 @@ from typing import Any, Dict
 
 import pytest
 import yaml
+from pytest import FixtureRequest
 
 import simcore_service_deployment_agent
 
@@ -53,9 +54,15 @@ def mocks_dir() -> Path:
 ## FILEs
 
 
-@pytest.fixture(scope="session")
-def valid_config_file(mocks_dir: Path) -> Path:
-    path = mocks_dir / "valid_config.yaml"
+@pytest.fixture(
+    scope="session",
+    params=[
+        "valid_config.yaml",
+        "valid_config_no_notification.yaml",
+    ],
+)
+def valid_config_file(mocks_dir: Path, request: FixtureRequest) -> Path:
+    path = mocks_dir / request.param
     assert path.exists()
     return path
 

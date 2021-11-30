@@ -1,6 +1,7 @@
 # pylint:disable=redefined-outer-name
 
 import re
+from random import randint
 from typing import Any, Dict
 
 import faker
@@ -17,9 +18,6 @@ fake = faker.Faker()
 def bearer_code() -> str:
     FAKE_BEARER_CODE = "TheBearerCode"
     return FAKE_BEARER_CODE
-
-
-from random import randint
 
 
 @pytest.fixture(scope="session")
@@ -54,8 +52,12 @@ def aioresponse_mocker() -> aioresponses:
 async def mattermost_service_mock(
     aioresponse_mocker: aioresponses, valid_config: Dict[str, Any]
 ) -> aioresponses:
-    get_channels_pattern = re.compile(
-        rf'{valid_config["main"]["notifications"][0]["url"]}/api/v4/channels/.+'
+    get_channels_pattern = (
+        re.compile(
+            rf'{valid_config["main"]["notifications"][0]["url"]}/api/v4/channels/.+'
+        )
+        if "notifications" in valid_config["main"]
+        else re.compile(".*")
     )
     aioresponse_mocker.get(
         get_channels_pattern, status=200, payload={"header": "some text in the header"}
@@ -64,7 +66,9 @@ async def mattermost_service_mock(
         get_channels_pattern, status=200, payload={"success": "bravo"}
     )
     aioresponse_mocker.post(
-        f'{valid_config["main"]["notifications"][0]["url"]}/api/v4/posts',
+        f'{valid_config["main"]["notifications"][0]["url"]}/api/v4/posts'
+        if "notifications" in valid_config["main"]
+        else "...",
         status=201,
         payload={"success": "bravo"},
     )
