@@ -2,8 +2,9 @@ import logging
 from contextlib import contextmanager
 from typing import Dict, List
 
-import docker
 from tenacity import after_log, retry, stop_after_attempt, wait_random
+
+import docker
 
 from .subtask import SubTask
 
@@ -107,4 +108,4 @@ class DockerRegistriesWatcher(SubTask):
         pass
 
 
-__all__ = "DockerRegistriesWatcher"
+__all__ = ["DockerRegistriesWatcher"]

@@ -54,12 +54,13 @@ def test_mock_docker_client(loop, mock_docker_client, valid_config: Dict[str, An
         username=registry_config["username"],
         password=registry_config["password"],
     )
-    assert client.images.get_registry_data().attrs == { # pylint: disable=no-value-for-parameter
+    assert client.images.get_registry_data().attrs == {
         "Descriptor": "somesignature"
-    }, "issue in mocking docker library"
+    }, "issue in mocking docker library"  # pylint: disable=no-value-for-parameter
 
 
-async def test_docker_registries_watcher(loop,
+async def test_docker_registries_watcher(
+    loop,
     mock_docker_client,
     valid_config: Dict[str, Any],
     valid_docker_stack: Dict[str, Any],

@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+
 class State(IntEnum):
     STARTING = 0
     RUNNING = 1

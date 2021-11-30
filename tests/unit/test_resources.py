@@ -13,16 +13,17 @@ from simcore_service_deployment_agent.resources import resources
 
 log = logging.getLogger(__name__)
 
+
 @pytest.fixture
 def app_resources(package_dir: Path):
     resource_names = []
     base = package_dir
     for name in (resources.config_folder,):
         folder = base / name
-        resource_names += [str(p.relative_to(base))
-                           for p in folder.rglob("*.y*ml")]
+        resource_names += [str(p.relative_to(base)) for p in folder.rglob("*.y*ml")]
 
     return resource_names
+
 
 # ------------------------------------------------------------------------------
 
@@ -45,8 +46,11 @@ def test_resource_io_utils(app_resources):
 
 
 def test_named_resources():
-    exposed = [getattr(resources, name)
-               for name in dir(resources) if name.startswith("RESOURCES")]
+    exposed = [
+        getattr(resources, name)
+        for name in dir(resources)
+        if name.startswith("RESOURCES")
+    ]
 
     for resource_name in exposed:
         assert resources.exists(resource_name)

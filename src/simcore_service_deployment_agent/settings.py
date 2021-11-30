@@ -25,19 +25,19 @@ API_URL_VERSION = "v{:.0f}".format(API_MAJOR_VERSION)
 
 
 ## KEYS -------------------------
-# Keys used in different scopes. Common naming format:  
+# Keys used in different scopes. Common naming format:
 #
 #    $(SCOPE)_$(NAME)_KEY
 #
 
 # APP=application
-APP_CONFIG_KEY="config"
+APP_CONFIG_KEY = "config"
 
 # CFG=configuration
-DEFAULT_CONFIG='config-prod.yaml'
+DEFAULT_CONFIG = "config-prod.yaml"
 
 # RSC=resource
-RSC_CONFIG_KEY  = "config"
+RSC_CONFIG_KEY = "config"
 RSC_OPENAPI_KEY = "oas3/{}".format(API_URL_VERSION)
 RSC_CONFIG_DIR_KEY = "config"
 
@@ -48,7 +48,7 @@ RSC_CONFIG_DIR_KEY = "config"
 # RSP=response
 
 
-## Settings revealed at runtime: only known when the application starts 
+## Settings revealed at runtime: only known when the application starts
 #  - via the config file passed to the cli
 
 OAS_ROOT_FILE = "{}/openapi.yaml".format(RSC_OPENAPI_KEY)

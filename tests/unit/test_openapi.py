@@ -6,25 +6,26 @@ from pathlib import Path
 import pkg_resources
 import pytest
 import yaml
-
 from openapi_spec_validator import validate_spec
 from openapi_spec_validator.exceptions import OpenAPIValidationError
 
 import simcore_service_deployment_agent
 
-
-API_VERSIONS = ('v0', )
+API_VERSIONS = ("v0",)
 
 
 @pytest.fixture(scope="session")
 def spec_basepath():
-    basepath = Path(pkg_resources.resource_filename(
-        simcore_service_deployment_agent.__name__, 'oas3'))
+    basepath = Path(
+        pkg_resources.resource_filename(
+            simcore_service_deployment_agent.__name__, "oas3"
+        )
+    )
     assert basepath.exists()
     return basepath
 
 
-@pytest.mark.parametrize('version', API_VERSIONS)
+@pytest.mark.parametrize("version", API_VERSIONS)
 def test_specifications(spec_basepath, version):
 
     spec_path = spec_basepath / "{}/openapi.yaml".format(version)
