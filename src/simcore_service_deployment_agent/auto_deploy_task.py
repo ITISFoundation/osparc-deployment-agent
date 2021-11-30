@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import tempfile
 from asyncio.exceptions import CancelledError
@@ -54,7 +55,8 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
         # remove build part, useless in a stack
         for service in stack_cfg["services"].keys():
             stack_cfg["services"][service].pop("build", None)
-        log.debug("filtered services: result in %s", stack_cfg)
+        log.debug("filtered services: result in:")
+        log.debug(json.dumps(stack_cfg, indent=2, sort_keys=True))
         return stack_cfg
 
 
@@ -212,8 +214,8 @@ async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
     log.debug("new stack config is\n%s", stack_file)
     # change services names to avoid conflicts in common networks
     stack_cfg = await add_prefix_to_services(app_config, stack_cfg)
-    log.debug("final stack config is: %s", stack_cfg)
-
+    log.debug("final stack config is:")
+    log.debug(json.dumps(stack_cfg, indent=4, sort_keys=True))
     return stack_cfg
 
 
