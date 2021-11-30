@@ -1,5 +1,11 @@
 include scripts/common.Makefile
 
+
+#Variable need to be set in .env file according to swarm deploy at hand
+# Internal VARIABLES ------------------------------------------------
+include .env
+
+
 # Variables based on conventions
 APP_NAME          = deployment-agent
 APP_CLI_NAME      = simcore-service-$(APP_NAME)
@@ -7,8 +13,14 @@ APP_PACKAGE_NAME  = $(subst -,_,$(APP_CLI_NAME))
 APP_VERSION      := $(shell cat VERSION)
 SRC_DIR           = $(abspath $(CURDIR)/src/$(APP_PACKAGE_NAME))
 STACK_NAME        = $(APP_NAME)
-# Internal VARIABLES ------------------------------------------------
-include .env-devel
+DEPLOYMENT_AGENT_CONFIG = deployment_config.devel.yaml
+$(info APP_NAME set to ${APP_NAME})
+$(info APP_CLI_NAME set to ${APP_CLI_NAME})
+$(info STACK_NAME set to ${STACK_NAME})
+$(info SIMCORE_STACK_NAME set to ${SIMCORE_STACK_NAME})
+$(info PREFIX_STACK_NAME set to ${PREFIX_STACK_NAME})
+$(info DEPLOYMENT_AGENT_CONFIG set to ${DEPLOYMENT_AGENT_CONFIG})
+
 
 export DOCKER_IMAGE_TAG ?= latest
 export DOCKER_REGISTRY  ?= itisfoundation
@@ -40,10 +52,10 @@ get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=
 	docker-compose --file docker-compose.yml --log-level=ERROR config > $@
 
 .stack.${STACK_NAME}-devel.yml: .env $(docker-compose-configs)
-	# Creating config for stack with 'local/{service}:development' to $@
+	# Creating config for stack with 'local/{service}:dev' to $@
 	@export DOCKER_REGISTRY=local \
-	export DOCKER_IMAGE_TAG=development; \
-	docker-compose --file docker-compose.yml --file docker-compose.devel.yaml --log-level=ERROR config > $@
+	export DOCKER_IMAGE_TAG=dev; \
+	docker-compose --env-file=.env --file docker-compose.yml --file docker-compose.devel.yaml --log-level=ERROR config > $@
 
 .stack.${STACK_NAME}-version.yml: .env $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
@@ -57,6 +69,7 @@ up-prod up-devel up-version: .init-swarm ${DEPLOYMENT_AGENT_CONFIG}  ## Deploys 
 .PHONY: down
 down: ## Stops and remove stack from swarm
 	-@docker stack rm $(STACK_NAME)
+	-@docker stack rm ${SIMCORE_STACK_NAME}
 
 leave: ## Forces to stop all services, networks, etc by the node leaving the swarm
 	-docker swarm leave -f
@@ -102,11 +115,11 @@ install-dev install-prod install-ci: _check_venv_active ## install app in develo
 
 .PHONY: test-dev-unit test-ci-unit test-dev-integration test-ci-integration test-dev
 
-test-dev-unit test-ci-unit: _check_venv_active
+test-dev-unit test-ci-unit: _check_venv_active ## Run unit tests.
 	# targets tests/unit folder
 	@make --no-print-directory _run-$(subst -unit,,$@) target=$(CURDIR)/tests/unit
 
-test-dev-integration test-ci-integration:
+test-dev-integration test-ci-integration: ## Run integration tests.
 	# targets tests/integration folder using local/$(image-name):production images
 	@export DOCKER_REGISTRY=local; \
 	export DOCKER_IMAGE_TAG=production; \
