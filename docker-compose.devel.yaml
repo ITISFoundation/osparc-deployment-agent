@@ -1,23 +1,19 @@
 version: "3.7"
 services:
-  portainer:
-    image: portainer/portainer-ce
-    init: true
-    ports:
-      - "9000:9000"
-    command: >
-      --host unix:///var/run/docker.sock
-      --admin-password "$$2y$$05$$fPLgK/eCS9EQLw6ntw7fteW6TdklzEQ5YuIf9DLVmS5NO6z5Dw5NK"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
   auto-deployment-agent:
+    build:
+      target: development
+    image: local/deployment-agent:development
     volumes:
       - ./:/devel/services/deployment-agent
     environment:
       - SC_BOOT_MODE=debug-ptvsd
     ports:
       - "3005:3000"
+    configs:
+      - source: deployment_config.devel.yaml
+        target: /home/scu/host-dev.yaml
 
-volumes:
-  portainer_data: {}
+configs:
+  deployment_config.devel.yaml:
+    file: deployment_config.devel.yaml
