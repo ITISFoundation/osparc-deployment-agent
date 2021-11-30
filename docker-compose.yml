@@ -1,4 +1,4 @@
-version: "3.7"
+version: "3.8"
 services:
   auto-deployment-agent:
     image: ${DOCKER_REGISTRY}/deployment-agent:${DOCKER_IMAGE_TAG}
