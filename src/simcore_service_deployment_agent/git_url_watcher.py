@@ -25,7 +25,20 @@ async def _git_clone_repo(
     username: str = None,
     password: str = None,
 ):
-    cmd = f"git clone -n {URL(repository).with_user(username).with_password(password)} --depth 1 {directory} --single-branch --branch {branch}"
+    if username != None and password != None and username != "" and password != "":
+        # Black code linter crashed(!) here and the pre-commit hook failed. This three-liner is thus a dirty hack so I can commit in the first place... :(
+        cmd = "git clone -n "
+        cmd += str(URL(repository).with_user(username).with_password(password))
+        cmd += f" --depth 1 {directory} --single-branch --branch {branch}"
+    else:
+        cmd = f"git clone -n {URL(repository)} --depth 1 {directory} --single-branch --branch {branch}"
+    try:
+        await run_cmd_line(cmd)
+    except:
+        log.info(
+            "Let's try again to fetch the repository, just to be safe... Waiting 10 seconds then retrying..."
+        )
+        time.sleep(10)
     await run_cmd_line(cmd)
 
 
