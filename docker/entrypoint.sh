@@ -20,6 +20,8 @@ echo "$INFO" "User : $(id scu)"
 echo "$INFO" "python : $(command -v python)"
 echo "$INFO" "pip : $(command -v pip)"
 
+SC_DEVEL_MOUNT=/devel/services/deployment-agent
+
 #
 # DEVELOPMENT MODE
 # - expects docker run ... -v $(pwd):$SC_DEVEL_MOUNT
@@ -92,4 +94,4 @@ echo "$INFO Starting $* ..."
 echo "  $SC_USER_NAME rights    : $(id "$SC_USER_NAME")"
 echo "  local dir : $(ls -al)"
 
-exec gosu "$SC_USER_NAME" "$@"
+su --command "$*" "$SC_USER_NAME"
