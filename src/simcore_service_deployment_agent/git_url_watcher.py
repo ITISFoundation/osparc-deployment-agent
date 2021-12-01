@@ -38,14 +38,7 @@ async def _git_clone_repo(
         cmd += f" --depth 1 {directory} --single-branch --branch {branch}"
     else:
         cmd = f"git clone -n {URL(repository)} --depth 1 {directory} --single-branch --branch {branch}"
-    try:
-        await run_cmd_line(cmd)
-    except:
-        log.info(
-            "Let's try again to fetch the repository, just to be safe... Waiting 10 seconds then retrying..."
-        )
-        time.sleep(10)
-        await run_cmd_line(cmd)
+    await run_cmd_line(cmd)
 
 
 async def _git_get_current_sha(directory: Path) -> str:
