@@ -126,7 +126,7 @@ async def post_new_stack(
     log.debug("creating new stack %s", base_url)
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
-        log.debug("Determined the following endpoint id: " + str(endpoint_id))
+        log.debug("Determined the following endpoint id: %i", endpoint_id)
     headers = {"Authorization": "Bearer {}".format(bearer_code)}
     body_data = {
         "Name": stack_name,
@@ -159,7 +159,7 @@ async def update_stack(
     log.debug("updating stack %s", base_url)
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
-        log.debug("Determined the following endpoint id: ", endpoint_id)
+        log.debug("Determined the following endpoint id: %i", endpoint_id)
     headers = {"Authorization": "Bearer {}".format(bearer_code)}
     body_data = {"StackFileContent": json.dumps(stack_cfg, indent=2)}
     log.debug("StackFileContent:")

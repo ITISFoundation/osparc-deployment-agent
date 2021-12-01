@@ -58,10 +58,12 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
             # Taking care of wrong format in extra_hosts
             if "extra_hosts" in stack_cfg["services"][service]:
                 if isinstance(stack_cfg["services"][service]["extra_hosts"], dict):
-                    if len(stack_cfg["services"][service]["extra_hosts"].keys()) == 1:
-                        if "" in stack_cfg["services"][service]["extra_hosts"]:
-                            if stack_cfg["services"][service]["extra_hosts"][""] == "":
-                                stack_cfg["services"][service]["extra_hosts"] = []
+                    if (
+                        len(stack_cfg["services"][service]["extra_hosts"].keys()) == 1
+                        and "" in stack_cfg["services"][service]["extra_hosts"]
+                    ):
+                        if stack_cfg["services"][service]["extra_hosts"][""] == "":
+                            stack_cfg["services"][service]["extra_hosts"] = []
 
         log.debug("filtered services: result in:")
         log.debug(json.dumps(stack_cfg, indent=2, sort_keys=True))
