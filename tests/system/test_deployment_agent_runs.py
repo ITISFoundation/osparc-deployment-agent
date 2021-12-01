@@ -36,24 +36,22 @@ def here() -> Path:
     return _here()
 
 
-def _osparc_simcore_root_dir(here) -> Path:
-    root_dir = here.parent.parent.parent.parent.resolve()
-    assert root_dir.exists(), "Is this service within osparc-ops repo?"
-    assert any(root_dir.glob("services/deployment-agent")), (
+def _deployment_agent_root_dir(here) -> Path:
+    root_dir = here.parent.parent.parent.resolve()
+    assert root_dir.exists(), "Is this test within osparc-deployment-agent repo?"
+    assert any(root_dir.glob("osparc-deployment-agent")), (
         "%s not look like rootdir" % root_dir
     )
-    return root_dir
+    return here.parent.parent.resolve()
 
 
 @pytest.fixture(scope="session")
-def osparc_simcore_root_dir(here) -> Path:
-    return _osparc_simcore_root_dir(here)
+def deployment_agent_root_dir(here) -> Path:
+    return _deployment_agent_root_dir(here)
 
 
-def _services_docker_compose(osparc_simcore_root_dir) -> Dict[str, str]:
-    docker_compose_path = (
-        osparc_simcore_root_dir / "services" / "deployment-agent" / "docker-compose.yml"
-    )
+def _services_docker_compose(deployment_agent_root_dir) -> Dict[str, str]:
+    docker_compose_path = deployment_agent_root_dir / "docker-compose.yml"
     assert docker_compose_path.exists()
 
     content = {}
@@ -63,13 +61,13 @@ def _services_docker_compose(osparc_simcore_root_dir) -> Dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def services_docker_compose(osparc_simcore_root_dir) -> Dict[str, str]:
-    return _services_docker_compose(osparc_simcore_root_dir)
+def services_docker_compose(deployment_agent_root_dir) -> Dict[str, str]:
+    return _services_docker_compose(deployment_agent_root_dir)
 
 
 def _list_services():
     exclude = ["portainer", "agent"]
-    content = _services_docker_compose(_osparc_simcore_root_dir(_here()))
+    content = _services_docker_compose(_deployment_agent_root_dir(_here()))
     return [name for name in content["services"].keys() if name not in exclude]
 
 
