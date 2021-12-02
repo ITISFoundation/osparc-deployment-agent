@@ -3,7 +3,10 @@ include scripts/common.Makefile
 
 #Variable need to be set in .env file according to swarm deploy at hand
 # Internal VARIABLES ------------------------------------------------
-include .env
+.env: .env-devel ## creates .env file from defaults in .env-devel
+	$(if $(wildcard $@), \
+	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
+	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
 
 
 # Variables based on conventions
