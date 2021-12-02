@@ -16,7 +16,6 @@ APP_PACKAGE_NAME  = $(subst -,_,$(APP_CLI_NAME))
 APP_VERSION      := $(shell cat VERSION)
 SRC_DIR           = $(abspath $(CURDIR)/src/$(APP_PACKAGE_NAME))
 STACK_NAME        = $(APP_NAME)
-DEPLOYMENT_AGENT_CONFIG = deployment_config.default.yaml
 $(info APP_NAME set to ${APP_NAME})
 $(info APP_CLI_NAME set to ${APP_CLI_NAME})
 $(info STACK_NAME set to ${STACK_NAME})
