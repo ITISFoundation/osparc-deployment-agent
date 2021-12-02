@@ -13,7 +13,7 @@ install() {
     docker images
     # use the config file for testing not the default
     cp tests/mocks/valid_system_test_config.yaml deployment_config.default.yaml
-    make up-prod
+    make up-systemtest
     docker service ls
 }
 
