@@ -14,11 +14,11 @@ app_schema = T.Dict(
                 {
                     "id": T.String(),
                     "url": T.URL,
-                    T.Key("username", optional=True, default=""): T.String(
-                        allow_blank=True
+                    T.Key("username", optional=True, default=""): T.Or(
+                        T.String(allow_blank=True), T.Null
                     ),
-                    T.Key("password", optional=True, default=""): T.String(
-                        allow_blank=True
+                    T.Key("password", optional=True, default=""): T.Or(
+                        T.String(allow_blank=True), T.Null
                     ),
                     T.Key("branch", default="master", optional=True): T.String(
                         allow_blank=True

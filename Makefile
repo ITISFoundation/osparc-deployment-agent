@@ -3,11 +3,13 @@ include scripts/common.Makefile
 
 #Variable need to be set in .env file according to swarm deploy at hand
 # Internal VARIABLES ------------------------------------------------
-.env: .env-devel ## creates .env file from defaults in .env-devel
+.env: .env-config ## creates .env file from defaults in .env-config
 	$(if $(wildcard $@), \
 	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
-	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@)
+	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@ && \
+	sed -i '/\$$/d' $@ && export $$(grep -v '^#' $@ | xargs) && envsubst < $< > $@)
 
+include .env
 
 # Variables based on conventions
 APP_NAME          = deployment-agent
