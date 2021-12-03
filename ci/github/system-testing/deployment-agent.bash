@@ -3,6 +3,8 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+export DEPLOYMENT_AGENT_CONFIG=deployment_config.default.yaml
+
 install() {
     bash ci/helpers/ensure_python_pip.bash
     make devenv
