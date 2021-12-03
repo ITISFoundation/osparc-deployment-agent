@@ -10,7 +10,7 @@ install() {
     make devenv
     source .venv/bin/activate
     pip install -r requirements/dev.txt
-    sudo -R chmod 777 .venv
+    #sudo -R chmod 777 .venv
     make build
     pip list -v
     docker images
