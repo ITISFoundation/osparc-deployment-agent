@@ -67,7 +67,7 @@ get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=production; \
-	@docker-compose --file docker-compose.yml --file docker-compose.systemtest.yml --log-level=ERROR config > $@
+	docker-compose --file docker-compose.yml --file docker-compose.systemtest.yml --log-level=ERROR config > $@
 
 .PHONY: up
 up-prod up-devel up-version up-systemtest: .init-swarm ${DEPLOYMENT_AGENT_CONFIG}  ## Deploys or updates current stack "$(STACK_NAME)"
