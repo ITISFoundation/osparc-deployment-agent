@@ -10,6 +10,7 @@ install() {
     make devenv
     source .venv/bin/activate
     pip install -r requirements/dev.txt
+    sudo -R chmod 777 .venv
     make build
     pip list -v
     docker images
@@ -21,6 +22,8 @@ install() {
 
 test() {
     source .venv/bin/activate
+    rm deployment_config.default.yaml
+    cp tests/mocks/valid_system_test_config.yaml deployment_config.default.yaml
     make test-ci-system
     deactivate
 }
