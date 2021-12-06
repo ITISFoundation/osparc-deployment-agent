@@ -64,8 +64,7 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
                         if stack_cfg["services"][service]["extra_hosts"][""] == "":
                             stack_cfg["services"][service]["extra_hosts"] = []
 
-        log.debug("filtered services: result in:")
-        log.debug(json.dumps(stack_cfg, indent=2, sort_keys=True))
+        log.debug("filtered services: result in:\n%s", json.dumps(stack_cfg, indent=2, sort_keys=True))
         return stack_cfg
 
 
