@@ -75,7 +75,7 @@ async def add_parameters(app_config: Dict, stack_cfg: Dict) -> Dict:
     log.debug("adding parameters to stack using %s", additional_parameters)
     for key, value in additional_parameters.items():
         if value and isinstance(value, dict):
-            for _, service_params in stack_cfg["services"].items():
+            for service_params in stack_cfg["services"].values():
                 if key in service_params:
                     service_params[key].update(value)
                 else:
