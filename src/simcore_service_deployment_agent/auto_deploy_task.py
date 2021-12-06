@@ -64,7 +64,10 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
                         if stack_cfg["services"][service]["extra_hosts"][""] == "":
                             stack_cfg["services"][service]["extra_hosts"] = []
 
-        log.debug("filtered services: result in:\n%s", json.dumps(stack_cfg, indent=2, sort_keys=True))
+        log.debug(
+            "filtered services: result in:\n%s",
+            json.dumps(stack_cfg, indent=2, sort_keys=True),
+        )
         return stack_cfg
 
 
@@ -223,7 +226,8 @@ async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
     log.debug("new stack config is\n%s", stack_file)
     # change services names to avoid conflicts in common networks
     stack_cfg = await add_prefix_to_services(app_config, stack_cfg)
-    log.debug("final stack config is:\n%s", json.dumps(stack_cfg, indent=2, sort_keys=True))
+    log.debug("final stack config is:")
+    log.debug(json.dumps(stack_cfg, indent=4, sort_keys=True))
     return stack_cfg
 
 

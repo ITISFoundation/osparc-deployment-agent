@@ -31,7 +31,8 @@ RETRY_COUNT = 10
 @retry(
     wait=wait_fixed(RETRY_WAIT_SECS),
     stop=stop_after_attempt(RETRY_COUNT),
-    before_sleep=before_sleep_log(log, logging.INFO),
+    before_sleep=before_sleep_log(log, logging.WARNING),
+    reraise=True,
 )
 async def get_specs(location):
     specs = await create_openapi_specs(location)
@@ -89,7 +90,7 @@ def setup(app: web.Application, *, devel=False):
     else:
         # routes
         routes = create_routes(specs)
-        log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME, json.dumps(routes, indent=2))
+        log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME, pformat(routes))
         app.router.add_routes(routes)
 
         # middlewares
