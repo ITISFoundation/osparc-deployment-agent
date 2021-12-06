@@ -49,9 +49,8 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
         for service in excluded_services:
             stack_cfg["services"].pop(service, None)
         # remove excluded volumes
-        if "volumes" in stack_cfg:
-            for volume in excluded_volumes:
-                stack_cfg["volumes"].pop(volume, None)
+        for volume in excluded_volumes:
+            stack_cfg.get("volumes", {}).pop(volume, None)
         # remove build part, useless in a stack
         for service in stack_cfg["services"].keys():
             stack_cfg["services"][service].pop("build", None)
