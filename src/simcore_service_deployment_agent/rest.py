@@ -89,7 +89,7 @@ def setup(app: web.Application, *, devel=False):
     else:
         # routes
         routes = create_routes(specs)
-        log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME, pformat(routes))
+        log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME, json.dumps(routes, indent=2))
         app.router.add_routes(routes)
 
         # middlewares
