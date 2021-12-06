@@ -95,7 +95,7 @@ def setup(app: web.Application, *, devel=False):
         # middlewares
         base_path = openapi.get_base_path(specs)
         version = cfg["version"]
-        assert "/" + version == base_path, "Expected %s, got %s" % (version, base_path)
+        assert f"/{version}" == base_path, f"Expected {version}, got base_path"
         append_rest_middlewares(app, base_path)
 
 
