@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from trafaret_config import commandline as commandline
+from trafaret_config import commandline
 
 from .config_schema import schema
 from .resources import RSC_CONFIG_DIR_KEY, resources
