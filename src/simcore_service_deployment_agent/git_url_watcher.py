@@ -1,5 +1,6 @@
 import copy
 import logging
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -40,59 +41,84 @@ async def _git_clone_repo(
     password: str = None,
 ):
     if username != None and password != None and username != "" and password != "":
-        # Black code linter crashed(!) here and the pre-commit hook failed. This three-liner is thus a dirty hack so I can commit in the first place... :(
-        cmd = "git clone -n "
-        cmd += str(URL(repository).with_user(username).with_password(password))
-        cmd += f" --depth 1 {directory} --single-branch --branch {branch}"
+        cmd = [
+            "git",
+            "clone",
+            "-n",
+            str(URL(repository).with_user(username).with_password(password)),
+            "--depth",
+            "1",
+            str(directory),
+            "--single-branch",
+            "--branch",
+            branch,
+        ]
     else:
-        cmd = f"git clone -n {URL(repository)} --depth 1 {directory} --single-branch --branch {branch}"
+        cmd = [
+            "git",
+            "clone",
+            "-n",
+            str(URL(repository)),
+            "--depth",
+            "1",
+            str(directory),
+            "--single-branch",
+            "--branch",
+            branch,
+        ]
     await run_cmd_line(cmd)
 
 
 async def _git_get_current_sha(directory: Path) -> str:
-    cmd = f"cd {directory} && git rev-parse --short FETCH_HEAD"
-    sha = await run_cmd_line(cmd)
+    cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
+    sha = await run_cmd_line(cmd, str(directory))
     return sha.strip("\n")
 
 
 async def _git_clean_repo(directory: Path):
-    cmd = f"cd {directory} && git clean -dxf"
-    await run_cmd_line(cmd)
+    cmd = ["git", "clean", "-dxf"]
+    await run_cmd_line(cmd, str(directory))
 
 
 async def _git_checkout_files(directory: Path, paths: List[Path], tag: str = None):
     if not tag:
         tag = "HEAD"
-    cmd = f"cd {directory} && git checkout {tag} {' '.join(paths)}"
-    await run_cmd_line(cmd)
+    cmd = ["git", "checkout", tag] + [str(path) for path in paths]
+    await run_cmd_line(cmd, str(directory))
 
 
 async def _git_checkout_repo(directory: Path, tag: str = None):
-    await _git_checkout_files(directory, [], tag)
+    await _git_checkout_files(str(directory), [], tag)
 
 
 async def _git_pull_files(directory: Path, paths: List[Path]):
-    cmd = f"cd {directory} && git checkout FETCH_HEAD {' '.join(paths)}"
-    await run_cmd_line(cmd)
+    cmd = ["git", "checkout", "FETCH_HEAD"] + [str(path) for path in paths]
+    await run_cmd_line(cmd, str(directory))
 
 
 async def _git_pull(directory: Path):
-    cmd = f"cd {directory} && git pull"
-    await run_cmd_line(cmd)
+    cmd = ["git", "pull"]
+    await run_cmd_line(cmd, str(directory))
 
 
 async def _git_fetch(directory: Path):
-    cmd = f"cd {directory} && git fetch --prune --tags"
-    await run_cmd_line(cmd)
+    log.debug("Fetching git repo in directory:")
+    log.debug(str(directory))
+    cmd = ["git", "fetch", "--prune", "--tags"]
+    await run_cmd_line(cmd, str(directory))
 
 
 async def _git_get_latest_matching_tag(
     directory: Path, regexp: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    cmd = f'cd {directory} && git tag --list --sort=taggerdate | grep --extended-regexp --only-matching "{regexp}"'
-    all_tags = await run_cmd_line(cmd)
-
-    list_tags = [t.strip() for t in all_tags.split("\n") if t.strip()]
+    cmd = [
+        "git",
+        "tag",
+        "--list",
+        "--sort=taggerdate",
+    ]  # | grep --extended-regexp --only-matching "{regexp}"']
+    all_tags = await run_cmd_line(cmd, str(directory))
+    list_tags = re.findall(regexp, all_tags)
 
     return list_tags[0] if list_tags else None
 
@@ -102,34 +128,57 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
     reg = regexp
     if regexp.startswith("^"):
         reg = regexp[1:]
-    cmd = f'cd {directory} && git show-ref --tags --dereference | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"'
-    all_tags = await run_cmd_line(cmd)
-    if not all_tags:
-        return []
-    return all_tags.split("\n")
+    cmd = [
+        "git",
+        "show-ref",
+        "--tags",
+        "--dereference",
+    ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
+    all_tags = await run_cmd_line(cmd, str(directory)).split("\n")
+
+    cmd2 = ["git", "rev-parse", "HEAD"]
+    shaToBeFound = await run_cmd_line(cmd2, str(directory)).split("\n")[0]
+
+    associatedTagsFound = []
+    for tag in all_tags:
+        if shaToBeFound in tag:
+            associatedTagsFound.append(tag.split()[-1].split("/")[-1])
+    return associatedTagsFound
 
 
 async def _git_diff_filenames(
     directory: Path,
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    cmd = f"cd {directory} && git --no-pager diff --name-only FETCH_HEAD"
-    modified_files = await run_cmd_line(cmd)
+    cmd = ["git", "--no-pager", "diff", "--name-only", "FETCH_HEAD"]
+    modified_files = await run_cmd_line(cmd, str(directory))
     return modified_files
 
 
 async def _git_get_logs(
     directory: Path, branch1: str, branch2: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    cmd = f"cd {directory} && git --no-pager log --oneline {branch1}..origin/{branch2}"
-    logs = await run_cmd_line(cmd)
+    cmd = [
+        "git",
+        "--no-pager",
+        "log",
+        "--oneline",
+        str(branch1) + "..origin/" + str(branch2),
+    ]
+    logs = await run_cmd_line(cmd, str(directory))
     return logs
 
 
 async def _git_get_logs_tags(
     directory: Path, tag1: str, tag2: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    cmd = f"cd {directory} && git --no-pager log --oneline {tag1}{'..' + tag2 if tag1 else tag2}"
-    logs = await run_cmd_line(cmd)
+    cmd = [
+        "git",
+        "--no-pager",
+        "log",
+        "--oneline",
+        str(tag1) + ".." + str(tag2 if tag1 else tag2),
+    ]
+    logs = await run_cmd_line(cmd, str(directory))
     return logs
 
 
@@ -166,9 +215,8 @@ async def _update_repository(repo: GitRepo):
 async def _init_repositories(repos: List[GitRepo]) -> Dict:
     description = {}
     for repo in repos:
-        with tempfile.TemporaryDirectory() as tmpfile:
-            directoryName = copy.deepcopy(tmpfile)
-        repo.directory = directoryName
+        directoryName = tempfile.mkdtemp()
+        repo.directory = copy.deepcopy(directoryName)
         log.debug("cloning %s in %s...", repo.repo_id, repo.directory)
         await _git_clone_repo(
             repo.repo_url, repo.directory, repo.branch, repo.username, repo.password

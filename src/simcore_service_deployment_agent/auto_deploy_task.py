@@ -23,7 +23,7 @@ from yarl import URL
 
 from . import portainer
 from .app_state import State
-from .cmd_utils import run_cmd_line
+from .cmd_utils import run_cmd_line_unsafe
 from .docker_registries_watcher import DockerRegistriesWatcher
 from .exceptions import ConfigurationError, DependencyNotReadyError
 from .git_url_watcher import GitUrlWatcher
@@ -119,8 +119,8 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
     dest_dir = stack_recipe_cfg["workdir"]
     if dest_dir == "temp":
         # create a temp folder
-        with tempfile.TemporaryDirectory() as tmpfile:
-            dest_dir = tmpfile.name
+        directoryName = tempfile.mkdtemp()
+        dest_dir = copy.deepcopy(directoryName)
     elif dest_dir in git_repos:
         # we use one of the git repos
         dest_dir = git_repos[dest_dir].directory
@@ -149,8 +149,7 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
 
     # execute command if available
     if stack_recipe_cfg["command"]:
-        cmd = "cd {} && ".format(dest_dir) + stack_recipe_cfg["command"]
-        await run_cmd_line(cmd)
+        await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
     if not stack_file.exists():
         raise ConfigurationError(
@@ -377,7 +376,11 @@ async def auto_deploy(app: web.Application):
 
 def setup(app: web.Application):
     app.cleanup_ctx.append(persistent_session)
-    app.cleanup_ctx.append(background_task)
+    try:
+        app.cleanup_ctx.append(background_task)
+    except Exception as e:
+        print("We Encountered an error in running the deployment agent:")
+        print(e)
 
 
 async def background_task(app: web.Application):
