@@ -6,7 +6,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import attr
-from tenacity import after_log, retry, stop_after_attempt, wait_fixed, wait_random
+from tenacity import (
+    after_log,
+    before_sleep_log,
+    retry,
+    stop_after_attempt,
+    wait_fixed,
+    wait_random,
+)
 from yarl import URL
 
 from .cmd_utils import run_cmd_line
@@ -22,6 +29,8 @@ MAX_TIME_TO_WAIT_S = 10
 @retry(
     stop=stop_after_attempt(NUMBER_OF_ATTEMPS),
     wait=wait_fixed(1) + wait_random(0, MAX_TIME_TO_WAIT_S),
+    before_sleep=before_sleep_log(log, logging.WARNING),
+    reraise=True,
 )
 async def _git_clone_repo(
     repository: URL,
