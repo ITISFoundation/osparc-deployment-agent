@@ -1,14 +1,5 @@
 include scripts/common.Makefile
 
-
-#Variable need to be set in .env file according to swarm deploy at hand
-# Internal VARIABLES ------------------------------------------------
-.env: .env-config ## creates .env file from defaults in .env-config
-	$(if $(wildcard $@), \
-	@echo "WARNING #####  $< is newer than $@ ####"; diff -uN $@ $<; false;,\
-	@echo "WARNING ##### $@ does not exist, cloning $< as $@ ############"; cp $< $@ && \
-	sed -i '/\$$/d' $@ && export $$(grep -v '^#' $@ | xargs) && envsubst < $< > $@)
-
 include .env
 
 # Variables based on conventions
@@ -49,23 +40,23 @@ SWARM_HOSTS            = $(shell docker node ls --format="{{.Hostname}}" 2>$(if 
 docker-compose-configs = $(wildcard docker-compose*.yml)
 get_my_ip := $(shell hostname --all-ip-addresses | cut --delimiter=" " --fields=1)
 
-.stack.${STACK_NAME}-prod.yml: .env $(docker-compose-configs)
+.stack.${STACK_NAME}-prod.yml: $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:production' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=production; \
 	docker-compose --file docker-compose.yml --log-level=ERROR config > $@
 
-.stack.${STACK_NAME}-devel.yml: .env $(docker-compose-configs)
+.stack.${STACK_NAME}-devel.yml:  $(docker-compose-configs)
 	# Creating config for stack with 'local/{service}:dev' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=dev; \
 	docker-compose --env-file=.env --file docker-compose.yml --file docker-compose.devel.yaml --log-level=ERROR config > $@
 
-.stack.${STACK_NAME}-version.yml: .env $(docker-compose-configs)
+.stack.${STACK_NAME}-version.yml:  $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
 	@docker-compose --file docker-compose.yml --log-level=ERROR config > $@
 
-.stack.${STACK_NAME}-systemtest.yml: .env $(docker-compose-configs)
+.stack.${STACK_NAME}-systemtest.yml:  $(docker-compose-configs)
 	# Creating config for stack with '$(DOCKER_REGISTRY)/{service}:${DOCKER_IMAGE_TAG}' to $@
 	@export DOCKER_REGISTRY=local \
 	export DOCKER_IMAGE_TAG=production; \
@@ -164,7 +155,7 @@ devenv: .venv ## create a python virtual environment with dev tools (e.g. linter
 	@false
 
 # Helpers -------------------------------------------------
-${DEPLOYMENT_AGENT_CONFIG}: deployment_config.template.yaml .env
+${DEPLOYMENT_AGENT_CONFIG}: deployment_config.template.yaml
 	@set -o allexport; \
 	source $(realpath $(CURDIR)/.env); \
 	set +o allexport; \

@@ -135,3 +135,6 @@ dmypy.json
 # outputs from make
 .stack.*.yml
 .deployment_config.yaml
+
+deployment_config.*
+!deployment_config.template.yaml
