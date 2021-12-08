@@ -16,10 +16,15 @@ import yaml
 from aioresponses import aioresponses
 from pytest_aiohttp import TestClient
 
-from simcore_service_deployment_agent import auto_deploy_task
+# Monkeypatch the tenacity wait time https://stackoverflow.com/questions/47906671/python-retry-with-tenacity-disable-wait-for-unittest
+from tenacity import wait_none
+
+from simcore_service_deployment_agent import auto_deploy_task, portainer
 from simcore_service_deployment_agent.app_state import State
 from simcore_service_deployment_agent.application import create
 from simcore_service_deployment_agent.git_url_watcher import GitUrlWatcher
+
+portainer._portainer_request.retry.wait = wait_none()
 
 
 @pytest.fixture()

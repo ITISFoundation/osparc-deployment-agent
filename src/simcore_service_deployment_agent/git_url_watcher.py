@@ -118,8 +118,11 @@ async def _git_get_latest_matching_tag(
         "--sort=taggerdate",
     ]  # | grep --extended-regexp --only-matching "{regexp}"']
     all_tags = await run_cmd_line(cmd, str(directory))
-    list_tags = re.findall(regexp, all_tags)
-
+    if all_tags == None:
+        return None
+    all_tags = all_tags.split("\n")
+    all_tags = [tag for tag in all_tags if tag != ""]
+    list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
     return list_tags[0] if list_tags else None
 
 
@@ -134,16 +137,22 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
         "--tags",
         "--dereference",
     ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
-    all_tags = await run_cmd_line(cmd, str(directory)).split("\n")
+    all_tags = await run_cmd_line(cmd, str(directory))
+    all_tags = all_tags.split("\n")
 
     cmd2 = ["git", "rev-parse", "HEAD"]
-    shaToBeFound = await run_cmd_line(cmd2, str(directory)).split("\n")[0]
+    shaToBeFound = await run_cmd_line(cmd2, str(directory))
+    shaToBeFound = shaToBeFound.split("\n")[0]
 
     associatedTagsFound = []
     for tag in all_tags:
         if shaToBeFound in tag:
             associatedTagsFound.append(tag.split()[-1].split("/")[-1])
-    return associatedTagsFound
+    foundMatchingTags = []
+    for i in associatedTagsFound:
+        foundMatchingTags += re.findall(reg, i)
+
+    return foundMatchingTags
 
 
 async def _git_diff_filenames(

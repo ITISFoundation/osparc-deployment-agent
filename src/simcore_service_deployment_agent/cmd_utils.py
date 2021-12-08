@@ -7,10 +7,18 @@ from .exceptions import CmdLineError
 log = logging.getLogger(__name__)
 
 
-async def run_cmd_line(cmd: list[str], cwd_: str = ".") -> str:
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=cwd_
-    )
+async def run_cmd_line(cmd: List[str], cwd_: str = ".") -> str:
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd_
+        )
+    except FileNotFoundError as e:
+        raise CmdLineError(
+            " ".join(cmd), "The command was invalid and the cmd call failed."
+        ) from e
 
     stdout, stderr = await proc.communicate()
     log.debug("[{%s}] exited with %s]", cmd, proc.returncode)

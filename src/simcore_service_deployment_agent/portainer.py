@@ -25,7 +25,6 @@ MAX_TIME_TO_WAIT_S = 10
 @retry(
     stop=stop_after_attempt(NUMBER_OF_ATTEMPS),
     wait=wait_fixed(3) + wait_random(0, MAX_TIME_TO_WAIT_S),
-    reraise=True,
     before_sleep=before_sleep_log(log, logging.WARNING),
 )
 async def _portainer_request(

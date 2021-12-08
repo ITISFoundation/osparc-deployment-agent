@@ -171,7 +171,7 @@ async def portainer_service_mock(
 def mocked_cmd_utils(mocker):
     mock_run_cmd_line = mocker.patch.object(
         auto_deploy_task,
-        "run_cmd_line",
+        "run_cmd_line_unsafe",
         return_value="",
     )
     yield mock_run_cmd_line

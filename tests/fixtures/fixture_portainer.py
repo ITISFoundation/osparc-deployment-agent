@@ -9,7 +9,7 @@ from yarl import URL
 
 def _run_cmd(cmd: str, **kwargs) -> str:
     result = subprocess.run(
-        cmd, capture_output=True, check=True, shell=True, encoding="utf-8", **kwargs
+        cmd, capture_output=True, check=True, shell=False, encoding="utf-8", **kwargs
     )
     assert result.returncode == 0
     return result.stdout.rstrip() if result.stdout else ""
@@ -41,11 +41,38 @@ def portainer_container(request) -> tuple[URL, Literal]:
     # create a password (https://documentation.portainer.io/v2.0/deploy/cli/)
     password = "adminadmin"
     encrypted_password = _run_cmd(
-        f'docker run --rm httpd:2.4-alpine htpasswd -nbB admin {password} | cut -d ":" -f 2'
-    )
+        [
+            "docker",
+            "run",
+            "--rm",
+            "httpd:2.4-alpine",
+            "htpasswd",
+            "-nbB",
+            "admin",
+            password,
+        ]
+    ).split(":")[-1]
 
     _run_cmd(
-        f"docker run --detach --init --publish 8000:8000 --publish 9000:9000 --name=portainer --restart=always --volume /var/run/docker.sock:/var/run/docker.sock {portainer_image} --admin-password='{encrypted_password}' --host unix:///var/run/docker.sock"
+        [
+            "docker",
+            "run",
+            "--detach",
+            "--init",
+            "--publish",
+            "8000:8000",
+            "--publish",
+            "9000:9000",
+            "--name=portainer",
+            "--restart=always",
+            "--volume",
+            "/var/run/docker.sock:/var/run/docker.sock",
+            portainer_image,
+            "--admin-password=",
+            encrypted_password,
+            "--host",
+            "unix:///var/run/docker.sock",
+        ]
     )
     url = URL("http://127.0.0.1:9000/")
     _wait_for_instance(url, code=200)

@@ -13,6 +13,7 @@ import pytest
 
 from simcore_service_deployment_agent import git_url_watcher
 from simcore_service_deployment_agent.cmd_utils import CmdLineError
+from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
 @pytest.fixture()
@@ -168,7 +169,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
 
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files_tags)
     # the file does not exist yet
-    with pytest.raises(CmdLineError):
+    with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
 
     # add the file

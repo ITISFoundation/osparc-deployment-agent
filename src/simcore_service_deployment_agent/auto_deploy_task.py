@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import logging
 import tempfile
@@ -149,6 +150,8 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
 
     # execute command if available
     if stack_recipe_cfg["command"]:
+        # The command in the stack_recipe might contain shell natives like pipes and cd
+        # Thus we run it in unsafe mode as a proper shell.
         await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
     if not stack_file.exists():
@@ -378,9 +381,8 @@ def setup(app: web.Application):
     app.cleanup_ctx.append(persistent_session)
     try:
         app.cleanup_ctx.append(background_task)
-    except Exception as e:
+    except asyncio.CancelledError:
         print("We Encountered an error in running the deployment agent:")
-        print(e)
 
 
 async def background_task(app: web.Application):
