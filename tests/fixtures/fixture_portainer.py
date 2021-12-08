@@ -11,6 +11,14 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     result = subprocess.run(
         cmd, capture_output=True, check=True, shell=False, encoding="utf-8", **kwargs
     )
+    print("ran:")
+    print(cmd)
+    print("got:")
+    print(result.stdout.rstrip())
+    print("err:")
+    print(result.stderr.rstrip())
+    #
+    print(result.stderr.rstrip())
     assert result.returncode == 0
     return result.stdout.rstrip() if result.stdout else ""
 
@@ -52,7 +60,10 @@ def portainer_container(request) -> tuple[URL, Literal]:
             password,
         ]
     ).split(":")[-1]
-
+    try:
+        _run_cmd(["docker", "rm", "--force", "portainer"])
+    except Exception:
+        pass
     _run_cmd(
         [
             "docker",
@@ -68,8 +79,7 @@ def portainer_container(request) -> tuple[URL, Literal]:
             "--volume",
             "/var/run/docker.sock:/var/run/docker.sock",
             portainer_image,
-            "--admin-password=",
-            encrypted_password,
+            "--admin-password=" + str(encrypted_password),
             "--host",
             "unix:///var/run/docker.sock",
         ]
@@ -78,4 +88,4 @@ def portainer_container(request) -> tuple[URL, Literal]:
     _wait_for_instance(url, code=200)
     yield url, password
 
-    _run_cmd("docker rm --force portainer")
+    _run_cmd(["docker", "rm", "--force", "portainer"])
