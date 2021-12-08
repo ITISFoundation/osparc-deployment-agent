@@ -19,7 +19,7 @@ TEST_REQUIREMENTS = tuple(read_reqs(CURRENT_DIR / "requirements" / "_test.txt"))
 
 SETUP = dict(
     name="simcore-service-deployment-agent",
-    version="0.10.1",
+    version="0.9.3",
     author="Dustin Kaiser (mrnicegyu11)",
     description="Agent that automatically deploys oSparc services in a swarm",
     packages=find_packages(where="src"),
