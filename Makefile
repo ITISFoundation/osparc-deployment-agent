@@ -1,5 +1,8 @@
 include scripts/common.Makefile
 
+.env:
+	touch .env
+
 include .env
 
 # Variables based on conventions
