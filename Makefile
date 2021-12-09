@@ -19,7 +19,7 @@ $(info SIMCORE_STACK_NAME set to ${SIMCORE_STACK_NAME})
 $(info PREFIX_STACK_NAME set to ${PREFIX_STACK_NAME})
 $(info DEPLOYMENT_AGENT_CONFIG set to ${DEPLOYMENT_AGENT_CONFIG})
 
-
+#
 export DOCKER_IMAGE_TAG ?= latest
 export DOCKER_REGISTRY  ?= itisfoundation
 
