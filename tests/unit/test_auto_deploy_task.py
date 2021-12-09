@@ -87,11 +87,7 @@ def client(
     monkeypatch.setattr(auto_deploy_task, "RETRY_WAIT_SECS", 1)
 
     app = create(valid_config)
-    # app = web.Application()
-    # app[APP_CONFIG_KEY] = test_config
     server_kwargs = {"port": aiohttp_unused_port(), "host": "localhost"}
-
-    # auto_deploy_task.setup(app)
 
     client = loop.run_until_complete(aiohttp_client(app, server_kwargs=server_kwargs))
     yield client
