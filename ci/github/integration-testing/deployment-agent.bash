@@ -6,7 +6,7 @@ set -o pipefail # don't hide errors within pipes
 IFS=$'\n\t'
 
 install() {
-    bash ci/helpers/ensure_python_pip.bash
+    bash ci/helpers/ensure_python_pip.bash 2>&1 || true
     make devenv
     source .venv/bin/activate
     make install-ci
