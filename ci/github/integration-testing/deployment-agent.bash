@@ -6,6 +6,7 @@ set -o pipefail # don't hide errors within pipes
 IFS=$'\n\t'
 
 install() {
+    # Due to ubuntu self hosted runners, this following comman needs to fail quietly and return zero
     bash ci/helpers/ensure_python_pip.bash 2>&1 || true
     make devenv
     source .venv/bin/activate
