@@ -71,7 +71,7 @@ jobs:
       matrix:
         python: [3.9]
         os: [self-hosted, ubuntu-20.04]
-        docker_buildx: [v0.5.1]
+        #docker_buildx: [v0.5.1]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
@@ -109,9 +109,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python: [3.9]
+        #python: [3.9]
         os: [self-hosted, ubuntu-20.04]
-        docker_buildx: [v0.5.1]
+        #docker_buildx: [v0.5.1]
       fail-fast: false
     steps:
       - name: set PR default variables
