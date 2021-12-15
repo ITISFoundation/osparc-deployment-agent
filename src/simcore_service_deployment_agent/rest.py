@@ -27,30 +27,36 @@ log = logging.getLogger(__name__)
 RETRY_WAIT_SECS = 2
 RETRY_COUNT = 10
 
-@retry( wait=wait_fixed(RETRY_WAIT_SECS),
-        stop=stop_after_attempt(RETRY_COUNT),
-        before_sleep=before_sleep_log(log, logging.INFO) )
+
+@retry(
+    wait=wait_fixed(RETRY_WAIT_SECS),
+    stop=stop_after_attempt(RETRY_COUNT),
+    before_sleep=before_sleep_log(log, logging.WARNING),
+    reraise=True,
+)
 async def get_specs(location):
     specs = await create_openapi_specs(location)
     return specs
+
 
 def create_routes(specs):
     base_path = openapi.get_base_path(specs)
 
     log.debug("creating %s ", __name__)
     routes = []
-    path, handle = '/', rest_handlers.check_health
-    operation_id = specs.paths[path].operations['get'].operation_id
-    routes.append( web.get(base_path+path, handle, name=operation_id) )
+    path, handle = "/", rest_handlers.check_health
+    operation_id = specs.paths[path].operations["get"].operation_id
+    routes.append(web.get(base_path + path, handle, name=operation_id))
 
-    path, handle = '/check/{action}', rest_handlers.check_action
-    operation_id = specs.paths[path].operations['post'].operation_id
-    routes.append( web.post(base_path+path, handle, name=operation_id) )
+    path, handle = "/check/{action}", rest_handlers.check_action
+    operation_id = specs.paths[path].operations["post"].operation_id
+    routes.append(web.post(base_path + path, handle, name=operation_id))
 
     return routes
 
+
 def setup(app: web.Application, *, devel=False):
-    """ Subsystem's setup
+    """Subsystem's setup
 
     :param app: aiohttp application
     :type app: web.Application
@@ -74,7 +80,7 @@ def setup(app: web.Application, *, devel=False):
         specs = loop.run_until_complete(get_specs(location))
 
         # TODO: What if many specs to expose? v0, v1, v2 ... perhaps a dict instead?
-        app[APP_OPENAPI_SPECS_KEY] = specs # validated openapi specs
+        app[APP_OPENAPI_SPECS_KEY] = specs  # validated openapi specs
 
     except openapi.OpenAPIError:
         # TODO: protocol when some parts are unavailable because of failure
@@ -84,18 +90,17 @@ def setup(app: web.Application, *, devel=False):
     else:
         # routes
         routes = create_routes(specs)
-        log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME,  pformat(routes))
+        log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME, pformat(routes))
         app.router.add_routes(routes)
 
         # middlewares
         base_path = openapi.get_base_path(specs)
-        version  = cfg["version"]
-        assert "/"+version == base_path, "Expected %s, got %s" %(version, base_path)
+        version = cfg["version"]
+        assert f"/{version}" == base_path, f"Expected {version}, got base_path"
         append_rest_middlewares(app, base_path)
+
 
 # alias
 setup_rest = setup
 
-__all__ = (
-    'setup_rest'
-)
+__all__ = ["setup_rest"]

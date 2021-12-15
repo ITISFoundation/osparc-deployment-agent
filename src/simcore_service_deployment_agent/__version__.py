@@ -6,10 +6,10 @@ This project uses the Semantic Versioning scheme in conjunction with PEP 0440:
     <https://www.python.org/dev/peps/pep-0440>
 
 
-Major versions introduce significant changes to the API, and backwards 
-compatibility is not guaranteed. 
+Major versions introduce significant changes to the API, and backwards
+compatibility is not guaranteed.
 
-Minor versions are for new features and other backwards-compatible changes to the API. 
+Minor versions are for new features and other backwards-compatible changes to the API.
 
 Patch versions are for bug fixes and internal code changes that do not affect the API.
 
@@ -31,7 +31,7 @@ try:
     __version__ = pkg_resources.get_distribution(
         "simcore_service_deployment_agent"
     ).version
-    assert __version__ == "__version__=='0.9.3'", "Did you install this package?"
+    assert __version__ == "__version__=='0.10.0'", "Did you install this package?"
 except AssertionError as ee:
     import logging
 

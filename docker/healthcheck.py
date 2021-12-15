@@ -28,9 +28,11 @@ if os.environ.get("SC_BOOT_MODE").lower() == "debug":
     sys.exit(SUCCESS)
 else:
     # Queries host
-    response = urlopen("{host}{baseurl}".format(
-        host=sys.argv[1],
-        baseurl=os.environ.get("SIMCORE_NODE_BASEPATH", "")))  # adds a base-path if defined in environ
+    response = urlopen(
+        "{host}{baseurl}".format(
+            host=sys.argv[1], baseurl=os.environ.get("SIMCORE_NODE_BASEPATH", "")
+        )
+    )  # adds a base-path if defined in environ
     if response.getcode() != 200:
         sys.exit(UNHEALTHY)
     else:

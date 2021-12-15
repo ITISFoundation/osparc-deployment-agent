@@ -64,6 +64,7 @@ paths:
             type: string
         - in: path
           name: action
+          required: true
           schema:
             type: string
             default: "echo"

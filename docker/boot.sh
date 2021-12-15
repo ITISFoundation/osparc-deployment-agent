@@ -6,12 +6,12 @@ IFS=$(printf '\n\t')
 
 INFO="INFO: [$(basename "$0")] "
 
-# BOOTING application ---------------------------------------------
 echo "$INFO" "Booting in ${SC_BOOT_MODE} mode ..."
+echo "SC_BUILD_TARGET is ${SC_BUILD_TARGET}"
 echo "  User    :$(id "$(whoami)")"
 echo "  Workdir :$(pwd)"
 
-APP_CONFIG=config-prod.yaml
+APP_CONFIG=/home/scu/config-prod.yaml
 if [ "${SC_BUILD_TARGET}" = "development" ]
 then
   echo "$INFO" "Environment :"
@@ -20,16 +20,16 @@ then
   python --version | sed 's/^/    /'
   command -v python | sed 's/^/    /'
 
-  APP_CONFIG=/home/scu/host-dev.yaml
+  # APP_CONFIG=/home/scu/host-dev.yaml
 
   cd services/deployment-agent || exit 1
   pip --no-cache-dir install -r requirements/dev.txt
   cd - || exit 1
-
   echo "$INFO" "PIP :"
   pip list | sed 's/^/    /'
 fi
 
+echo "  APP_CONFIG is: ${APP_CONFIG}"
 
 # RUNNING application ----------------------------------------
 if [ "${SC_BOOT_MODE}" = "debug-ptvsd" ]

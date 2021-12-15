@@ -13,6 +13,9 @@ main:
     - id: simcore-github-repo
       url: https://github.com/ITISFoundation/osparc-simcore.git
       branch: master
+      username: "blahblag"
+      password: "somestuffverysecret"
+      tags: ""
       pull_only_files: false # if true will only pull the files define in paths
       paths:
         # lists the files where to look for changes in the repo
@@ -29,7 +32,7 @@ main:
     # An optional command line may be defined to that end that generate the docker-compose file.
     files: [] # nothing to copy around
     workdir: simcore-github-repo # defines where the files above shall be copied. Can be defined as temp also to copy them in a temporary directory
-    command: make create-staging-stack-file output_file=stack.yml
+    command: cp .env-devel .env && docker-compose --file services/docker-compose.yml config > stack.yml
     stack_file: stack.yml # the output file of the command above, or just the file to use
     excluded_services: [app]
     excluded_volumes: [some_volume]
@@ -41,7 +44,7 @@ main:
         TEST_ENV: "some test"
         ANOTHER_TEST_ENV: "some other test"
         YET_ANOTHER_ENV: "this one is replaced"
-      image: testimage
+    services_prefix: test_prefix
   portainer:
     # lists the portainer instances to call upon
     - url: http://portainer:9000
@@ -54,7 +57,7 @@ main:
     - service: mattermost
       url: http://mattermost.com
       message: "[A new staging version of oSparc has been deployed !!!](the_url_to_go_for/)"
-      enabled: false
+      enabled: true
       channel_id: some_token
       personal_token: some_token
       header_unique_name: master

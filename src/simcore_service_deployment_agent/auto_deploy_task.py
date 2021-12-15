@@ -1,12 +1,17 @@
 import asyncio
+import copy
+import json
 import logging
 import tempfile
+from asyncio.exceptions import CancelledError
 from pathlib import Path
 from shutil import copy2
 from typing import Dict, List, Tuple
 
 import yaml
 from aiohttp import ClientError, ClientSession, web
+from aiohttp.client import ClientTimeout
+from aiohttp.client_exceptions import ClientConnectorError
 from servicelib.application_keys import APP_CONFIG_KEY
 from tenacity import (
     before_sleep_log,
@@ -19,7 +24,7 @@ from yarl import URL
 
 from . import portainer
 from .app_state import State
-from .cmd_utils import run_cmd_line
+from .cmd_utils import run_cmd_line_unsafe
 from .docker_registries_watcher import DockerRegistriesWatcher
 from .exceptions import ConfigurationError, DependencyNotReadyError
 from .git_url_watcher import GitUrlWatcher
@@ -28,7 +33,6 @@ from .subtask import SubTask
 
 log = logging.getLogger(__name__)
 TASK_NAME = __name__ + "_autodeploy_task"
-TASK_STATE = "{}_state".format(TASK_NAME)
 TASK_SESSION_NAME = __name__ + "session"
 
 
@@ -40,18 +44,31 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
     excluded_services = app_config["main"]["docker_stack_recipe"]["excluded_services"]
     excluded_volumes = app_config["main"]["docker_stack_recipe"]["excluded_volumes"]
     log.debug("filtering services and volumes")
-    with Path(stack_file).open() as fp:
+    with Path(stack_file).open("r+", encoding="UTF-8") as fp:
         stack_cfg = yaml.safe_load(fp)
         # remove excluded services
         for service in excluded_services:
             stack_cfg["services"].pop(service, None)
         # remove excluded volumes
         for volume in excluded_volumes:
-            stack_cfg["volumes"].pop(volume, None)
+            stack_cfg.get("volumes", {}).pop(volume, None)
         # remove build part, useless in a stack
         for service in stack_cfg["services"].keys():
             stack_cfg["services"][service].pop("build", None)
-        log.debug("filtered services: result in %s", stack_cfg)
+            # Taking care of wrong format in extra_hosts
+            if "extra_hosts" in stack_cfg["services"][service]:
+                if isinstance(stack_cfg["services"][service]["extra_hosts"], dict):
+                    if (
+                        len(stack_cfg["services"][service]["extra_hosts"].keys()) == 1
+                        and "" in stack_cfg["services"][service]["extra_hosts"]
+                    ):
+                        if stack_cfg["services"][service]["extra_hosts"][""] == "":
+                            stack_cfg["services"][service]["extra_hosts"] = []
+
+        log.debug(
+            "filtered services: result in:\n%s",
+            json.dumps(stack_cfg, indent=2, sort_keys=True),
+        )
         return stack_cfg
 
 
@@ -62,9 +79,9 @@ async def add_parameters(app_config: Dict, stack_cfg: Dict) -> Dict:
     log.debug("adding parameters to stack using %s", additional_parameters)
     for key, value in additional_parameters.items():
         if value and isinstance(value, dict):
-            for _, service_params in stack_cfg["services"].items():
+            for service_params in stack_cfg["services"].values():
                 if key in service_params:
-                    service_params[key].update(**value)
+                    service_params[key].update(value)
                 else:
                     service_params[key] = value
         elif value and isinstance(value, list):
@@ -103,7 +120,8 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
     dest_dir = stack_recipe_cfg["workdir"]
     if dest_dir == "temp":
         # create a temp folder
-        dest_dir = tempfile.TemporaryDirectory().name
+        directoryName = tempfile.mkdtemp()
+        dest_dir = copy.deepcopy(directoryName)
     elif dest_dir in git_repos:
         # we use one of the git repos
         dest_dir = git_repos[dest_dir].directory
@@ -132,8 +150,9 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
 
     # execute command if available
     if stack_recipe_cfg["command"]:
-        cmd = "cd {} && ".format(dest_dir) + stack_recipe_cfg["command"]
-        await run_cmd_line(cmd)
+        # The command in the stack_recipe might contain shell natives like pipes and cd
+        # Thus we run it in unsafe mode as a proper shell.
+        await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
     if not stack_file.exists():
         raise ConfigurationError(
@@ -209,8 +228,8 @@ async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
     log.debug("new stack config is\n%s", stack_file)
     # change services names to avoid conflicts in common networks
     stack_cfg = await add_prefix_to_services(app_config, stack_cfg)
-    log.debug("final stack config is: %s", stack_cfg)
-
+    log.debug("final stack config is:")
+    log.debug(json.dumps(stack_cfg, indent=4, sort_keys=True))
     return stack_cfg
 
 
@@ -226,6 +245,7 @@ async def check_changes(subtasks: List[SubTask]) -> Dict:
     stop=stop_after_attempt(RETRY_COUNT),
     before_sleep=before_sleep_log(log, logging.INFO),
     retry=retry_if_exception_type(DependencyNotReadyError),
+    reraise=True,
 )
 async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
     log.info("waiting for dependencies to start...")
@@ -238,9 +258,11 @@ async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
                 url, app_session, config["username"], config["password"]
             )
             log.info("portainer at %s ready", url)
-        except ClientError:
+        except (ClientError, ClientConnectorError) as e:
             log.exception("portainer not ready at %s", url)
-            raise DependencyNotReadyError("Portainer not ready at {}".format(url))
+            raise DependencyNotReadyError(
+                "Portainer not ready at {}".format(url)
+            ) from e
 
 
 async def _init_deploy(
@@ -249,7 +271,7 @@ async def _init_deploy(
     try:
         log.info("initialising...")
         # get configs
-        app[TASK_STATE] = State.STARTING
+        app["state"][TASK_NAME] = State.STARTING
         app_config = app[APP_CONFIG_KEY]
         app_session = app[TASK_SESSION_NAME]
         # wait for portainer to be available
@@ -272,22 +294,14 @@ async def _init_deploy(
         await notify_state(
             app_config,
             app_session,
-            state=app[TASK_STATE],
+            state=app["state"][TASK_NAME],
             message=descriptions[main_repo] if main_repo in descriptions else "",
         )
         log.info("initialisation completed")
         return (git_task, docker_task)
     except asyncio.CancelledError:
-        log.info("cancelling task...")
-        app[TASK_STATE] = State.STOPPED
+        log.info("task cancelled")
         raise
-    except Exception:
-        log.exception("Task closing:")
-        app[TASK_STATE] = State.FAILED
-        raise
-    finally:
-        # cleanup the subtasks
-        log.info("task completed...")
 
 
 async def _deploy(
@@ -312,7 +326,10 @@ async def _deploy(
     main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
     if main_repo in changes:
         await notify_state(
-            app_config, app_session, state=app[TASK_STATE], message=changes[main_repo]
+            app_config,
+            app_session,
+            state=app["state"][TASK_NAME],
+            message=changes[main_repo],
         )
     log.info("stack re-deployed")
     return docker_task
@@ -323,24 +340,36 @@ async def auto_deploy(app: web.Application):
     app_config = app[APP_CONFIG_KEY]
     app_session = app[TASK_SESSION_NAME]
     # init
-    git_task, docker_task = await _init_deploy(app)
+    try:
+        git_task, docker_task = await _init_deploy(app)
+    except CancelledError:
+        app["state"][TASK_NAME] = State.STOPPED
+        return
+    except Exception:  # pylint: disable=broad-except
+        log.exception("Error while initializing deployment: ", exc_info=True)
+        # this will trigger a restart from the docker swarm engine
+        app["state"][TASK_NAME] = State.FAILED
+        return
     # loop forever to detect changes
     while True:
         try:
-            app[TASK_STATE] = State.RUNNING
+            app["state"][TASK_NAME] = State.RUNNING
             docker_task = await _deploy(app, git_task, docker_task)
             await asyncio.sleep(app_config["main"]["polling_interval"])
         except asyncio.CancelledError:
             log.info("cancelling task...")
-            app[TASK_STATE] = State.STOPPED
-            raise
+            app["state"][TASK_NAME] = State.STOPPED
+            break
         except Exception as exc:  # pylint: disable=broad-except
             # some unknown error happened, let's wait 5 min and restart
             log.exception("Task error:")
-            if app[TASK_STATE] != State.PAUSED:
-                app[TASK_STATE] = State.PAUSED
+            if app["state"][TASK_NAME] != State.PAUSED:
+                app["state"][TASK_NAME] = State.PAUSED
                 await notify_state(
-                    app_config, app_session, state=app[TASK_STATE], message=str(exc)
+                    app_config,
+                    app_session,
+                    state=app["state"][TASK_NAME],
+                    message=str(exc),
                 )
             await asyncio.sleep(300)
         finally:
@@ -350,21 +379,25 @@ async def auto_deploy(app: web.Application):
 
 def setup(app: web.Application):
     app.cleanup_ctx.append(persistent_session)
-    app.cleanup_ctx.append(background_task)
+    try:
+        app.cleanup_ctx.append(background_task)
+    except asyncio.CancelledError:
+        print("We Encountered an error in running the deployment agent:")
 
 
 async def background_task(app: web.Application):
-    app[TASK_STATE] = State.STARTING
+    app["state"] = {TASK_NAME: State.STARTING}
     app[TASK_NAME] = asyncio.get_event_loop().create_task(auto_deploy(app))
     yield
     task = app[TASK_NAME]
     task.cancel()
+    await task
 
 
 async def persistent_session(app):
-    app[TASK_SESSION_NAME] = session = ClientSession()
-    yield
-    await session.close()
+    async with ClientSession(timeout=ClientTimeout(5)) as session:
+        app[TASK_SESSION_NAME] = session
+        yield
 
 
-__all__ = "setup"
+__all__ = ["setup"]

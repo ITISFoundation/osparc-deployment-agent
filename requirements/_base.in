@@ -3,13 +3,12 @@
 #
 
 aiohttp
-openapi-core
 docker
-psycopg2-binary
 ptvsd
 semantic_version
 tenacity
 trafaret_config
+werkzeug
 
-
-attrs<=17.4.0 ## BUG: https://github.com/avast/pytest-docker bug. convert argument is deprecated since  17.4: https://www.attrs.org/en/stable/api.html#attr.ib
+# osparc-simcore packages
+simcore-service-library @ git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library

@@ -14,6 +14,7 @@ Why does this file exist, and why not put this in __main__?
 
 """
 import argparse
+import json
 import logging
 import os
 import sys
@@ -52,7 +53,7 @@ setup(parser)
 
 
 def parse(args, _parser):
-    """ Parse options and returns a configuration object """
+    """Parse options and returns a configuration object"""
     if args is None:
         args = sys.argv[1:]
 
@@ -74,4 +75,6 @@ def main(config=None):
     )
     logging.getLogger().setLevel(getattr(logging, log_level))
 
+    log.debug("We read the following configuration:")
+    log.debug(json.dumps(config, indent=4, sort_keys=True))
     application.run(config)
