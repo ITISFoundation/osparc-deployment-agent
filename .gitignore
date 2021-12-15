@@ -128,9 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# IDEs config
-.vscode/launch.json
-.vscode/settings.json
+# IDEs config (except templates)
+.vscode/*
+!.vscode/*.template.json
 
 # outputs from make
 .stack.*.yml
