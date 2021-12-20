@@ -139,6 +139,8 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
     ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
     all_tags = await run_cmd_line(cmd, str(directory))
     all_tags = all_tags.split("\n")
+    print("all_tags:")
+    print(all_tags)
 
     cmd2 = ["git", "rev-parse", "HEAD"]
     shaToBeFound = await run_cmd_line(cmd2, str(directory))
