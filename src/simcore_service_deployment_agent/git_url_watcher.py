@@ -121,9 +121,11 @@ async def _git_get_latest_matching_tag(
     if all_tags == None:
         return None
     all_tags = all_tags.split("\n")
+    print("latestMatching All tags:")
+    print(all_tags)
     all_tags = [tag for tag in all_tags if tag != ""]
     list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
-    print("Latest tag:")
+    print("latestMatching Latest tag:")
     print(list_tags[-1] if list_tags else None)
     return list_tags[-1] if list_tags else None
 
