@@ -123,6 +123,8 @@ async def _git_get_latest_matching_tag(
     all_tags = all_tags.split("\n")
     all_tags = [tag for tag in all_tags if tag != ""]
     list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
+    print("Latest tag:")
+    print(list_tags[-1] if list_tags else None)
     return list_tags[-1] if list_tags else None
 
 
