@@ -220,8 +220,6 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    print("change_results")
-    print(change_results)
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
     assert change_results == {REPO_ID: f"{REPO_ID}:{BRANCH}:{NEW_VALID_TAG}:{git_sha}"}
 
@@ -243,7 +241,6 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     latestTag = await git_url_watcher._git_get_latest_matching_tag(
         git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
     )
-    print(latestTag)
     assert latestTag == NEW_VALID_TAG_ON_SAME_SHA
     #
     await git_watcher.cleanup()

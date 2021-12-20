@@ -121,12 +121,8 @@ async def _git_get_latest_matching_tag(
     if all_tags == None:
         return None
     all_tags = all_tags.split("\n")
-    print("latestMatching All tags:")
-    print(all_tags)
     all_tags = [tag for tag in all_tags if tag != ""]
     list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
-    print("latestMatching Latest tag:")
-    print(list_tags[0] if list_tags else None)
     return list_tags[0] if list_tags else None
 
 
@@ -143,28 +139,18 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
     ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
     all_tags = await run_cmd_line(cmd, str(directory))
     all_tags = all_tags.split("\n")
-    print("all_tags:")
-    print(all_tags)
 
     cmd2 = ["git", "rev-parse", "HEAD"]
     shaToBeFound = await run_cmd_line(cmd2, str(directory))
-    print("shaToBeFound")
-    print(shaToBeFound)
     shaToBeFound = shaToBeFound.split("\n")[0]
 
     associatedTagsFound = []
     for tag in all_tags:
         if shaToBeFound in tag:
             associatedTagsFound.append(tag.split()[-1].split("/")[-1])
-    print("associatedTagsFound:")
-    print(associatedTagsFound)
-    print("regex:")
-    print(regexp)
     foundMatchingTags = []
     for i in associatedTagsFound:
         foundMatchingTags += re.findall(reg, i)
-    print("Current matching tags:")
-    print(foundMatchingTags)
     return foundMatchingTags
 
 
