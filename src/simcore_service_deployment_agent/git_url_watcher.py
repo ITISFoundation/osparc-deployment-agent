@@ -115,8 +115,7 @@ async def _git_get_latest_matching_tag(
         "git",
         "tag",
         "--list",
-        "--sort",
-        "-creatordate",
+        "--sort=-creatordate",
     ]  # | grep --extended-regexp --only-matching "{regexp}"']
     all_tags = await run_cmd_line(cmd, str(directory))
     if all_tags == None:
@@ -124,10 +123,6 @@ async def _git_get_latest_matching_tag(
     all_tags = all_tags.split("\n")
     all_tags = [tag for tag in all_tags if tag != ""]
     list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
-    print("Current matching tags creatordate:")
-    print(list_tags)
-    print("Latest tag:")
-    print(list_tags[-1])
     return list_tags[-1] if list_tags else None
 
 
