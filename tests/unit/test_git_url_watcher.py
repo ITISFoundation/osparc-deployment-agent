@@ -236,4 +236,12 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         REPO_ID: f"{REPO_ID}:{BRANCH}:{NEW_VALID_TAG_ON_SAME_SHA}:{git_sha}"
     }
 
+    # Check that tags are sorted in correct order, by tag time, not alphabetically
+    assert len(git_watcher.watched_repos) == 1
+    latestTag = await git_url_watcher._git_get_latest_matching_tag(
+        git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
+    )
+    print(latestTag)
+    assert latestTag == NEW_VALID_TAG_ON_SAME_SHA
+    #
     await git_watcher.cleanup()
