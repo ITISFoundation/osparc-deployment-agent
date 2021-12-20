@@ -214,7 +214,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
 
     NEW_VALID_TAG = "staging_g2ndvalid"
     _run_cmd(
-        f"git tag {NEW_VALID_TAG};",
+        f"git tag {NEW_VALID_TAG}; sleep 2",
         cwd=git_repo_path,
     )
     # now there should be changes
