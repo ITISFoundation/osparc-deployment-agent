@@ -1,4 +1,3 @@
-import logging
 import subprocess
 
 # pylint:disable=wildcard-import
@@ -16,8 +15,6 @@ import pytest
 from simcore_service_deployment_agent import git_url_watcher
 from simcore_service_deployment_agent.cmd_utils import CmdLineError
 from simcore_service_deployment_agent.exceptions import ConfigurationError
-
-log = logging.getLogger(__name__)
 
 
 @pytest.fixture()
@@ -240,13 +237,6 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    print(
-        _run_cmd(
-            'git for-each-ref --format="%(refname:short) | %(creatordate)" "refs/tags/*"',
-            cwd=git_repo_path,
-        )
-    )
-
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
     assert change_results[REPO_ID].split(":")[-1] == git_sha
 
@@ -257,7 +247,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=git_repo_path,
     )
-    NEW_VALID_TAG_ON_NEW_SHA = "staging_h5thvalid"
+    NEW_VALID_TAG_ON_NEW_SHA = "staging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=git_repo_path,
