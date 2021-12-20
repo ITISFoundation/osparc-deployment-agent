@@ -144,13 +144,15 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
 
     cmd2 = ["git", "rev-parse", "HEAD"]
     shaToBeFound = await run_cmd_line(cmd2, str(directory))
+    print("shaToBeFound")
+    print(shaToBeFound)
     shaToBeFound = shaToBeFound.split("\n")[0]
 
     associatedTagsFound = []
     for tag in all_tags:
         if shaToBeFound in tag:
             associatedTagsFound.append(tag.split()[-1].split("/")[-1])
-    print("all_tags:")
+    print("associatedTagsFound:")
     print(associatedTagsFound)
     print("regex:")
     print(regexp)
