@@ -253,7 +253,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         cwd=git_repo_path,
     )
     time.sleep(1.1)
-    # we should have no change here
+    # we should have a change here
     change_results = await git_watcher.check_for_changes()
     latestTag = await git_url_watcher._git_get_latest_matching_tag(
         git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
