@@ -1,11 +1,12 @@
+import subprocess
+
 # pylint:disable=wildcard-import
 # pylint:disable=unused-import
 # pylint:disable=unused-variable
 # pylint:disable=unused-argument
 # pylint:disable=redefined-outer-name
 # pylint:disable=bare-except
-
-import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -168,6 +169,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     ]
 
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files_tags)
+
     # the file does not exist yet
     with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
@@ -188,35 +190,38 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
 
     # now add a file in the repo
     _run_cmd(
-        "touch my_file.txt; git add .; git commit -m 'I added a file';",
+        "touch my_file.txt; git add .; git commit -m 'I added a file'",
         cwd=git_repo_path,
     )
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
-
+    time.sleep(1.1)
     # now modify theonefile.csv
     _run_cmd(
-        "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv';",
+        "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
         cwd=git_repo_path,
     )
+    time.sleep(1.1)
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
     INVALID_TAG = "v3.4.5"
     _run_cmd(
-        f"git tag {INVALID_TAG};",
+        f"git tag {INVALID_TAG}",
         cwd=git_repo_path,
     )
+    time.sleep(1.1)
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
 
     NEW_VALID_TAG = "staging_g2ndvalid"
     _run_cmd(
-        f"git tag {NEW_VALID_TAG};",
+        f"git tag {NEW_VALID_TAG}",
         cwd=git_repo_path,
     )
+    time.sleep(1.1)
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
@@ -228,12 +233,31 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=git_repo_path,
     )
+    time.sleep(1.1)
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert change_results == {
-        REPO_ID: f"{REPO_ID}:{BRANCH}:{NEW_VALID_TAG_ON_SAME_SHA}:{git_sha}"
-    }
+    assert change_results[REPO_ID].split(":")[-1] == git_sha
 
+    # Check that tags are sorted in correct order, by tag time, not alphabetically
+    assert len(git_watcher.watched_repos) == 1
+    NEW_VALID_TAG_ON_SAME_SHA = "staging_z4thvalid"
+    _run_cmd(
+        f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
+        cwd=git_repo_path,
+    )
+    NEW_VALID_TAG_ON_NEW_SHA = "staging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
+    _run_cmd(
+        f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
+        cwd=git_repo_path,
+    )
+    time.sleep(1.1)
+    # we should have a change here
+    change_results = await git_watcher.check_for_changes()
+    latestTag = await git_url_watcher._git_get_latest_matching_tag(
+        git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
+    )
+    assert latestTag == NEW_VALID_TAG_ON_NEW_SHA
+    #
     await git_watcher.cleanup()
