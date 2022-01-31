@@ -8,16 +8,16 @@
 import asyncio
 from asyncio import Future
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Awaitable, Callable, Dict, Iterator
 
 import aioresponses
 import pytest
 import yaml
+from aiohttp.test_utils import TestClient
 from aioresponses import aioresponses
-from pytest_aiohttp import TestClient
 
 # Monkeypatch the tenacity wait time https://stackoverflow.com/questions/47906671/python-retry-with-tenacity-disable-wait-for-unittest
-from tenacity import wait_none
+from tenacity.wait import wait_none
 
 from simcore_service_deployment_agent import auto_deploy_task, portainer
 from simcore_service_deployment_agent.app_state import State
@@ -39,6 +39,7 @@ def mocked_docker_registries_watcher(mocker) -> Dict[str, Any]:
             return_value={},
         ),
     }
+    return mock_docker_watcher
 
 
 @pytest.fixture()
@@ -49,6 +50,7 @@ def mocked_git_url_watcher(mocker) -> Dict[str, Any]:
             GitUrlWatcher, "check_for_changes", return_value={}
         ),
     }
+    return mock_git_changes
 
 
 @pytest.fixture(scope="session")
@@ -66,9 +68,9 @@ def mock_stack_config() -> Dict[str, Any]:
 @pytest.fixture()
 def mocked_stack_file(
     valid_config: Dict[str, Any], mock_stack_config: Dict[str, Any]
-) -> Path:
+) -> Iterator[Path]:
     file_name = Path(valid_config["main"]["docker_stack_recipe"]["stack_file"])
-    with file_name.open("w") as fp:
+    with file_name.open("w", encoding="utf-8") as fp:
         yaml.safe_dump(mock_stack_config, fp)
     yield file_name
     file_name.unlink()
@@ -78,10 +80,10 @@ def mocked_stack_file(
 def client(
     loop: asyncio.AbstractEventLoop,
     aiohttp_unused_port: Callable[[], int],
-    aiohttp_client: TestClient,
+    aiohttp_client: Callable[..., Awaitable[TestClient]],
     valid_config: Dict[str, Any],
     monkeypatch,
-) -> TestClient:
+) -> Iterator[TestClient]:
     # increase the speed to fail
     monkeypatch.setattr(auto_deploy_task, "RETRY_COUNT", 2)
     monkeypatch.setattr(auto_deploy_task, "RETRY_WAIT_SECS", 1)
@@ -99,6 +101,7 @@ def test_client(portainer_service_mock: aioresponses, client: TestClient):
 
 
 async def test_wait_for_dependencies_no_portainer_up(client: TestClient):
+    assert client.app  # nosec
     # wait for the app to start
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)
@@ -116,7 +119,9 @@ async def test_filter_services(
     assert "build" not in stack_cfg["services"]["anotherapp"]
 
 
-async def test_add_parameters(valid_config: Dict[str, Any], valid_docker_stack: Path):
+async def test_add_parameters(
+    valid_config: Dict[str, Any], valid_docker_stack: Dict[str, Any]
+):
     stack_cfg = await auto_deploy_task.add_parameters(valid_config, valid_docker_stack)
     assert "extra_hosts" in stack_cfg["services"]["app"]
     hosts = stack_cfg["services"]["app"]["extra_hosts"]
@@ -161,6 +166,7 @@ async def test_setup_task(
     mattermost_service_mock: aioresponses,
     client: TestClient,
 ):
+    assert client.app
     assert auto_deploy_task.TASK_NAME in client.app
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)
