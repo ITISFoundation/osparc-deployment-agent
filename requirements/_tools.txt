@@ -6,7 +6,7 @@
 #
 backports.entry-points-selectable==1.1.1
     # via virtualenv
-black==21.12b0
+black==22.1.0
     # via -r requirements/devenv.txt
 bump2version==1.0.1
     # via -r requirements/devenv.txt
@@ -62,11 +62,6 @@ tomli==1.2.2
     #   -c requirements/_test.txt
     #   black
     #   pep517
-typing-extensions==4.0.1
-    # via
-    #   -c requirements/_base.txt
-    #   -c requirements/_test.txt
-    #   black
 virtualenv==20.10.0
     # via pre-commit
 watchdog[watchmedo]==2.1.6
