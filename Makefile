@@ -12,12 +12,6 @@ APP_PACKAGE_NAME  = $(subst -,_,$(APP_CLI_NAME))
 APP_VERSION      := $(shell cat VERSION)
 SRC_DIR           = $(abspath $(CURDIR)/src/$(APP_PACKAGE_NAME))
 STACK_NAME        = $(APP_NAME)
-$(info APP_NAME set to ${APP_NAME})
-$(info APP_CLI_NAME set to ${APP_CLI_NAME})
-$(info STACK_NAME set to ${STACK_NAME})
-$(info SIMCORE_STACK_NAME set to ${SIMCORE_STACK_NAME})
-$(info PREFIX_STACK_NAME set to ${PREFIX_STACK_NAME})
-$(info DEPLOYMENT_AGENT_CONFIG set to ${DEPLOYMENT_AGENT_CONFIG})
 
 #
 export DOCKER_IMAGE_TAG ?= latest
@@ -139,10 +133,12 @@ test-dev: test-dev-unit test-dev-integration ## runs unit and integration tests 
 
 .PHONY: devenv devenv-all
 
+
 .venv:
+	# https://github.com/jazzband/pip-tools/issues/1558 pip-compile fails since pip==22.0
 	python3 -m venv $@
 	$@/bin/pip3 install --upgrade \
-		pip \
+		"pip<22.0" \
 		wheel \
 		setuptools
 

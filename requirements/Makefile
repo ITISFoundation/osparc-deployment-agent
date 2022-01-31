@@ -8,13 +8,14 @@ REPO_BASE_DIR := $(shell git rev-parse --show-toplevel)
 .PHONY: touch reqs check clean help
 .DEFAULT_GOAL := help
 
-UPGRADE_OPTION := $(if $(upgrade),--upgrade-package $(upgrade),--upgrade)
+DO_CLEAN_OR_UPGRADE:=$(if $(clean),,--upgrade)
+UPGRADE_OPTION := $(if $(upgrade),--upgrade-package $(upgrade),$(DO_CLEAN_OR_UPGRADE))
 
 
-objects = $(wildcard *.in)
+objects = $(sort $(wildcard *.in))
 outputs := $(objects:.in=.txt)
 
-reqs: $(outputs) ## pip-compiles all requirements/*.txt -> requirements/*.in; make reqs upgrade=foo will only upgrade package foo
+reqs: $(outputs) ## pip-compiles all requirements/*.in -> requirements/*.txt; make reqs upgrade=foo will only upgrade package foo
 
 touch:
 	@$(foreach p,${objects},touch ${p};)
@@ -39,9 +40,12 @@ help: ## this colorful help
 
 # ------------------------------------------------------------------------------------------
 # NOTE: runs above requirememts/ such that comments sync with dependabot's
+# NOTE: adds --strip-extras since compiled reqs (*.txt) freezes the dependencies. This also simplifies
+#       extracting subsets of requiremenst like e.g _dask-distributed.* and _dask-complete.*
+#
 %.txt: %.in
 	cd ..; \
-	pip-compile $(UPGRADE_OPTION) --build-isolation --output-file requirements/$@ requirements/$<
+	pip-compile $(UPGRADE_OPTION) --build-isolation --strip-extras --output-file requirements/$@ requirements/$<
 
 _test.txt: _base.txt
 
