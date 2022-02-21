@@ -86,7 +86,7 @@ pyyaml==6.0
     #   trafaret-config
 requests==2.27.1
     # via docker
-semantic_version==2.9.0
+semantic-version==2.9.0
     # via -r requirements/_base.in
 simcore-service-library @ git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library
     # via -r requirements/_base.in
@@ -120,7 +120,7 @@ urllib3==1.26.8
     # via requests
 websocket-client==1.2.3
     # via docker
-werkzeug==2.0.2
+werkzeug==2.0.3
     # via
     #   -r requirements/_base.in
     #   simcore-service-library
