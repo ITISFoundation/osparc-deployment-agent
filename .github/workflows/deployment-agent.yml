@@ -42,7 +42,7 @@ jobs:
           version: ${{ matrix.docker_buildx }}
           driver: docker
       - name: setup python environment
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python }}
       - name: show system versions
@@ -82,7 +82,7 @@ jobs:
           version: ${{ matrix.docker_buildx }}
           driver: docker
       - name: setup python environment
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python }}
       - name: show system versions
@@ -130,7 +130,7 @@ jobs:
       - name: Install envsubst
         run: sudo apt update && sudo apt-get install -y gettext-base
       - name: setup python environment
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python }}
       - name: show system versions
