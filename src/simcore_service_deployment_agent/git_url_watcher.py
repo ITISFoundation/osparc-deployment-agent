@@ -70,7 +70,7 @@ async def _git_clone_repo(
 
 
 async def _git_get_current_sha(directory: Path) -> str:
-    cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
+    cmd = ["git", "rev-parse", "--short", "HEAD"]
     sha = await run_cmd_line(cmd, str(directory))
     return sha.strip("\n")
 
