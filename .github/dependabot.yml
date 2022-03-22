@@ -7,7 +7,7 @@ updates:
       time: "04:00"
     open-pull-requests-limit: 10
     reviewers:
-      - surfict
+      - mrnicegyu11
       - sanderegg
     assignees:
       - sanderegg
@@ -18,7 +18,7 @@ updates:
       # Check for updates to GitHub Actions every weekday
       interval: "weekly"
     reviewers:
-      - surfict
+      - mrnicegyu11
       - pcrespov
     assignees:
       - sanderegg
