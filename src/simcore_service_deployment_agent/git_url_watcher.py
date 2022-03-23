@@ -69,10 +69,18 @@ async def _git_clone_repo(
     await run_cmd_line(cmd)
 
 
-async def _git_get_current_sha(directory: Path) -> str:
+async def _git_get_FETCH_HEAD_sha(directory: Path) -> str:
     cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
     sha = await run_cmd_line(cmd, str(directory))
     return sha.strip("\n")
+
+
+async def _git_get_sha_of_tag(directory: Path, tag: str) -> str:
+    cmd = ["git", "rev-list", "-1", "--sparse", tag]
+    sha_long = await run_cmd_line(cmd, str(directory))
+    cmd = ["git", "rev-parse", "--short", sha_long.strip("\n")]
+    sha_short = await run_cmd_line(cmd, str(directory))
+    return sha_short.strip("\n")
 
 
 async def _git_clean_repo(directory: Path):
@@ -247,7 +255,12 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
 
         await _checkout_repository(repo, latest_tag)
         log.info("repository %s checked out on %s", repo, latest_tag)
-        sha = await _git_get_current_sha(repo.directory)
+        # If no tag: fetch head
+        # if tag: sha of tag
+        if repo.tags:
+            sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
+        else:
+            sha = await _git_get_FETCH_HEAD_sha(repo.directory)
         log.debug("sha for %s is %s", repo.repo_id, sha)
         description[repo.repo_id] = (
             f"{repo.repo_id}:{repo.branch}:{latest_tag}:{sha}"
@@ -292,7 +305,7 @@ async def _update_repo_using_tags(
     log.info("New tag %s  checked out", latest_tag)
 
     # if the tag changed, an update is needed even if no files were changed
-    sha = await _git_get_current_sha(repo.directory)
+    sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
     return f"{repo.repo_id}:{repo.branch}:{latest_tag}:{sha}"
 
 
@@ -319,7 +332,7 @@ async def _update_repo_using_branch_head(
         return
 
     log.info("File %s changed!!", common_files)
-    sha = await _git_get_current_sha(repo.directory)
+    sha = await _git_get_FETCH_HEAD_sha(repo.directory)
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
