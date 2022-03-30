@@ -89,3 +89,24 @@ async def test_docker_registries_watcher(
         "ubuntu": "image signature changed",
     }
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
+
+    # Handle the failure of fetching an image
+    mock_docker_client.return_value.images.get_registry_data.return_value.attrs = {
+        "Descriptor": "somenewsignature2"
+    }
+    mock_docker_client.return_value.images.get_registry_data.side_effect = (
+        docker.errors.APIError("Mocked Error Image cant be fetched")
+    )
+    change_result = await docker_watcher.check_for_changes()
+    assert change_result == {}
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
+    mock_docker_client.return_value.images.get_registry_data.return_value.attrs = {
+        "Descriptor": "somenewsignature3"
+    }
+    mock_docker_client.return_value.images.get_registry_data.side_effect = None
+    change_result = await docker_watcher.check_for_changes()
+    assert change_result == {
+        "jenkins:latest": "image signature changed",
+        "ubuntu": "image signature changed",
+    }
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
