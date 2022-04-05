@@ -90,9 +90,31 @@ async def test_docker_registries_watcher(
     }
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
 
+
+
+async def test_docker_registries_watcher_when_registry_fetch_fails(
+    loop,
+    mock_docker_client,
+    valid_config: Dict[str, Any],
+    valid_docker_stack: Dict[str, Any],
+):
+    docker_registries_watcher.NUMBER_OF_ATTEMPS = 1
+    docker_registries_watcher.MAX_TIME_TO_WAIT_S = 1
+    registry_config = valid_config["main"]["docker_private_registries"][0]
+    docker_watcher = docker_registries_watcher.DockerRegistriesWatcher(
+        valid_config, valid_docker_stack
+    )
+    # initialize it now
+    await docker_watcher.init()
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
+
+    # check there is no change for now
+    assert not await docker_watcher.check_for_changes()
+    _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
+
     # Handle the failure of fetching an image
     mock_docker_client.return_value.images.get_registry_data.return_value.attrs = {
-        "Descriptor": "somenewsignature2"
+        "Descriptor": "somenewsignature"
     }
     mock_docker_client.return_value.images.get_registry_data.side_effect = (
         docker.errors.APIError("Mocked Error Image cant be fetched")
@@ -101,7 +123,7 @@ async def test_docker_registries_watcher(
     assert change_result == {}
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
     mock_docker_client.return_value.images.get_registry_data.return_value.attrs = {
-        "Descriptor": "somenewsignature3"
+        "Descriptor": "somenewsignature2"
     }
     mock_docker_client.return_value.images.get_registry_data.side_effect = None
     change_result = await docker_watcher.check_for_changes()
