@@ -63,7 +63,10 @@ class DockerRegistriesWatcher(SubTask):
                         "could not find image %s, maybe a new image was added to the stack??",
                         repo["image"],
                     )
-                    repo["registry_data_attrs"] = ""
+                    # We null the content of repo["registry_data_attrs"].
+                    # In check_for_changes(), it is expected that repo["registry_data_attrs"] is a dict with a key
+                    # named "Descriptor", so we add it empty.
+                    repo["registry_data_attrs"] = {}
         log.debug("docker watcher initialised")
 
     @retry(
@@ -79,7 +82,7 @@ class DockerRegistriesWatcher(SubTask):
                 try:
                     registry_data = client.images.get_registry_data(repo["image"])
                     if (
-                        repo["registry_data_attrs"]["Descriptor"]
+                        repo["registry_data_attrs"].get("Descriptor")
                         != registry_data.attrs["Descriptor"]
                     ):
                         log.info(
