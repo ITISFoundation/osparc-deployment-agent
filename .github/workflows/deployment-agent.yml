@@ -59,7 +59,7 @@ jobs:
         run: ./ci/github/unit-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/unit-testing/deployment-agent.bash test
-      - uses: codecov/codecov-action@v3.0.0
+      - uses: codecov/codecov-action@v3.1.0
         with:
           flags: unittests #optional
 
@@ -99,7 +99,7 @@ jobs:
         run: ./ci/github/integration-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/integration-testing/deployment-agent.bash test
-      - uses: codecov/codecov-action@v3.0.0
+      - uses: codecov/codecov-action@v3.1.0
         with:
           flags: integrationtests #optional
 
@@ -147,7 +147,7 @@ jobs:
         run: ./ci/github/system-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/system-testing/deployment-agent.bash test
-      - uses: codecov/codecov-action@v3.0.0
+      - uses: codecov/codecov-action@v3.1.0
         with:
           flags: systemtests #optional
       - name: set owner variable
