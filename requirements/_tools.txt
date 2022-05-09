@@ -39,7 +39,7 @@ platformdirs==2.4.1
     #   -c requirements/_test.txt
     #   black
     #   virtualenv
-pre-commit==2.18.1
+pre-commit==2.19.0
     # via -r requirements/devenv.txt
 pyyaml==6.0
     # via
