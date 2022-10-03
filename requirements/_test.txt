@@ -129,7 +129,7 @@ pytest-mock==3.7.0
     # via -r requirements/_test.in
 pytest-runner==6.0.0
     # via -r requirements/_test.in
-pytest-sugar==0.9.4
+pytest-sugar==0.9.5
     # via -r requirements/_test.in
 pytest-xdist==2.5.0
     # via -r requirements/_test.in
