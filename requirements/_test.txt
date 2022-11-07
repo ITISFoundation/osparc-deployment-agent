@@ -93,7 +93,7 @@ ptvsd==4.3.2
     # via
     #   -c requirements/_base.txt
     #   -r requirements/_test.in
-pylint==2.14.4
+pylint==2.14.5
     # via -r requirements/_test.in
 pyparsing==3.0.7
     # via packaging
