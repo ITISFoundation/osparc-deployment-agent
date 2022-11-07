@@ -100,7 +100,7 @@ sqlalchemy==1.4.31
     #   simcore-service-library
 strict-rfc3339==0.7
     # via openapi-core
-tenacity==8.0.1
+tenacity==8.1.0
     # via
     #   -r requirements/_base.in
     #   simcore-service-library
