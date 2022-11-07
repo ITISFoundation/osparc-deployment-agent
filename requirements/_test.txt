@@ -121,7 +121,7 @@ pytest-cov==3.0.0
     # via -r requirements/_test.in
 pytest-forked==1.4.0
     # via pytest-xdist
-pytest-icdiff==0.5
+pytest-icdiff==0.6
     # via -r requirements/_test.in
 pytest-instafail==0.4.2
     # via -r requirements/_test.in
