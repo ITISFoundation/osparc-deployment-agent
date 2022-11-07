@@ -1,5 +1,5 @@
 # NOTE: this is a trial to auto-approve PRs from dependabot
-# Reference: https://nicolasiensen.github.io/2022-07-23-automating-dependency-updates-with-dependabot-github-auto-merge-and-github-actions/s
+# Reference: https://nicolasiensen.github.io/2022-07-23-automating-dependency-updates-with-dependabot-github-auto-merge-and-github-actions/
 
 name: Dependabot reviewer
 
