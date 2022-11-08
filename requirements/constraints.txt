@@ -1,0 +1,2 @@
+# incompatibilities with osparc-servicelib
+openapi-spec-validator<0.5.0
