@@ -5,8 +5,8 @@
 import logging
 
 from aiohttp import web
-from servicelib.rest_responses import wrap_as_envelope
-from servicelib.rest_utils import body_to_dict, extract_and_validate
+from servicelib.aiohttp.rest_responses import wrap_as_envelope
+from servicelib.aiohttp.rest_utils import body_to_dict, extract_and_validate
 
 from . import __version__
 from .app_state import State
