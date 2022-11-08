@@ -135,10 +135,9 @@ test-dev: test-dev-unit test-dev-integration ## runs unit and integration tests 
 
 
 .venv:
-	# https://github.com/jazzband/pip-tools/issues/1558 pip-compile fails since pip==22.0
 	python3 -m venv $@
 	$@/bin/pip3 install --upgrade \
-		"pip<22.0" \
+		pip \
 		wheel \
 		setuptools
 
