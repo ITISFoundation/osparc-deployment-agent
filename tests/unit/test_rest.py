@@ -6,15 +6,11 @@ import logging
 import sys
 from pathlib import Path
 
-import openapi_core
 import pytest
 import yaml
 from aiohttp import web
-from servicelib.application_keys import APP_CONFIG_KEY, APP_OPENAPI_SPECS_KEY
-from servicelib.rest_responses import unwrap_envelope
+from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
 
-import simcore_service_deployment_agent
-from simcore_service_deployment_agent import resources, rest
 from simcore_service_deployment_agent.rest import setup_rest
 
 logging.basicConfig(level=logging.INFO)

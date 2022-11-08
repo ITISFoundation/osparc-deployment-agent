@@ -12,7 +12,7 @@ import yaml
 from aiohttp import ClientError, ClientSession, web
 from aiohttp.client import ClientTimeout
 from aiohttp.client_exceptions import ClientConnectorError
-from servicelib.application_keys import APP_CONFIG_KEY
+from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
 from tenacity import (
     before_sleep_log,
     retry,
