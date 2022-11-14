@@ -39,7 +39,7 @@ pathspec==0.10.1
     # via black
 pep517==0.13.0
     # via build
-pip-tools==6.9.0
+pip-tools==6.10.0
     # via -r requirements/devenv.txt
 platformdirs==2.5.3
     # via
@@ -60,17 +60,6 @@ pyyaml==6.0
     #   watchdog
 toml==0.10.2
     # via pre-commit
-tomli==2.0.1
-    # via
-    #   -c requirements/_test.txt
-    #   black
-    #   build
-    #   pep517
-typing-extensions==4.4.0
-    # via
-    #   -c requirements/_base.txt
-    #   -c requirements/_test.txt
-    #   black
 virtualenv==20.16.6
     # via pre-commit
 watchdog==2.1.9
