@@ -5,7 +5,7 @@
 import logging
 
 from aiohttp import web
-from servicelib.application_keys import APP_CONFIG_KEY
+from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
 
 from .auto_deploy_task import setup as setup_auto_deploy_task
 from .rest import setup_rest

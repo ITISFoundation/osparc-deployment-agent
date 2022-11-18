@@ -1,6 +1,9 @@
 #
 # Specifies third-party dependencies for 'services/deployment-agent/src'
 #
+--constraint ./constraints.txt
+# osparc-simcore packages
+simcore-service-library[aiohttp] @ git+https://github.com/ITISFoundation/osparc-simcore.git@ad3711e2e8bfcdb6d8970b98840da06e7b8aea9f#subdirectory=packages/service-library
 
 aiohttp
 docker
@@ -9,6 +12,3 @@ semantic_version
 tenacity
 trafaret_config
 werkzeug
-
-# osparc-simcore packages
-simcore-service-library @ git+https://github.com/ITISFoundation/osparc-simcore.git@9cf2f614bdf85c05e1770c75098bc40d5e88a18e#subdirectory=packages/service-library

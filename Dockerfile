@@ -80,7 +80,7 @@ RUN python -m venv "${VIRTUAL_ENV}"
 
 ARG DOCKER_COMPOSE_VERSION="1.27.4"
 RUN pip --no-cache-dir install --upgrade \
-  pip~=20.2.3  \
+  pip  \
   wheel \
   setuptools \
   docker-compose~=${DOCKER_COMPOSE_VERSION}
