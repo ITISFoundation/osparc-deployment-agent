@@ -158,6 +158,14 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
         raise ConfigurationError(
             "The stack file {} does not exist".format(stack_file.name)
         )
+    if (
+        stack_file.stat().st_size == 0
+    ):  # Filesize check via https://stackoverflow.com/a/55949699
+        raise ConfigurationError(
+            "The stack file {} is empty (0 bytes). Likely your console call to create it failed.".format(
+                stack_file.name
+            )
+        )
     return stack_file
 
 
