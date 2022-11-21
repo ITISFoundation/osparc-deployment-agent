@@ -138,3 +138,6 @@ dmypy.json
 
 deployment_config.*
 !deployment_config.template.yaml
+
+# snyk
+.dccache

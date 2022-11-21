@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: setup docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: ${{ matrix.docker_buildx }}
           driver: docker
@@ -59,7 +59,7 @@ jobs:
         run: ./ci/github/unit-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/unit-testing/deployment-agent.bash test
-      - uses: codecov/codecov-action@v3.1.0
+      - uses: codecov/codecov-action@v3.1.1
         with:
           flags: unittests #optional
 
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: setup docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: ${{ matrix.docker_buildx }}
           driver: docker
@@ -99,7 +99,7 @@ jobs:
         run: ./ci/github/integration-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/integration-testing/deployment-agent.bash test
-      - uses: codecov/codecov-action@v3.1.0
+      - uses: codecov/codecov-action@v3.1.1
         with:
           flags: integrationtests #optional
 
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: setup docker buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: ${{ matrix.docker_buildx }}
           driver: docker
@@ -147,7 +147,7 @@ jobs:
         run: ./ci/github/system-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/system-testing/deployment-agent.bash test
-      - uses: codecov/codecov-action@v3.1.0
+      - uses: codecov/codecov-action@v3.1.1
         with:
           flags: systemtests #optional
       - name: set owner variable

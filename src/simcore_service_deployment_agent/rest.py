@@ -10,10 +10,10 @@ from pathlib import Path
 from pprint import pformat
 
 from aiohttp import web
-from servicelib import openapi
-from servicelib.application_keys import APP_CONFIG_KEY
-from servicelib.openapi import create_openapi_specs
-from servicelib.rest_middlewares import append_rest_middlewares
+from servicelib.aiohttp import openapi
+from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
+from servicelib.aiohttp.openapi import create_openapi_specs
+from servicelib.aiohttp.rest_middlewares import append_rest_middlewares
 from tenacity import before_sleep_log, retry, stop_after_attempt, wait_fixed
 from yarl import URL
 
