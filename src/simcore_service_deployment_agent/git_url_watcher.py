@@ -252,8 +252,17 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
             raise ConfigurationError(
                 msg=f"no tags found in {repo.repo_url}:{repo.branch} that follows defined tags pattern {repo.tags}: {latest_tag}"
             )
-
+        # This next call was introcued to fix a bug. It is necessary since calls to *_checkout_repository*
+        # may only check out files at certain tags while HEAD stays at origin/master.
+        # If HEAD!=latest_tag, subsequent calls to *_git_get_current_matching_tag*
+        # will return an empty list since HEAD==origin/master is not tagged. This will make the deployment agent fail.
+        # I'd call this a workaround and a design deficiency (DK Nov2022)
+        await _git_checkout_repo(repo.directory, latest_tag)
+        # This subsequent call, if repo.pull_only_files==true, will only checkout the specified files at the given revision
         await _checkout_repository(repo, latest_tag)
+        #
+        #
+        #
         log.info("repository %s checked out on %s", repo, latest_tag)
         # If no tag: fetch head
         # if tag: sha of tag
