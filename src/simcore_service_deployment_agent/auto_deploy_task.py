@@ -154,17 +154,10 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
         # Thus we run it in unsafe mode as a proper shell.
         await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
-    if not stack_file.exists():
+    # Filesize check via https://stackoverflow.com/a/55949699
+    if not stack_file.exists() or not stack_file.stat().st_size:
         raise ConfigurationError(
-            "The stack file {} does not exist".format(stack_file.name)
-        )
-    if (
-        stack_file.stat().st_size == 0
-    ):  # Filesize check via https://stackoverflow.com/a/55949699
-        raise ConfigurationError(
-            "The stack file {} is empty (0 bytes). Likely your console call to create it failed.".format(
-                stack_file.name
-            )
+            f"The generation of {stack_file=} failed using {stack_recipe_cfg['command']}. The file is non-existant or an empty file."
         )
     return stack_file
 

@@ -257,6 +257,7 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
         # If HEAD!=latest_tag, subsequent calls to *_git_get_current_matching_tag*
         # will return an empty list since HEAD==origin/master is not tagged. This will make the deployment agent fail.
         # I'd call this a workaround and a design deficiency (DK Nov2022)
+        # See github.com/ITISFoundation/osparc-deployment-agent/issues/118
         await _git_checkout_repo(repo.directory, latest_tag)
         # This subsequent call, if repo.pull_only_files==true, will only checkout the specified files at the given revision
         await _checkout_repository(repo, latest_tag)

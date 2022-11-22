@@ -42,9 +42,6 @@ async def run_cmd_line_unsafe(cmd: str, cwd_: str = ".") -> str:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd_,
-        env={
-            "PWD": cwd_,
-        },
     )
 
     stdout, stderr = await proc.communicate()
