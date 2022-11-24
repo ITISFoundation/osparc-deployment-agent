@@ -38,7 +38,10 @@ async def run_cmd_line(cmd: List[str], cwd_: str = ".") -> str:
 
 async def run_cmd_line_unsafe(cmd: str, cwd_: str = ".") -> str:
     proc = await asyncio.create_subprocess_shell(
-        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=cwd_
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd_,
     )
 
     stdout, stderr = await proc.communicate()
