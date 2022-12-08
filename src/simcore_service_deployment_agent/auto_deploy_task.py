@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import copy
 import json
 import logging
@@ -366,12 +367,13 @@ async def auto_deploy(app: web.Application):
             log.exception("Task error:")
             if app["state"][TASK_NAME] != State.PAUSED:
                 app["state"][TASK_NAME] = State.PAUSED
-                await notify_state(
-                    app_config,
-                    app_session,
-                    state=app["state"][TASK_NAME],
-                    message=str(exc),
-                )
+                with contextlib.supress(Exception):
+                    await notify_state(
+                        app_config,
+                        app_session,
+                        state=app["state"][TASK_NAME],
+                        message=str(exc),
+                    )
             await asyncio.sleep(300)
         finally:
             # cleanup the subtasks
