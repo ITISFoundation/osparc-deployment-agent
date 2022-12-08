@@ -367,7 +367,7 @@ async def auto_deploy(app: web.Application):
             log.exception("Task error:")
             if app["state"][TASK_NAME] != State.PAUSED:
                 app["state"][TASK_NAME] = State.PAUSED
-                with contextlib.supress(Exception):
+                with contextlib.suppress(Exception):
                     await notify_state(
                         app_config,
                         app_session,
