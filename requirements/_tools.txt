@@ -46,7 +46,7 @@ platformdirs==2.5.3
     #   -c requirements/_test.txt
     #   black
     #   virtualenv
-pre-commit==2.20.0
+pre-commit==2.21.0
     # via -r requirements/devenv.txt
 pyparsing==3.0.9
     # via
@@ -58,8 +58,6 @@ pyyaml==6.0
     #   -c requirements/_base.txt
     #   pre-commit
     #   watchdog
-toml==0.10.2
-    # via pre-commit
 virtualenv==20.16.6
     # via pre-commit
 watchdog==2.1.9
