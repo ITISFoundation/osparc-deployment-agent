@@ -280,6 +280,20 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
     return description
 
 
+# Todo test branch doesnt exist
+# todo test tag doesnt exist
+async def _check_if_tag_on_branch(repo: GitRepo, branch: str, tag: str) -> bool:
+    cmd = ["git", "branch", "--contains", "tags/" + tag]
+    data = await run_cmd_line(cmd, str(repo.directory))
+    if len(data) > 1:
+        log.error("More than one branch contain this tag. Aborting!")
+        raise RuntimeError("More than one branch contain this tag. Aborting!")
+    if "malformed object name" in data[0]:
+        log.error("Tag does not exist. Aborting!")
+        raise RuntimeError("Tag does not exist. Aborting!")
+    return branch in data[0]
+
+
 async def _update_repo_using_tags(
     repo: GitRepo,
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
@@ -346,14 +360,45 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(repos: List[GitRepo]) -> Dict:
+async def _check_repositories(
+    repos: List[GitRepo], syncedViaTags: bool = False
+) -> Dict:
     changes = {}
+    latestTags = [
+        {repo.id: _git_get_latest_matching_tag(repo.directory, repo.tags)}
+        for repo in repos
+    ]
+    if syncedViaTags:
+        if len(
+            list(
+                set(
+                    _git_get_latest_matching_tag(repo.directory, repo.tags)
+                    for repo in repos
+                )
+            )
+            > 1
+        ):
+            log.warning("Repos did not match in their latest tag!")
+            log.warning("We found the following latest tags:")
+            log.warning(
+                "Will only update those repos that match have no tag-regex specified!"
+            )
     for repo in repos:
+        if syncedViaTags and len(list(set(i for i in latestTags.values() if i))) > 1:
+            if repo.tags:
+                continue
         log.debug("checking repo: %s...", repo.repo_url)
         assert repo.directory
         await _git_fetch(repo.directory)
         await _git_clean_repo(repo.directory)
-
+        if repo.tags:
+            if not await _check_if_tag_on_branch(repo, repo.branch, repo.tags):
+                log.warning(
+                    "Specified Tag %s is not on branch %s. I will not update the git repo! Continuing...",
+                    repo.tags,
+                    repo.branch,
+                )
+                continue
         repo_changes = (
             await _update_repo_using_tags(repo)
             if repo.tags
@@ -375,6 +420,7 @@ class GitUrlWatcher(SubTask):
         super().__init__(name="git repo watcher")
         self.watched_repos = []
         watched_compose_files_config = app_config["main"]["watched_git_repositories"]
+        self.synced_via_tags = app_config["main"]["synced_via_tags"]
         for config in watched_compose_files_config:
             repo = GitRepo(
                 repo_id=config["id"],
@@ -399,7 +445,7 @@ class GitUrlWatcher(SubTask):
         after=after_log(log, logging.DEBUG),
     )
     async def check_for_changes(self) -> Dict:
-        return await _check_repositories(self.watched_repos)
+        return await _check_repositories(self.watched_repos, self.syncedViaTags)
 
     async def cleanup(self):
         await _delete_repositories(self.watched_repos)
