@@ -18,7 +18,7 @@ from tenacity import (
 from yarl import URL
 
 from .cmd_utils import run_cmd_line
-from .exceptions import ConfigurationError
+from .exceptions import CmdLineError, ConfigurationError
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
@@ -280,11 +280,15 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
     return description
 
 
-# Todo test branch doesnt exist
-# todo test tag doesnt exist
-async def _check_if_tag_on_branch(repo: GitRepo, branch: str, tag: str) -> bool:
+async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool:
     cmd = ["git", "branch", "--contains", "tags/" + tag]
-    data = await run_cmd_line(cmd, str(repo.directory))
+    try:
+        data = await run_cmd_line(cmd, repo_path)
+    except CmdLineError as e:
+        raise RuntimeError(
+            " ".join(cmd), "The command was invalid and the cmd call failed."
+        ) from e
+
     if len(data) > 1:
         log.error("More than one branch contain this tag. Aborting!")
         raise RuntimeError("More than one branch contain this tag. Aborting!")
@@ -365,7 +369,7 @@ async def _check_repositories(
 ) -> Dict:
     changes = {}
     latestTags = [
-        {repo.id: _git_get_latest_matching_tag(repo.directory, repo.tags)}
+        {repo.repo_id: _git_get_latest_matching_tag(repo.directory, repo.tags)}
         for repo in repos
     ]
     if syncedViaTags:
@@ -445,7 +449,7 @@ class GitUrlWatcher(SubTask):
         after=after_log(log, logging.DEBUG),
     )
     async def check_for_changes(self) -> Dict:
-        return await _check_repositories(self.watched_repos, self.syncedViaTags)
+        return await _check_repositories(self.watched_repos, self.synced_via_tags)
 
     async def cleanup(self):
         await _delete_repositories(self.watched_repos)
