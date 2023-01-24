@@ -168,6 +168,7 @@ async def test_setup_task(
 ):
     assert client.app
     assert auto_deploy_task.TASK_NAME in client.app
+    await asyncio.sleep(1)
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)
     assert client.app["state"][auto_deploy_task.TASK_NAME] == State.RUNNING
