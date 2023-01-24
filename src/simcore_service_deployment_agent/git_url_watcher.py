@@ -144,7 +144,7 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[st
         "show-ref",
         "--tags",
         "--dereference",
-    ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
+    ]
     all_tags = await run_cmd_line(cmd, str(directory))
     all_tags = all_tags.split("\n")
 
@@ -288,7 +288,6 @@ async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool
         raise RuntimeError(
             " ".join(cmd), "The command was invalid and the cmd call failed."
         ) from e
-
     if len(data) > 1:
         log.error("More than one branch contain this tag. Aborting!")
         raise RuntimeError("More than one branch contain this tag. Aborting!")
@@ -372,23 +371,22 @@ async def _check_repositories(
         {repo.repo_id: _git_get_latest_matching_tag(repo.directory, repo.tags)}
         for repo in repos
     ]
+    uniqueLatestTags = list(set(i.values()[0] for i in latestTags if i.values()[0]))
     if syncedViaTags:
-        if len(
-            list(
+        if len(uniqueLatestTags > 1):
+            log.info("Repos did not match in their latest tag!")
+            log.info("We found the following latest tags:")
+            log.info(
                 set(
                     _git_get_latest_matching_tag(repo.directory, repo.tags)
                     for repo in repos
                 )
             )
-            > 1
-        ):
-            log.warning("Repos did not match in their latest tag!")
-            log.warning("We found the following latest tags:")
-            log.warning(
+            log.info(
                 "Will only update those repos that match have no tag-regex specified!"
             )
     for repo in repos:
-        if syncedViaTags and len(list(set(i for i in latestTags.values() if i))) > 1:
+        if syncedViaTags and len(uniqueLatestTags) > 1:
             if repo.tags:
                 continue
         log.debug("checking repo: %s...", repo.repo_url)
@@ -396,12 +394,9 @@ async def _check_repositories(
         await _git_fetch(repo.directory)
         await _git_clean_repo(repo.directory)
         if repo.tags:
-            if not await _check_if_tag_on_branch(repo, repo.branch, repo.tags):
-                log.warning(
-                    "Specified Tag %s is not on branch %s. I will not update the git repo! Continuing...",
-                    repo.tags,
-                    repo.branch,
-                )
+            if not await _check_if_tag_on_branch(
+                repo.directory, repo.branch, latestTags[0].values()
+            ):
                 continue
         repo_changes = (
             await _update_repo_using_tags(repo)
