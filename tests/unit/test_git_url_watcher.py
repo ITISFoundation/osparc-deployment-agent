@@ -129,6 +129,8 @@ async def test_git_url_watcher_tag_sync(
     git_watcher = git_url_watcher.GitUrlWatcher(
         git_config_two_repos_synced_same_tag_regex
     )
+    with pytest.raises(ConfigurationError):
+        init_result = await git_watcher.init()
 
     # add a file, commit, and tag
     VALID_TAG = "staging_z1stvalid"
@@ -145,13 +147,49 @@ async def test_git_url_watcher_tag_sync(
             )
         )
     ]:
-        print(repo["url"])
         _run_cmd(
             f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
             cwd=repo["url"].replace("file://localhost", ""),
         )
+        assert await git_url_watcher._check_if_tag_on_branch(
+            repo["url"].replace("file://localhost", ""), BRANCH, VALID_TAG
+        )
+    init_result = await git_watcher.init()
+    assert not await git_watcher.check_for_changes()
+    time.sleep(1.1)
+    # Add change and tag in only one repo
+    VALID_TAG = "staging_a2ndvalid"
+    _run_cmd(
+        f"touch {TESTFILE_NAME}_2; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}_2'; git tag {VALID_TAG}",
+        cwd=LOCAL_PATH,
+    )
+    # we should have no change here, since the repos are synced.
+    change_results = await git_watcher.check_for_changes()
+    assert not change_results
+    time.sleep(1.1)
+    # Now change both repos
+    VALID_TAG = "staging_g2ndvalid"
+    for repo in [
+        git_config_two_repos_synced_same_tag_regex["main"]["watched_git_repositories"][
+            i
+        ]
+        for i in range(
+            len(
+                git_config_two_repos_synced_same_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]:
+        _run_cmd(
+            f"touch {TESTFILE_NAME}_3; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+    # now there should be changes
+    change_results = await git_watcher.check_for_changes()
+    assert change_results
+
     await git_watcher.cleanup()
-    assert git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, VALID_TAG)
 
 
 async def test_git_url_watcher_find_new_file(loop, git_config: Dict[str, Any]):
@@ -201,8 +239,9 @@ async def test_git_url_watcher_find_tag_on_branch_succeeds(
         f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
         cwd=LOCAL_PATH,
     )
-    assert git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, VALID_TAG)
-
+    assert await git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, VALID_TAG)
+    check_for_changes_result = await git_watcher.check_for_changes()
+    assert check_for_changes_result
     await git_watcher.cleanup()
 
 

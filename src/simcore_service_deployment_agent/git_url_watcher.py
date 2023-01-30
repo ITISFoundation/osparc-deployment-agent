@@ -384,21 +384,18 @@ async def _check_repositories(
     repos: List[GitRepo], syncedViaTags: bool = False
 ) -> Dict:
     changes = {}
+    for repo in repos:
+        log.debug("fetching repo: %s...", repo.repo_url)
+        assert repo.directory
+        await _git_fetch(repo.directory)
     latestTags = [
         {repo.repo_id: await _git_get_latest_matching_tag(repo.directory, repo.tags)}
         for repo in repos
     ]
     uniqueLatestTags = list(set(list(i.values())[0] for i in latestTags if i.values()))
     if syncedViaTags:
-        if len(uniqueLatestTags > 1):
+        if len(uniqueLatestTags) > 1:
             log.info("Repos did not match in their latest tag!")
-            log.info("We found the following latest tags:")
-            log.info(
-                set(
-                    await _git_get_latest_matching_tag(repo.directory, repo.tags)
-                    for repo in repos
-                )
-            )
             log.info(
                 "Will only update those repos that match have no tag-regex specified!"
             )
@@ -408,7 +405,6 @@ async def _check_repositories(
                 continue
         log.debug("checking repo: %s...", repo.repo_url)
         assert repo.directory
-        await _git_fetch(repo.directory)
         await _git_clean_repo(repo.directory)
         if repo.tags:
             if not await _check_if_tag_on_branch(
