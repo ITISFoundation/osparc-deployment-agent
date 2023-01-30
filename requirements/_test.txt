@@ -102,6 +102,10 @@ ptvsd==4.3.2
     #   -r requirements/_test.in
 pylint==2.15.10
     # via -r requirements/_test.in
+pyparsing==3.0.9
+    # via
+    #   -c requirements/_base.txt
+    #   packaging
 pytest==7.2.1
     # via
     #   -r requirements/_test.in
