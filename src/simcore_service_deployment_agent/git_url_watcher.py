@@ -281,20 +281,37 @@ async def _init_repositories(repos: List[GitRepo]) -> Dict:
 
 
 async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool:
-    cmd = ["git", "branch", "--contains", "tags/" + tag]
+    cmd = [
+        "git",
+        "log",
+        "--tags",
+        "--simplify-by-decoration",
+        '--pretty="format:%ai %d"',
+    ]
     try:
         data = await run_cmd_line(cmd, repo_path)
     except CmdLineError as e:
         raise RuntimeError(
             " ".join(cmd), "The command was invalid and the cmd call failed."
         ) from e
-    if len(data) > 1:
-        log.error("More than one branch contain this tag. Aborting!")
-        raise RuntimeError("More than one branch contain this tag. Aborting!")
-    if "malformed object name" in data[0]:
+    if not data:
+        return False
+    if "malformed object name" in data:
         log.error("Tag does not exist. Aborting!")
         raise RuntimeError("Tag does not exist. Aborting!")
-    return branch in data[0]
+    for line in data.split("\n"):
+        if branch in line and tag in line:
+            return True
+    foundBranchInData = sum(1 for i in data.split("\n") if branch in i) > 0
+    foundTagInData = sum(1 for i in data.split("\n") if tag in i) > 0
+
+    if not foundBranchInData:
+        log.error("Branch does not exist. Aborting!")
+        raise RuntimeError("Branch does not exist. Aborting!")
+    if not foundTagInData:
+        log.error("Tag does not exist. Aborting!")
+        raise RuntimeError("Tag does not exist. Aborting!")
+    return False
 
 
 async def _update_repo_using_tags(
@@ -368,17 +385,17 @@ async def _check_repositories(
 ) -> Dict:
     changes = {}
     latestTags = [
-        {repo.repo_id: _git_get_latest_matching_tag(repo.directory, repo.tags)}
+        {repo.repo_id: await _git_get_latest_matching_tag(repo.directory, repo.tags)}
         for repo in repos
     ]
-    uniqueLatestTags = list(set(i.values()[0] for i in latestTags if i.values()[0]))
+    uniqueLatestTags = list(set(list(i.values())[0] for i in latestTags if i.values()))
     if syncedViaTags:
         if len(uniqueLatestTags > 1):
             log.info("Repos did not match in their latest tag!")
             log.info("We found the following latest tags:")
             log.info(
                 set(
-                    _git_get_latest_matching_tag(repo.directory, repo.tags)
+                    await _git_get_latest_matching_tag(repo.directory, repo.tags)
                     for repo in repos
                 )
             )
@@ -395,7 +412,7 @@ async def _check_repositories(
         await _git_clean_repo(repo.directory)
         if repo.tags:
             if not await _check_if_tag_on_branch(
-                repo.directory, repo.branch, latestTags[0].values()
+                repo.directory, repo.branch, list(latestTags[0].values())[0]
             ):
                 continue
         repo_changes = (

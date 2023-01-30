@@ -193,7 +193,7 @@ async def test_git_url_watcher_find_tag_on_branch_succeeds(
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
 
     git_watcher = git_url_watcher.GitUrlWatcher(git_config)
-
+    await git_watcher.init()
     # add the a file, commit, and tag
     VALID_TAG = "staging_z1stvalid"
     TESTFILE_NAME = "testfile.csv"
@@ -227,7 +227,7 @@ async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
     )
     with pytest.raises(RuntimeError):
         await git_url_watcher._check_if_tag_on_branch(
-            LOCAL_PATH, VALID_TAG, "nonexistingBranch"
+            LOCAL_PATH, "nonexistingBranch", VALID_TAG
         )
 
     await git_watcher.cleanup()
