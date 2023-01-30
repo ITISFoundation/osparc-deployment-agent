@@ -253,7 +253,7 @@ async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
         cwd=LOCAL_PATH,
     )
     with pytest.raises(RuntimeError):
-        await git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, "invalid_tag", BRANCH)
+        await git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, "invalid_tag")
 
     await git_watcher.cleanup()
 
