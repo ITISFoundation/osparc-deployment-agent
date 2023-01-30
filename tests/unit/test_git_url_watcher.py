@@ -151,7 +151,7 @@ async def test_git_url_watcher_tag_sync(
             cwd=repo["url"].replace("file://localhost", ""),
         )
     await git_watcher.cleanup()
-    assert git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, VALID_TAG, BRANCH)
+    assert git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, VALID_TAG)
 
 
 async def test_git_url_watcher_find_new_file(loop, git_config: Dict[str, Any]):
@@ -201,7 +201,7 @@ async def test_git_url_watcher_find_tag_on_branch_succeeds(
         f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
         cwd=LOCAL_PATH,
     )
-    assert git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, VALID_TAG, BRANCH)
+    assert git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, VALID_TAG)
 
     await git_watcher.cleanup()
 
