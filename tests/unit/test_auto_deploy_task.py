@@ -152,7 +152,7 @@ async def test_add_parameters(
     assert envs["ANOTHER_TEST_ENV"] == "some other test"
 
     assert "image" in stack_cfg["services"]["app"]
-    assert "jenkins:latest" in stack_cfg["services"]["app"]["image"]
+    assert "ubuntu:latest" in stack_cfg["services"]["app"]["image"]
     assert "image" in stack_cfg["services"]["anotherapp"]
     assert "ubuntu" in stack_cfg["services"]["anotherapp"]["image"]
 
