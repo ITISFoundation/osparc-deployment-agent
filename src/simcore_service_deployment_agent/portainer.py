@@ -42,6 +42,8 @@ async def _portainer_request(
         if resp.status == 200:
             data = await resp.json()
             return data
+        if resp.status == 204:
+            return {"content": ""}
         if resp.status == 404:
             log.error("could not find route in %s", url)
             raise ConfigurationError(
@@ -187,6 +189,32 @@ async def update_stack(
             url, app_session, "PUT", headers=headers, json=body_data
         )
         log.debug("updated stack: %s", data)
+    except asyncio.exceptions.TimeoutError as err:
+        print("ERROR")
+        print(str(err))
+
+
+async def delete_stack(
+    base_url: URL,
+    app_session: ClientSession,
+    bearer_code: str,
+    stack_id: str,
+    endpoint_id: int,
+):  # pylint: disable=too-many-arguments
+    log.debug("deleting stack %s", base_url)
+    if endpoint_id < 0:
+        endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
+        log.debug("Determined the following endpoint id: %i", endpoint_id)
+    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    url = (
+        URL(base_url)
+        .with_path("api/stacks/{}".format(stack_id))
+        .with_query({"endpointId": endpoint_id})
+    )
+    time.sleep(0.5)
+    try:
+        data = await _portainer_request(url, app_session, "DELETE", headers=headers)
+        log.debug("deleted stack: %s", data)
     except asyncio.exceptions.TimeoutError as err:
         print("ERROR")
         print(str(err))
