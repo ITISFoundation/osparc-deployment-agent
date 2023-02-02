@@ -166,7 +166,7 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
 async def update_portainer_stack(
     app_config: Dict, app_session: ClientSession, stack_cfg: Dict
 ):
-    log.debug("updateing portainer stack using: %s", stack_cfg)
+    log.debug("updating portainer stack using: %s", stack_cfg)
     portainer_cfg = app_config["main"]["portainer"]
     for config in portainer_cfg:
         url = URL(config["url"])
