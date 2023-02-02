@@ -33,7 +33,7 @@ def portainer_stacks(valid_config: Dict[str, Any]) -> Dict[str, Any]:
         },
         {
             "Id": randint(1, 10),
-            "Name": fake.name(),
+            "Name": fake.name().replace(" ", "").lower(),
             "Type": 1,
             "EndpointID": randint(1, 10),
         },

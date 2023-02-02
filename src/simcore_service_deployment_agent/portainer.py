@@ -113,10 +113,13 @@ async def get_stacks_list(
 async def get_current_stack_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, stack_name: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+    if stack_name.lower() != stack_name:
+        raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("getting current stack id %s", base_url)
     stacks_list = await get_stacks_list(base_url, app_session, bearer_code)
     for stack in stacks_list:
-        if stack_name == stack["Name"]:
+        # Portainer / Swarm stacks absolutely need to be lowercase only strings
+        if stack_name.lower() == stack["Name"].lower():
             return stack["Id"]
     return None
 
@@ -130,6 +133,8 @@ async def post_new_stack(
     stack_name: str,
     stack_cfg: Dict,
 ):  # pylint: disable=too-many-arguments
+    if stack_name.lower() != stack_name:
+        raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("creating new stack %s", base_url)
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)

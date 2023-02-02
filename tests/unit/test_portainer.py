@@ -14,6 +14,7 @@ from aioresponses.core import aioresponses
 from yarl import URL
 
 from simcore_service_deployment_agent import portainer
+from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
 @pytest.fixture()
@@ -98,7 +99,7 @@ async def test_stacks(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_name="this is a anknown name",
+            stack_name="thisisanunknownname",
         )
         assert not current_stack_id
 
@@ -113,7 +114,7 @@ async def test_create_stack(
     valid_docker_stack,
 ):
     swarm_id = 1
-    stack_name = "my amazing stack name"
+    stack_name = "myamazingstackname"
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
 
@@ -136,3 +137,29 @@ async def test_create_stack(
             endpoint_id=endpoint,
             stack_cfg=valid_docker_stack,
         )
+
+
+async def test_create_stack_fails_when_name_contains_uppercase_chars(
+    loop: asyncio.AbstractEventLoop,
+    valid_config: Dict[str, Any],
+    portainer_service_mock: aioresponses,
+    aiohttp_client_session: ClientSession,
+    bearer_code: str,
+    portainer_stacks: Dict[str, Any],
+    valid_docker_stack,
+):
+    swarm_id = 1
+    stack_name = "myAmazingstackname"
+    for portainer_cfg in valid_config["main"]["portainer"]:
+        origin = URL(portainer_cfg["url"])
+        endpoint = 1
+        with pytest.raises(ConfigurationError):
+            new_stack = await portainer.post_new_stack(
+                origin,
+                aiohttp_client_session,
+                bearer_code=bearer_code,
+                swarm_id=swarm_id,
+                endpoint_id=endpoint,
+                stack_name=stack_name,
+                stack_cfg=valid_docker_stack,
+            )
