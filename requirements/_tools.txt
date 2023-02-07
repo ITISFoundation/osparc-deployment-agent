@@ -37,14 +37,16 @@ packaging==23.0
     #   build
 pathspec==0.10.3
     # via black
-pip-tools==6.12.1
+pep517==0.13.0
+    # via build
+pip-tools==6.12.2
     # via -r requirements/devenv.txt
 platformdirs==2.6.2
     # via
     #   -c requirements/_test.txt
     #   black
     #   virtualenv
-pre-commit==3.0.2
+pre-commit==3.0.4
     # via -r requirements/devenv.txt
 pyproject-hooks==1.0.0
     # via build
