@@ -123,9 +123,12 @@ test-dev-integration test-ci-integration: ## Run integration tests.
 	export DOCKER_IMAGE_TAG=production; \
 	make --no-print-directory _run-$(subst -integration,,$@) target=$(CURDIR)/tests/integration
 
-test-dev-system test-ci-system: ## Run integration tests.
+test-dev-system: ## Run integration tests.
+	@./ci/github/system-testing/deployment-agent.bash install && \
 	make --no-print-directory _run-$(subst -system,,$@) target=$(CURDIR)/tests/system
 
+test-ci-system: ## Run integration tests.
+	make --no-print-directory _run-$(subst -system,,$@) target=$(CURDIR)/tests/system
 
 test-dev: test-dev-unit test-dev-integration ## runs unit and integration tests for development (e.g. w/ pdb)
 

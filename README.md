@@ -25,3 +25,10 @@ make devenv
 make install-dev
 make test-dev-unit
 ```
+
+#### Run system test locally:
+```
+## Assuming docker swarm is running
+make test-dev-system
+docker stack rm deployment-agent
+```
