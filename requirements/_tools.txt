@@ -46,7 +46,7 @@ platformdirs==2.5.3
     #   -c requirements/_test.txt
     #   black
     #   virtualenv
-pre-commit==3.0.2
+pre-commit==3.0.4
     # via -r requirements/devenv.txt
 pyparsing==3.0.9
     # via
