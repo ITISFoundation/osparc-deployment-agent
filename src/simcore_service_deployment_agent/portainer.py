@@ -191,8 +191,7 @@ async def update_stack(
         )
         log.debug("updated stack: %s", data)
     except asyncio.exceptions.TimeoutError as err:
-        print("ERROR")
-        print(str(err))
+        log.error(str(err))
 
 
 async def delete_stack(
@@ -217,5 +216,4 @@ async def delete_stack(
         data = await _portainer_request(url, app_session, "DELETE", headers=headers)
         log.debug("deleted stack: %s", data)
     except asyncio.exceptions.TimeoutError as err:
-        print("ERROR")
-        print(str(err))
+        log.error(str(err))

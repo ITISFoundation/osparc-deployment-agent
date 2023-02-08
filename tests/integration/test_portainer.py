@@ -48,9 +48,6 @@ async def portainer_endpoint_id(
     return endpoint
 
 
-# async def test_portainer_uppercase_letters_in_stackname_throws()
-
-
 async def test_portainer_test_create_stack(
     loop: asyncio.AbstractEventLoop,
     portainer_container: Tuple[URL, str],
@@ -98,7 +95,7 @@ async def test_portainer_test_create_stack(
     )
 
 
-async def test_portainer_raises_when_stack_already_present(
+async def test_portainer_raises_when_stack_already_present_and_can_delete(
     loop: asyncio.AbstractEventLoop,
     portainer_container: Tuple[URL, str],
     aiohttp_client_session: ClientSession,
