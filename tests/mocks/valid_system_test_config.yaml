@@ -19,8 +19,8 @@ main:
         - services/docker-compose.yml
         - .env-devel
     - id: simcore-ops-repo
-      url: https://github.com/ITISFoundation/osparc-simcore.git ### MOCK!
-      branch: osparc-local
+      url: https://github.com/ITISFoundation/osparc-ops-environments
+      branch: main
       pull_only_files: true
       paths:
         - services/docker-compose.yml
@@ -49,5 +49,5 @@ main:
       endpoint_id: -1
       username: admin
       password: adminadmin
-      stack_name: master-simcore
+      stack_name: deployment_agent
   polling_interval: 15
