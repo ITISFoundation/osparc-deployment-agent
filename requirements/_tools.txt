@@ -39,14 +39,14 @@ pathspec==0.10.1
     # via black
 pep517==0.13.0
     # via build
-pip-tools==6.12.1
+pip-tools==6.12.2
     # via -r requirements/devenv.txt
 platformdirs==2.5.3
     # via
     #   -c requirements/_test.txt
     #   black
     #   virtualenv
-pre-commit==2.21.0
+pre-commit==3.0.4
     # via -r requirements/devenv.txt
 pyparsing==3.0.9
     # via
