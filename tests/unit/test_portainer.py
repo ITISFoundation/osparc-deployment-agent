@@ -11,6 +11,7 @@ from typing import Any, Dict
 import pytest
 from aiohttp import ClientSession
 from aioresponses.core import aioresponses
+from faker import Faker
 from yarl import URL
 
 from simcore_service_deployment_agent import portainer
@@ -21,6 +22,11 @@ from simcore_service_deployment_agent.exceptions import ConfigurationError
 async def aiohttp_client_session() -> ClientSession:
     async with ClientSession() as client:
         yield client
+
+
+@pytest.fixture()
+async def faked_stack_name(faker: Faker) -> str:
+    return faker.word()
 
 
 async def test_authenticate(
@@ -75,6 +81,7 @@ async def test_stacks(
     aiohttp_client_session: ClientSession,
     bearer_code: str,
     portainer_stacks: Dict[str, Any],
+    faked_stack_name: str,
 ):
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
@@ -99,7 +106,7 @@ async def test_stacks(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_name="thisisanunknownname",
+            stack_name=faked_stack_name,
         )
         assert not current_stack_id
 
@@ -112,9 +119,11 @@ async def test_create_stack(
     bearer_code: str,
     portainer_stacks: Dict[str, Any],
     valid_docker_stack,
+    faked_stack_name: str,
+    faker: Faker,
 ):
     swarm_id = 1
-    stack_name = "myamazingstackname"
+    stack_name = faked_stack_name
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
 
@@ -133,7 +142,7 @@ async def test_create_stack(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_id="1",
+            stack_id=str(faker.pyint(min=1)),
             endpoint_id=endpoint,
             stack_cfg=valid_docker_stack,
         )
