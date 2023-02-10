@@ -5,14 +5,16 @@ import json
 import logging
 import tempfile
 from asyncio.exceptions import CancelledError
+from datetime import datetime
 from pathlib import Path
 from shutil import copy2
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 from aiohttp import ClientError, ClientSession, web
 from aiohttp.client import ClientTimeout
 from aiohttp.client_exceptions import ClientConnectorError
+from pydantic import AnyHttpUrl, BaseModel, Field
 from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
 from tenacity import (
     before_sleep_log,
@@ -218,16 +220,43 @@ async def create_git_watch_subtask(app_config: Dict) -> Tuple[GitUrlWatcher, Dic
     return (git_sub_task, descriptions)
 
 
+
+class WebserverExtraEnvirons(BaseModel):
+    SIMCORE_VCS_RELEASE_TAG: Optional[str] = Field(
+        default=None,
+        description="Name of the tag that makrs this release or None if undefined",
+        example="ResistanceIsFutile10",
+    )
+    SIMCORE_VCS_RELEASE_DATE: Optional[datetime] = Field(
+        default=None,
+        description="Release date or None if undefined. It corresponds to the tag's creation date",
+    )
+    SIMCORE_VCS_RELEASE_URL: Optional[AnyHttpUrl] = Field(
+        default=None,
+        description="URL to release notes",
+        example="https://github.com/ITISFoundation/osparc-simcore/releases/tag/staging_ResistanceIsFutile10",
+    )
+
+
+
+
 async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
     # generate the stack file
     stack_file = await generate_stack_file(app_config, git_task)
     log.debug("generated stack file in %s", stack_file.name)
+
+
     # filter the stack file if needed
     stack_cfg = await filter_services(app_config, stack_file)
     log.debug("filtered stack configuration")
+
+    # TODO: inject SIMCORE_VCS_RELEASE_TAG, SIMCORE_VCS_RELEASE_DATE, SIMCORE_VCS_RELEASE_URL
+
+
     # add parameter to the stack file if needed
     stack_cfg = await add_parameters(app_config, stack_cfg)
     log.debug("new stack config is\n%s", stack_file)
+
     # change services names to avoid conflicts in common networks
     stack_cfg = await add_prefix_to_services(app_config, stack_cfg)
     log.debug("final stack config is:")
@@ -352,6 +381,8 @@ async def auto_deploy(app: web.Application):
         # this will trigger a restart from the docker swarm engine
         app["state"][TASK_NAME] = State.FAILED
         return
+
+
     # loop forever to detect changes
     while True:
         try:
