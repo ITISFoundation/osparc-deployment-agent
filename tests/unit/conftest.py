@@ -21,7 +21,7 @@ def bearer_code() -> str:
 
 
 @pytest.fixture(scope="session")
-def portainer_stacks(valid_config: dict[str, Any]) -> dict[str, Any]:
+def portainer_stacks(valid_config: dict[str, Any]) -> list[dict[str, Any]]:
     stacks = [
         # some of the Portainer API fields here
         {

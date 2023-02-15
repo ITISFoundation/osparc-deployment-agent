@@ -1,8 +1,8 @@
-# pylint: disable=wildcard-import
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
 # pylint: disable=unused-import
 # pylint: disable=unused-variable
-# pylint: disable=unused-argument
-# pylint: disable=redefined-outer-name
+# pylint: disable=wildcard-import
 
 import pytest
 
