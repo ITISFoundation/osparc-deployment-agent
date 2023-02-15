@@ -4,17 +4,14 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 import attr
-from tenacity import (
-    after_log,
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_fixed,
-    wait_random,
-)
+from tenacity import retry
+from tenacity.after import after_log
+from tenacity.before_sleep import before_sleep_log
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_fixed, wait_random
 from yarl import URL
 
 from .cmd_utils import run_cmd_line
@@ -37,8 +34,8 @@ async def _git_clone_repo(
     repository: URL,
     directory: Path,
     branch: str,
-    username: str = None,
-    password: str = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ):
     if username != None and password != None and username != "" and password != "":
         cmd = [
@@ -88,7 +85,7 @@ async def _git_clean_repo(directory: Path):
     await run_cmd_line(cmd, str(directory))
 
 
-async def _git_checkout_files(directory: Path, paths: List[Path], tag: str = None):
+async def _git_checkout_files(directory: Path, paths: list[Path], tag: str = None):
     if not tag:
         tag = "HEAD"
     cmd = ["git", "checkout", tag] + [str(path) for path in paths]
@@ -99,7 +96,7 @@ async def _git_checkout_repo(directory: Path, tag: str = None):
     await _git_checkout_files(str(directory), [], tag)
 
 
-async def _git_pull_files(directory: Path, paths: List[Path]):
+async def _git_pull_files(directory: Path, paths: list[Path]):
     cmd = ["git", "checkout", "FETCH_HEAD"] + [str(path) for path in paths]
     await run_cmd_line(cmd, str(directory))
 
@@ -134,7 +131,7 @@ async def _git_get_latest_matching_tag(
     return list_tags[-1] if list_tags else None
 
 
-async def _git_get_current_matching_tag(directory: Path, regexp: str) -> List[str]:
+async def _git_get_current_matching_tag(directory: Path, regexp: str) -> list[str]:
     # NOTE: there might be several tags on the same commit
     reg = regexp
     if regexp.startswith("^"):
@@ -209,12 +206,12 @@ class GitRepo:  # pylint: disable=too-many-instance-attributes, too-many-argumen
     tags: str
     username: str
     password: str
-    paths: List[Path]
+    paths: list[Path]
     pull_only_files: bool
     directory: str = ""
 
 
-async def _checkout_repository(repo: GitRepo, tag: str = None):
+async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
     if repo.pull_only_files:
         await _git_checkout_files(repo.directory, repo.paths, tag)
     else:
@@ -228,7 +225,7 @@ async def _update_repository(repo: GitRepo):
         await _git_pull(repo.directory)
 
 
-async def _init_repositories(repos: List[GitRepo]) -> Dict:
+async def _init_repositories(repos: list[GitRepo]) -> dict:
     description = {}
     for repo in repos:
         directoryName = tempfile.mkdtemp()
@@ -346,7 +343,7 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(repos: List[GitRepo]) -> Dict:
+async def _check_repositories(repos: list[GitRepo]) -> dict:
     changes = {}
     for repo in repos:
         log.debug("checking repo: %s...", repo.repo_url)
@@ -365,13 +362,13 @@ async def _check_repositories(repos: List[GitRepo]) -> Dict:
     return changes
 
 
-async def _delete_repositories(repos: List[GitRepo]):
+async def _delete_repositories(repos: list[GitRepo]):
     for repo in repos:
         shutil.rmtree(repo.directory, ignore_errors=True)
 
 
 class GitUrlWatcher(SubTask):
-    def __init__(self, app_config: Dict):
+    def __init__(self, app_config: dict):
         super().__init__(name="git repo watcher")
         self.watched_repos = []
         watched_compose_files_config = app_config["main"]["watched_git_repositories"]
@@ -388,7 +385,7 @@ class GitUrlWatcher(SubTask):
             )
             self.watched_repos.append(repo)
 
-    async def init(self) -> Dict:
+    async def init(self) -> dict:
         description = await _init_repositories(self.watched_repos)
         return description
 
@@ -398,7 +395,7 @@ class GitUrlWatcher(SubTask):
         wait=wait_random(min=1, max=MAX_TIME_TO_WAIT_S),
         after=after_log(log, logging.DEBUG),
     )
-    async def check_for_changes(self) -> Dict:
+    async def check_for_changes(self) -> dict:
         return await _check_repositories(self.watched_repos)
 
     async def cleanup(self):
