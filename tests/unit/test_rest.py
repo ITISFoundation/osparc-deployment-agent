@@ -54,7 +54,9 @@ def client(
     # activates only security+restAPI sub-modules
     setup_rest(app, devel=True)
 
-    cli = loop.run_until_complete(aiohttp_client(app, server_kwargs=server_kwargs))
+    cli = event_loop.run_until_complete(
+        aiohttp_client(app, server_kwargs=server_kwargs)
+    )
     return cli
 
 

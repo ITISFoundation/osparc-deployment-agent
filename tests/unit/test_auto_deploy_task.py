@@ -101,7 +101,7 @@ def client(
     monkeypatch.setattr(auto_deploy_task, "RETRY_WAIT_SECS", 1)
 
     app = create(valid_config)
-    client = loop.run_until_complete(
+    client = event_loop.run_until_complete(
         aiohttp_client(
             app,
             server_kwargs={
