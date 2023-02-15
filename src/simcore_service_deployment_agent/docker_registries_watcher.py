@@ -11,6 +11,7 @@ import docker
 import docker.errors
 from docker import DockerClient
 
+from .models import ComposeSpecsDict
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ def docker_client(registries: list[dict]) -> Iterator[DockerClient]:
 
 
 class DockerRegistriesWatcher(SubTask):
-    def __init__(self, app_config: dict, stack_cfg: dict):
+    def __init__(self, app_config: dict, stack_cfg: ComposeSpecsDict):
         super().__init__(name="dockerhub repo watcher")
         # get all the private registries
         self.private_registries = app_config["main"]["docker_private_registries"]

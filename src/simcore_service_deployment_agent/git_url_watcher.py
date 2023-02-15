@@ -66,13 +66,13 @@ async def _git_clone_repo(
     await run_cmd_line(cmd)
 
 
-async def _git_get_FETCH_HEAD_sha(directory: Path) -> str:
+async def _git_get_FETCH_HEAD_sha(directory: str) -> str:
     cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
     sha = await run_cmd_line(cmd, f"{directory}")
     return sha.strip("\n")
 
 
-async def _git_get_sha_of_tag(directory: Path, tag: str) -> str:
+async def _git_get_sha_of_tag(directory: str, tag: str) -> str:
     cmd = ["git", "rev-list", "-1", "--sparse", tag]
     sha_long = await run_cmd_line(cmd, f"{directory}")
     cmd = ["git", "rev-parse", "--short", sha_long.strip("\n")]
@@ -174,7 +174,7 @@ async def _git_get_logs(
         "--no-pager",
         "log",
         "--oneline",
-        f"{branch1}" + "..origin/" + f"{branch2}",
+        f"{branch1}..origin/{branch2}",
     ]
     logs = await run_cmd_line(cmd, f"{directory}")
     return logs
@@ -263,7 +263,7 @@ async def _init_repositories(repos: list[GitRepo]) -> dict:
         log.info("repository %s checked out on %s", repo, latest_tag)
         # If no tag: fetch head
         # if tag: sha of tag
-        if repo.tags:
+        if repo.tags and latest_tag:
             sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
         else:
             sha = await _git_get_FETCH_HEAD_sha(repo.directory)
