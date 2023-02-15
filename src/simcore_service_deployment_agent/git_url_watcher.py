@@ -402,4 +402,4 @@ class GitUrlWatcher(SubTask):
         await _delete_repositories(self.watched_repos)
 
 
-__all__ = ["GitUrlWatcher"]
+__all__: tuple[str, ...] = ("GitUrlWatcher",)
