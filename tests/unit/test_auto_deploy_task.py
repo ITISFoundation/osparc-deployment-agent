@@ -1,9 +1,9 @@
-# pylint: disable=wildcard-import
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
 # pylint: disable=unused-import
 # pylint: disable=unused-variable
-# pylint: disable=unused-argument
-# pylint: disable=redefined-outer-name
-# pylint: disable=bare-except
+# pylint: disable=wildcard-import
 
 import asyncio
 from collections.abc import Awaitable, Iterator
@@ -15,8 +15,8 @@ import pytest
 import yaml
 from aiohttp.test_utils import TestClient
 from aioresponses import aioresponses
-
-# Monkeypatch the tenacity wait time https://stackoverflow.com/questions/47906671/python-retry-with-tenacity-disable-wait-for-unittest
+from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
 from tenacity.wait import wait_none
 
 from simcore_service_deployment_agent import auto_deploy_task, portainer
@@ -25,11 +25,12 @@ from simcore_service_deployment_agent.application import create
 from simcore_service_deployment_agent.git_url_watcher import GitUrlWatcher
 from simcore_service_deployment_agent.models import ComposeSpecsDict
 
+# Monkeypatch the tenacity wait time https://stackoverflow.com/questions/47906671/python-retry-with-tenacity-disable-wait-for-unittest
 portainer._portainer_request.retry.wait = wait_none()
 
 
-@pytest.fixture()
-def mocked_docker_registries_watcher(mocker) -> dict[str, Any]:
+@pytest.fixture
+def mocked_docker_registries_watcher(mocker: MockerFixture) -> dict[str, Any]:
     mock_docker_watcher = {
         "init": mocker.patch.object(
             auto_deploy_task.DockerRegistriesWatcher, "init", return_value={}
@@ -43,8 +44,8 @@ def mocked_docker_registries_watcher(mocker) -> dict[str, Any]:
     return mock_docker_watcher
 
 
-@pytest.fixture()
-def mocked_git_url_watcher(mocker) -> dict[str, Any]:
+@pytest.fixture
+def mocked_git_url_watcher(mocker: MockerFixture) -> dict[str, Any]:
     mock_git_changes = {
         "init": mocker.patch.object(GitUrlWatcher, "init", return_value={}),
         "check_for_changes": mocker.patch.object(
@@ -68,7 +69,7 @@ def mock_stack_config() -> ComposeSpecsDict:
     return cfg
 
 
-@pytest.fixture()
+@pytest.fixture
 def mocked_stack_file(
     valid_config: dict[str, Any], mock_stack_config: ComposeSpecsDict
 ) -> Iterator[Path]:
@@ -81,21 +82,35 @@ def mocked_stack_file(
 
 @pytest.fixture
 def client(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     aiohttp_unused_port: Callable[[], int],
     aiohttp_client: Callable[..., Awaitable[TestClient]],
     valid_config: dict[str, Any],
-    monkeypatch,
-) -> Iterator[TestClient]:
+    monkeypatch: MonkeyPatch,
+    mocker: MockerFixture,
+) -> TestClient:
+    # Removes all the log errors
+    # mocker.patch(
+    #     "simcore_service_deployment_agent.auto_deploy_task.portainer.authenticate",
+    #     autospec=True,
+    #     return_value="bearercode",
+    # )
+
     # increase the speed to fail
     monkeypatch.setattr(auto_deploy_task, "RETRY_COUNT", 2)
     monkeypatch.setattr(auto_deploy_task, "RETRY_WAIT_SECS", 1)
 
     app = create(valid_config)
-    server_kwargs = {"port": aiohttp_unused_port(), "host": "localhost"}
-
-    client = loop.run_until_complete(aiohttp_client(app, server_kwargs=server_kwargs))
-    yield client
+    client = loop.run_until_complete(
+        aiohttp_client(
+            app,
+            server_kwargs={
+                "port": aiohttp_unused_port(),
+                "host": "localhost",
+            },
+        )
+    )
+    return client
 
 
 def test_client(portainer_service_mock: aioresponses, client: TestClient):
@@ -105,6 +120,7 @@ def test_client(portainer_service_mock: aioresponses, client: TestClient):
 
 async def test_wait_for_dependencies_no_portainer_up(client: TestClient):
     assert client.app  # nosec
+
     # wait for the app to start
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)

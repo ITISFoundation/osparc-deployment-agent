@@ -2,7 +2,6 @@
 # pylint: disable=unused-argument
 
 import asyncio
-from typing import Tuple
 
 import pytest
 from aiohttp import ClientSession
@@ -18,8 +17,8 @@ async def aiohttp_client_session() -> ClientSession:
 
 
 async def test_portainer_connection(
-    loop: asyncio.AbstractEventLoop,
-    portainer_container: Tuple[URL, str],
+    event_loop: asyncio.AbstractEventLoop,
+    portainer_container: tuple[URL, str],
     aiohttp_client_session: ClientSession,
 ):
     portainer_url, portainer_password = portainer_container

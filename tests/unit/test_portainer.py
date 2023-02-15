@@ -23,7 +23,7 @@ async def aiohttp_client_session() -> ClientSession:
 
 
 async def test_authenticate(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
@@ -37,7 +37,7 @@ async def test_authenticate(
 
 
 async def test_first_endpoint_id(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
@@ -52,7 +52,7 @@ async def test_first_endpoint_id(
 
 
 async def test_get_swarm_id(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
@@ -66,7 +66,7 @@ async def test_get_swarm_id(
 
 
 async def test_stacks(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
@@ -102,7 +102,7 @@ async def test_stacks(
 
 
 async def test_create_stack(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,

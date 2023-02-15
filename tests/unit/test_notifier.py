@@ -22,7 +22,7 @@ def _list_messages():
 
 @pytest.mark.parametrize("message", _list_messages())
 async def test_notify_mattermost(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     mattermost_service_mock: aioresponses,
     valid_config: dict[str, Any],
     message: str,
