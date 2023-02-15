@@ -13,9 +13,11 @@ from pprint import pformat
 
 import pytest
 import yaml
+from pytest import FixtureRequest
 
 import docker
 from docker import DockerClient
+from simcore_service_deployment_agent.models import ComposeSpecsDict
 
 logger = logging.getLogger(__name__)
 
@@ -26,52 +28,44 @@ MAX_WAIT_TIME = 240
 logger = logging.getLogger(__name__)
 
 
-def _here() -> Path:
-    return Path(sys.argv[0] if __name__ == "__main__" else __file__).resolve().parent
+CURRENT_DIR = Path(sys.argv[0] if __name__ == "__main__" else __file__).resolve().parent
 
 
-@pytest.fixture(scope="session")
-def here() -> Path:
-    return _here()
+def _deployment_agent_root_dir() -> Path:
+    root_dir = CURRENT_DIR.parent.parent.resolve()
 
-
-def _deployment_agent_root_dir(here) -> Path:
-    root_dir = here.parent.parent.parent.resolve()
     assert root_dir.exists(), "Is this test within osparc-deployment-agent repo?"
-    assert any(root_dir.glob("osparc-deployment-agent")), (
-        "%s not look like rootdir" % root_dir
-    )
-    return here.parent.parent.resolve()
+    assert any(root_dir.parent.glob(".git")), "%s not look like rootdir" % root_dir
+    assert root_dir.name == "osparc-deployment-agent"
+    return root_dir
 
 
 @pytest.fixture(scope="session")
-def deployment_agent_root_dir(here) -> Path:
-    return _deployment_agent_root_dir(here)
+def deployment_agent_root_dir() -> Path:
+    return _deployment_agent_root_dir()
 
 
-def _services_docker_compose(deployment_agent_root_dir) -> dict[str, str]:
+def _services_docker_compose(deployment_agent_root_dir: Path) -> ComposeSpecsDict:
     docker_compose_path = deployment_agent_root_dir / "docker-compose.yml"
     assert docker_compose_path.exists()
-
-    content = {}
-    with docker_compose_path.open() as f:
-        content = yaml.safe_load(f)
-    return content
+    return yaml.safe_load(docker_compose_path.read_text())
 
 
 @pytest.fixture(scope="session")
-def services_docker_compose(deployment_agent_root_dir) -> dict[str, str]:
+def services_docker_compose(deployment_agent_root_dir: Path) -> ComposeSpecsDict:
     return _services_docker_compose(deployment_agent_root_dir)
 
 
 def _list_services():
     exclude = ["portainer", "agent"]
-    content = _services_docker_compose(_deployment_agent_root_dir(_here()))
+    content = _services_docker_compose(_deployment_agent_root_dir())
     return [name for name in content["services"].keys() if name not in exclude]
 
 
 @pytest.fixture(scope="session", params=_list_services())
-def service_name(request, services_docker_compose) -> str:
+def service_name(
+    request: FixtureRequest, services_docker_compose: ComposeSpecsDict
+) -> str:
     return f"{request.param}"
 
 
