@@ -83,7 +83,7 @@ def mocked_stack_file(
 @pytest.fixture
 def client(
     event_loop: asyncio.AbstractEventLoop,
-    aiohttp_unused_port: Callable[[], int],
+    unused_tcp_port_factory: Callable[[], int],
     aiohttp_client: Callable[..., Awaitable[TestClient]],
     valid_config: dict[str, Any],
     monkeypatch: MonkeyPatch,
@@ -105,7 +105,7 @@ def client(
         aiohttp_client(
             app,
             server_kwargs={
-                "port": aiohttp_unused_port(),
+                "port": unused_tcp_port_factory(),
                 "host": "localhost",
             },
         )

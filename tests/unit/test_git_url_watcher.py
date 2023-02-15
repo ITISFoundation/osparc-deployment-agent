@@ -1,3 +1,4 @@
+import asyncio
 import subprocess
 
 # pylint: disable=wildcard-import
@@ -68,7 +69,7 @@ def git_config(git_repository: str) -> dict[str, Any]:
 
 
 async def test_git_url_watcher_find_new_file(
-    loop, git_config: dict[str, Any], git_repo_path: Path
+    event_loop, git_config: dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -104,7 +105,9 @@ def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
 
 
 async def test_git_url_watcher_pull_only_selected_files(
-    loop, git_config_pull_only_files: dict[str, Any], git_repo_path: Path
+    event_loop: asyncio.AbstractEventLoop,
+    git_config_pull_only_files: dict[str, Any],
+    git_repo_path: Path,
 ):
     REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]

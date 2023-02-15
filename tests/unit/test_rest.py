@@ -2,6 +2,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -33,10 +34,15 @@ def spec_dict(openapi_path: Path):
 
 
 @pytest.fixture
-def client(loop, aiohttp_unused_port, aiohttp_client, api_specs_dir):
+def client(
+    event_loop: asyncio.AbstractEventLoop,
+    unused_tcp_port_factory,
+    aiohttp_client,
+    api_specs_dir,
+):
     app = web.Application()
 
-    server_kwargs = {"port": aiohttp_unused_port(), "host": "localhost"}
+    server_kwargs = {"port": unused_tcp_port_factory(), "host": "localhost"}
     # fake config
     app[APP_CONFIG_KEY] = {
         "main": server_kwargs,
