@@ -6,9 +6,9 @@
 # pylint:disable=bare-except
 
 import asyncio
-from asyncio import Future
+from collections.abc import Awaitable, Iterator
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Iterator
+from typing import Any, Callable
 
 import aioresponses
 import pytest
@@ -23,12 +23,13 @@ from simcore_service_deployment_agent import auto_deploy_task, portainer
 from simcore_service_deployment_agent.app_state import State
 from simcore_service_deployment_agent.application import create
 from simcore_service_deployment_agent.git_url_watcher import GitUrlWatcher
+from simcore_service_deployment_agent.models import ComposeSpecsDict
 
 portainer._portainer_request.retry.wait = wait_none()
 
 
 @pytest.fixture()
-def mocked_docker_registries_watcher(mocker) -> Dict[str, Any]:
+def mocked_docker_registries_watcher(mocker) -> dict[str, Any]:
     mock_docker_watcher = {
         "init": mocker.patch.object(
             auto_deploy_task.DockerRegistriesWatcher, "init", return_value={}
@@ -43,7 +44,7 @@ def mocked_docker_registries_watcher(mocker) -> Dict[str, Any]:
 
 
 @pytest.fixture()
-def mocked_git_url_watcher(mocker) -> Dict[str, Any]:
+def mocked_git_url_watcher(mocker) -> dict[str, Any]:
     mock_git_changes = {
         "init": mocker.patch.object(GitUrlWatcher, "init", return_value={}),
         "check_for_changes": mocker.patch.object(
@@ -54,20 +55,22 @@ def mocked_git_url_watcher(mocker) -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="session")
-def mock_stack_config() -> Dict[str, Any]:
-    cfg = {
-        "version": "3.7",
-        "services": {
-            "fake_service": {"image": "fake_image"},
-            "fake_service2": {"image": "fake_image"},
-        },
-    }
+def mock_stack_config() -> ComposeSpecsDict:
+    cfg = ComposeSpecsDict(
+        **{
+            "version": "3.7",
+            "services": {
+                "fake_service": {"image": "fake_image"},
+                "fake_service2": {"image": "fake_image"},
+            },
+        }
+    )
     return cfg
 
 
 @pytest.fixture()
 def mocked_stack_file(
-    valid_config: Dict[str, Any], mock_stack_config: Dict[str, Any]
+    valid_config: dict[str, Any], mock_stack_config: ComposeSpecsDict
 ) -> Iterator[Path]:
     file_name = Path(valid_config["main"]["docker_stack_recipe"]["stack_file"])
     with file_name.open("w", encoding="utf-8") as fp:
@@ -81,7 +84,7 @@ def client(
     loop: asyncio.AbstractEventLoop,
     aiohttp_unused_port: Callable[[], int],
     aiohttp_client: Callable[..., Awaitable[TestClient]],
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     monkeypatch,
 ) -> Iterator[TestClient]:
     # increase the speed to fail
@@ -109,10 +112,16 @@ async def test_wait_for_dependencies_no_portainer_up(client: TestClient):
 
 
 async def test_filter_services(
-    valid_config: Dict[str, Any], valid_docker_stack_file: Path
+    valid_config: dict[str, Any], valid_docker_stack_file: Path
 ):
-    stack_cfg = await auto_deploy_task.filter_services(
-        valid_config, valid_docker_stack_file
+    stack_cfg = auto_deploy_task.filter_services(
+        excluded_services=valid_config["main"]["docker_stack_recipe"][
+            "excluded_services"
+        ],
+        excluded_volumes=valid_config["main"]["docker_stack_recipe"][
+            "excluded_volumes"
+        ],
+        stack_file=valid_docker_stack_file,
     )
     assert "app" not in stack_cfg["services"]
     assert "some_volume" not in stack_cfg["volumes"]
@@ -120,9 +129,9 @@ async def test_filter_services(
 
 
 async def test_add_parameters(
-    valid_config: Dict[str, Any], valid_docker_stack: Dict[str, Any]
+    valid_config: dict[str, Any], valid_docker_stack: ComposeSpecsDict
 ):
-    stack_cfg = await auto_deploy_task.add_parameters(valid_config, valid_docker_stack)
+    stack_cfg = auto_deploy_task.add_parameters(valid_config, valid_docker_stack)
     assert "extra_hosts" in stack_cfg["services"]["app"]
     hosts = stack_cfg["services"]["app"]["extra_hosts"]
     assert "original_host:243.23.23.44" in hosts
