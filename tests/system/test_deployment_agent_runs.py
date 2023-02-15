@@ -35,7 +35,7 @@ def _deployment_agent_root_dir() -> Path:
     root_dir = CURRENT_DIR.parent.parent.resolve()
 
     assert root_dir.exists(), "Is this test within osparc-deployment-agent repo?"
-    assert any(root_dir.parent.glob(".git")), "%s not look like rootdir" % root_dir
+    assert any(root_dir.glob(".git")), "%s not look like rootdir" % root_dir
     assert root_dir.name == "osparc-deployment-agent"
     return root_dir
 
