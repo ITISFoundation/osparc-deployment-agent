@@ -4,6 +4,7 @@ import copy
 import json
 import logging
 import tempfile
+from asyncio import create_task
 from asyncio.exceptions import CancelledError
 from pathlib import Path
 from shutil import copy2
@@ -410,11 +411,14 @@ async def auto_deploy(app: web.Application):
 
 async def background_task(app: web.Application):
     app["state"] = {TASK_NAME: State.STARTING}
-    app[TASK_NAME] = asyncio.get_event_loop().create_task(auto_deploy(app))
+    app[TASK_NAME] = create_task(auto_deploy(app))
     yield
     task = app[TASK_NAME]
-    task.cancel()
-    await task
+    try:
+        task.cancel()
+        await task
+    except Exception:
+        log.exception("Unexpected exception while canceling background task")
 
 
 async def persistent_session(app):
@@ -428,7 +432,7 @@ async def persistent_session(app):
 #
 
 
-def setup(app: web.Application):
+def setup_auto_deploy_task(app: web.Application):
     app.cleanup_ctx.append(persistent_session)
     try:
         app.cleanup_ctx.append(background_task)
@@ -436,4 +440,4 @@ def setup(app: web.Application):
         print("We Encountered an error in running the deployment agent:")
 
 
-__all__: tuple[str, ...] = ("setup",)
+__all__: tuple[str, ...] = ("setup_auto_deploy_task",)
