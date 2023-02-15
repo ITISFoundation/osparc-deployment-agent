@@ -1,8 +1,8 @@
-# pylint:disable=redefined-outer-name
+# pylint: disable=redefined-outer-name
 
 import re
 from random import randint
-from typing import Any, Dict
+from typing import Any
 
 import faker
 import pytest
@@ -21,8 +21,7 @@ def bearer_code() -> str:
 
 
 @pytest.fixture(scope="session")
-def portainer_stacks(valid_config: Dict[str, Any]) -> Dict[str, Any]:
-
+def portainer_stacks(valid_config: dict[str, Any]) -> dict[str, Any]:
     stacks = [
         # some of the Portainer API fields here
         {
@@ -50,7 +49,7 @@ def aioresponse_mocker() -> aioresponses:
 
 @pytest.fixture()
 async def mattermost_service_mock(
-    aioresponse_mocker: aioresponses, valid_config: Dict[str, Any]
+    aioresponse_mocker: aioresponses, valid_config: dict[str, Any]
 ) -> aioresponses:
     get_channels_pattern = (
         re.compile(
@@ -80,8 +79,8 @@ async def mattermost_service_mock(
 async def portainer_service_mock(
     aioresponse_mocker: aioresponses,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
-    valid_config: Dict[str, Any],
+    portainer_stacks: dict[str, Any],
+    valid_config: dict[str, Any],
 ) -> aioresponses:
     def _check_auth(**kwargs) -> bool:
         return (

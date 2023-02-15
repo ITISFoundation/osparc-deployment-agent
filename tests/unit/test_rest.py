@@ -1,9 +1,8 @@
-# pylint:disable=unused-import
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
+# pylint: disable=unused-import
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
 
 import logging
-import sys
 from pathlib import Path
 
 import pytest
@@ -80,7 +79,7 @@ async def test_check_action(client):
         "body_value": {"a": "foo", "b": "45"},
     }
 
-    resp = await client.post("/v0/check/{}?data={}".format(ACTION, QUERY), json=FAKE)
+    resp = await client.post(f"/v0/check/{ACTION}?data={QUERY}", json=FAKE)
     payload = await resp.json()
     data, error = tuple(payload.get(k) for k in ("data", "error"))
 

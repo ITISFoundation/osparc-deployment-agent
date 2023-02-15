@@ -1,11 +1,11 @@
 # pylint: disable=unused-argument
 # pylint: disable=unused-import
 # pylint: disable=bare-except
-# pylint:disable=redefined-outer-name
+# pylint: disable=redefined-outer-name
 
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 import yaml
@@ -78,12 +78,12 @@ def valid_docker_stack_file(mocks_dir: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
-def valid_config(valid_config_file: Path) -> Dict[str, Any]:
+def valid_config(valid_config_file: Path) -> dict[str, Any]:
     with valid_config_file.open() as fp:
         return yaml.safe_load(fp)
 
 
 @pytest.fixture(scope="session")
-def valid_docker_stack(valid_docker_stack_file: Path) -> Dict[str, Any]:
+def valid_docker_stack(valid_docker_stack_file: Path) -> dict[str, Any]:
     with valid_docker_stack_file.open() as fp:
         return yaml.safe_load(fp)

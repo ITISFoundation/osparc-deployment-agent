@@ -1,20 +1,17 @@
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=protected-access
+# pylint: disable=wildcard-import
+# pylint: disable=unused-import
+# pylint: disable=unused-variable
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+# pylint: disable=protected-access
 
 import asyncio
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import aiohttp
 import pytest
-import yaml
 from aiohttp import web
 from aioresponses.core import aioresponses
-from yarl import URL
 
 from simcore_service_deployment_agent import notifier
 
@@ -27,7 +24,7 @@ def _list_messages():
 async def test_notify_mattermost(
     loop: asyncio.AbstractEventLoop,
     mattermost_service_mock: aioresponses,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     message: str,
 ):
     async def handler(request):

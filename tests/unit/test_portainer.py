@@ -1,12 +1,12 @@
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=protected-access
+# pylint: disable=wildcard-import
+# pylint: disable=unused-import
+# pylint: disable=unused-variable
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+# pylint: disable=protected-access
 
 import asyncio
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from aiohttp import ClientSession
@@ -24,12 +24,11 @@ async def aiohttp_client_session() -> ClientSession:
 
 async def test_authenticate(
     loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
 ):
-
     origin = URL(valid_config["main"]["portainer"][0]["url"])
     received_bearer_code = await portainer.authenticate(
         origin, aiohttp_client_session, username="testuser", password="password"
@@ -39,7 +38,7 @@ async def test_authenticate(
 
 async def test_first_endpoint_id(
     loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
@@ -54,12 +53,11 @@ async def test_first_endpoint_id(
 
 async def test_get_swarm_id(
     loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
 ):
-
     origin = URL(valid_config["main"]["portainer"][0]["url"])
     swarm_id = await portainer.get_swarm_id(
         origin, aiohttp_client_session, bearer_code=bearer_code, endpoint_id=1
@@ -69,11 +67,11 @@ async def test_get_swarm_id(
 
 async def test_stacks(
     loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
+    portainer_stacks: dict[str, Any],
 ):
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
@@ -105,11 +103,11 @@ async def test_stacks(
 
 async def test_create_stack(
     loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
+    portainer_stacks: dict[str, Any],
     valid_docker_stack,
 ):
     swarm_id = 1

@@ -1,14 +1,14 @@
 import subprocess
 
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=bare-except
+# pylint: disable=wildcard-import
+# pylint: disable=unused-import
+# pylint: disable=unused-variable
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+# pylint: disable=bare-except
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -47,7 +47,7 @@ def git_repository(git_repo_path: Path) -> str:
 
 
 @pytest.fixture()
-def git_config(git_repository: str) -> Dict[str, Any]:
+def git_config(git_repository: str) -> dict[str, Any]:
     cfg = {
         "main": {
             "watched_git_repositories": [
@@ -68,7 +68,7 @@ def git_config(git_repository: str) -> Dict[str, Any]:
 
 
 async def test_git_url_watcher_find_new_file(
-    loop, git_config: Dict[str, Any], git_repo_path: Path
+    loop, git_config: dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -97,14 +97,14 @@ async def test_git_url_watcher_find_new_file(
 
 
 @pytest.fixture()
-def git_config_pull_only_files(git_config: Dict[str, Any]) -> Dict[str, Any]:
+def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     return git_config
 
 
 async def test_git_url_watcher_pull_only_selected_files(
-    loop, git_config_pull_only_files: Dict[str, Any], git_repo_path: Path
+    loop, git_config_pull_only_files: dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]
@@ -151,7 +151,7 @@ async def test_git_url_watcher_pull_only_selected_files(
 
 
 @pytest.fixture()
-def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any]:
+def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     git_config["main"]["watched_git_repositories"][0]["tags"] = "^staging_.+$"
@@ -159,7 +159,7 @@ def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any
 
 
 async def test_git_url_watcher_pull_only_selected_files_tags(
-    loop, git_config_pull_only_files_tags: Dict[str, Any], git_repo_path: Path
+    loop, git_config_pull_only_files_tags: dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
         "id"

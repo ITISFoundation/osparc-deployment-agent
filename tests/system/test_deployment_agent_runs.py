@@ -1,19 +1,16 @@
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
+# pylint: disable=wildcard-import
+# pylint: disable=unused-import
+# pylint: disable=unused-variable
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
 
 import asyncio
-import datetime
 import logging
 import sys
 from pathlib import Path
 from pprint import pformat
-from typing import Dict
 
 import pytest
-import tenacity
 import yaml
 
 import docker
@@ -50,7 +47,7 @@ def deployment_agent_root_dir(here) -> Path:
     return _deployment_agent_root_dir(here)
 
 
-def _services_docker_compose(deployment_agent_root_dir) -> Dict[str, str]:
+def _services_docker_compose(deployment_agent_root_dir) -> dict[str, str]:
     docker_compose_path = deployment_agent_root_dir / "docker-compose.yml"
     assert docker_compose_path.exists()
 
@@ -61,7 +58,7 @@ def _services_docker_compose(deployment_agent_root_dir) -> Dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def services_docker_compose(deployment_agent_root_dir) -> Dict[str, str]:
+def services_docker_compose(deployment_agent_root_dir) -> dict[str, str]:
     return _services_docker_compose(deployment_agent_root_dir)
 
 
@@ -143,9 +140,7 @@ async def test_service_running(service_name, docker_client, loop):
     # j5xtlrnn684y         \_ services_storage.1   services_storage:latest   crespo-wkstn        Shutdown            Failed 18 minutes ago    "task: non-zero exit (1)"
     tasks = running_service.tasks()
 
-    assert (
-        len(tasks) == 1
-    ), "Expected a single task for '{0}'," " got:\n{1}\n{2}".format(
+    assert len(tasks) == 1, "Expected a single task for '{}'," " got:\n{}\n{}".format(
         service_name,
         get_tasks_summary(tasks),
         get_failed_tasks_logs(running_service, docker_client),
