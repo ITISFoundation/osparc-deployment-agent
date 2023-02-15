@@ -417,7 +417,7 @@ async def background_task(app: web.Application):
     try:
         task.cancel()
         await task
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         log.exception("Unexpected exception while canceling background task")
 
 
