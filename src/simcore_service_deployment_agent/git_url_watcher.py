@@ -107,8 +107,7 @@ async def _git_pull(directory: Path):
 
 
 async def _git_fetch(directory: Path):
-    log.debug("Fetching git repo in directory:")
-    log.debug(f"{directory}")
+    log.debug("Fetching git repo in %s", f"{directory=}")
     cmd = ["git", "fetch", "--prune", "--tags"]
     await run_cmd_line(cmd, f"{directory}")
 
