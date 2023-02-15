@@ -15,7 +15,6 @@ import yaml
 from aiohttp import ClientError, ClientSession, web
 from aiohttp.client import ClientTimeout
 from aiohttp.client_exceptions import ClientConnectorError
-from pydantic import AnyHttpUrl, BaseModel, Field
 from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
 from tenacity import retry
 from tenacity.before_sleep import before_sleep_log
