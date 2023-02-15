@@ -50,7 +50,7 @@ async def _portainer_request(
         log.error("Unknown error")
         raise AutoDeployAgentException(
             "Unknown error ({}) while accessing Portainer app in {}:\n {}".format(
-                str(resp.status), url, await resp.text()
+                f"{resp.status}", url, await resp.text()
             )
         )
 
@@ -182,4 +182,4 @@ async def update_stack(
         log.debug("updated stack: %s", data)
     except asyncio.exceptions.TimeoutError as err:
         print("ERROR")
-        print(str(err))
+        print(f"{err}")

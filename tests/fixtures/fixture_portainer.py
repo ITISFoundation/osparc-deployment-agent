@@ -79,7 +79,7 @@ def portainer_container(request) -> tuple[URL, Literal]:
             "--volume",
             "/var/run/docker.sock:/var/run/docker.sock",
             portainer_image,
-            "--admin-password=" + str(encrypted_password),
+            "--admin-password=" + f"{encrypted_password}",
             "--host",
             "unix:///var/run/docker.sock",
         ]

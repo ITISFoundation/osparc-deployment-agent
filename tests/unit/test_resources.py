@@ -20,7 +20,7 @@ def app_resources(package_dir: Path):
     base = package_dir
     for name in (resources.config_folder,):
         folder = base / name
-        resource_names += [str(p.relative_to(base)) for p in folder.rglob("*.y*ml")]
+        resource_names += [f"{p.relative_to(base)}" for p in folder.rglob("*.y*ml")]
 
     return resource_names
 
@@ -29,7 +29,6 @@ def app_resources(package_dir: Path):
 
 
 def test_resource_io_utils(app_resources):
-
     assert not resources.exists("fake_resource_name")
 
     for resource_name in app_resources:

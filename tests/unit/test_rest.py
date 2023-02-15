@@ -48,7 +48,7 @@ def client(
         "main": server_kwargs,
         "rest": {
             "version": "v0",
-            "location": str(api_specs_dir / "v0" / "openapi.yaml"),
+            "location": f"{api_specs_dir}/v0/openapi.yaml",
         },
     }
     # activates only security+restAPI sub-modules
@@ -67,7 +67,7 @@ async def test_check_health(client):
     resp = await client.get("/v0/")
     payload = await resp.json()
 
-    assert resp.status == 200, str(payload)
+    assert resp.status == 200, f"{payload}"
     data, error = tuple(payload.get(k) for k in ("data", "error"))
 
     assert data
@@ -91,7 +91,7 @@ async def test_check_action(client):
     payload = await resp.json()
     data, error = tuple(payload.get(k) for k in ("data", "error"))
 
-    assert resp.status == 200, str(payload)
+    assert resp.status == 200, f"{payload}"
     assert data
     assert not error
 

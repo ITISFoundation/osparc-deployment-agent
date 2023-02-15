@@ -54,7 +54,7 @@ def git_config(git_repository: str) -> dict[str, Any]:
             "watched_git_repositories": [
                 {
                     "id": "test-repo-1",
-                    "url": str(git_repository),
+                    "url": f"{git_repository}",
                     "branch": "master",
                     "tags": "",
                     "pull_only_files": False,

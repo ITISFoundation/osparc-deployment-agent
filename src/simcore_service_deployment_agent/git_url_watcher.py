@@ -42,10 +42,10 @@ async def _git_clone_repo(
             "git",
             "clone",
             "-n",
-            str(URL(repository).with_user(username).with_password(password)),
+            f"{URL(repository).with_user(username).with_password(password)}",
             "--depth",
             "1",
-            str(directory),
+            f"{directory}",
             "--single-branch",
             "--branch",
             branch,
@@ -55,10 +55,10 @@ async def _git_clone_repo(
             "git",
             "clone",
             "-n",
-            str(URL(repository)),
+            f"{URL(repository)}",
             "--depth",
             "1",
-            str(directory),
+            f"{directory}",
             "--single-branch",
             "--branch",
             branch,
@@ -68,49 +68,49 @@ async def _git_clone_repo(
 
 async def _git_get_FETCH_HEAD_sha(directory: Path) -> str:
     cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
-    sha = await run_cmd_line(cmd, str(directory))
+    sha = await run_cmd_line(cmd, f"{directory}")
     return sha.strip("\n")
 
 
 async def _git_get_sha_of_tag(directory: Path, tag: str) -> str:
     cmd = ["git", "rev-list", "-1", "--sparse", tag]
-    sha_long = await run_cmd_line(cmd, str(directory))
+    sha_long = await run_cmd_line(cmd, f"{directory}")
     cmd = ["git", "rev-parse", "--short", sha_long.strip("\n")]
-    sha_short = await run_cmd_line(cmd, str(directory))
+    sha_short = await run_cmd_line(cmd, f"{directory}")
     return sha_short.strip("\n")
 
 
 async def _git_clean_repo(directory: Path):
     cmd = ["git", "clean", "-dxf"]
-    await run_cmd_line(cmd, str(directory))
+    await run_cmd_line(cmd, f"{directory}")
 
 
 async def _git_checkout_files(directory: Path, paths: list[Path], tag: str = None):
     if not tag:
         tag = "HEAD"
-    cmd = ["git", "checkout", tag] + [str(path) for path in paths]
-    await run_cmd_line(cmd, str(directory))
+    cmd = ["git", "checkout", tag] + [f"{path}" for path in paths]
+    await run_cmd_line(cmd, f"{directory}")
 
 
 async def _git_checkout_repo(directory: Path, tag: str = None):
-    await _git_checkout_files(str(directory), [], tag)
+    await _git_checkout_files(f"{directory}", [], tag)
 
 
 async def _git_pull_files(directory: Path, paths: list[Path]):
-    cmd = ["git", "checkout", "FETCH_HEAD"] + [str(path) for path in paths]
-    await run_cmd_line(cmd, str(directory))
+    cmd = ["git", "checkout", "FETCH_HEAD"] + [f"{path}" for path in paths]
+    await run_cmd_line(cmd, f"{directory}")
 
 
 async def _git_pull(directory: Path):
     cmd = ["git", "pull"]
-    await run_cmd_line(cmd, str(directory))
+    await run_cmd_line(cmd, f"{directory}")
 
 
 async def _git_fetch(directory: Path):
     log.debug("Fetching git repo in directory:")
-    log.debug(str(directory))
+    log.debug(f"{directory}")
     cmd = ["git", "fetch", "--prune", "--tags"]
-    await run_cmd_line(cmd, str(directory))
+    await run_cmd_line(cmd, f"{directory}")
 
 
 async def _git_get_latest_matching_tag(
@@ -122,7 +122,7 @@ async def _git_get_latest_matching_tag(
         "--list",
         "--sort=creatordate",  # Sorted ascending by date
     ]
-    all_tags = await run_cmd_line(cmd, str(directory))
+    all_tags = await run_cmd_line(cmd, f"{directory}")
     if all_tags == None:
         return None
     all_tags = all_tags.split("\n")
@@ -142,11 +142,11 @@ async def _git_get_current_matching_tag(directory: Path, regexp: str) -> list[st
         "--tags",
         "--dereference",
     ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
-    all_tags = await run_cmd_line(cmd, str(directory))
+    all_tags = await run_cmd_line(cmd, f"{directory}")
     all_tags = all_tags.split("\n")
 
     cmd2 = ["git", "rev-parse", "HEAD"]
-    shaToBeFound = await run_cmd_line(cmd2, str(directory))
+    shaToBeFound = await run_cmd_line(cmd2, f"{directory}")
     shaToBeFound = shaToBeFound.split("\n")[0]
 
     associatedTagsFound = []
@@ -163,7 +163,7 @@ async def _git_diff_filenames(
     directory: Path,
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     cmd = ["git", "--no-pager", "diff", "--name-only", "FETCH_HEAD"]
-    modified_files = await run_cmd_line(cmd, str(directory))
+    modified_files = await run_cmd_line(cmd, f"{directory}")
     return modified_files
 
 
@@ -175,9 +175,9 @@ async def _git_get_logs(
         "--no-pager",
         "log",
         "--oneline",
-        str(branch1) + "..origin/" + str(branch2),
+        f"{branch1}" + "..origin/" + f"{branch2}",
     ]
-    logs = await run_cmd_line(cmd, str(directory))
+    logs = await run_cmd_line(cmd, f"{directory}")
     return logs
 
 
@@ -189,9 +189,9 @@ async def _git_get_logs_tags(
         "--no-pager",
         "log",
         "--oneline",
-        str(tag1) + ".." + str(tag2 if tag1 else tag2),
+        f"{tag1}..{tag2 if tag1 else tag2}",
     ]
-    logs = await run_cmd_line(cmd, str(directory))
+    logs = await run_cmd_line(cmd, f"{directory}")
     return logs
 
 

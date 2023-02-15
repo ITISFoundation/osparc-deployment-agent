@@ -7,6 +7,7 @@
 import asyncio
 import logging
 import sys
+from asyncio import AbstractEventLoop
 from pathlib import Path
 from pprint import pformat
 
@@ -14,6 +15,7 @@ import pytest
 import yaml
 
 import docker
+from docker import DockerClient
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +71,14 @@ def _list_services():
 
 
 @pytest.fixture(scope="session", params=_list_services())
-def service_name(request, services_docker_compose):
-    return str(request.param)
+def service_name(request, services_docker_compose) -> str:
+    return f"{request.param}"
 
 
-@pytest.fixture(scope="function")
-def docker_client():
+@pytest.fixture
+def docker_client() -> DockerClient:
     client = docker.from_env()
-    yield client
+    return client
 
 
 # UTILS --------------------------------
@@ -118,7 +120,9 @@ def get_failed_tasks_logs(service, docker_client):
 # TESTS -------------------------------
 
 
-async def test_service_running(service_name, docker_client, loop):
+async def test_service_running(
+    service_name: str, docker_client, event_loop: AbstractEventLoop
+):
     """
     NOTE: Assumes `make up-swarm` executed
     NOTE: loop fixture makes this test async

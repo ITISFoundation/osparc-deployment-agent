@@ -395,7 +395,7 @@ async def auto_deploy(app: web.Application):
                         app_config,
                         app_session,
                         state=app["state"][TASK_NAME],
-                        message=str(exc),
+                        message=f"{exc}",
                     )
             await asyncio.sleep(300)
 
