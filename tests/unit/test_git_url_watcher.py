@@ -18,7 +18,7 @@ from simcore_service_deployment_agent.cmd_utils import CmdLineError
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_repo_path(tmpdir: Path) -> Path:
     p = tmpdir.mkdir("test_git_repo")
     assert p.exists()
@@ -33,7 +33,7 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     return result.stdout.rstrip() if result.stdout else ""
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_repository(git_repo_path: Path) -> str:
     _run_cmd(
         "git init; git config user.name tester; git config user.email tester@test.com",
@@ -47,7 +47,7 @@ def git_repository(git_repo_path: Path) -> str:
     yield f"file://localhost{git_repo_path}"
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_config(git_repository: str) -> dict[str, Any]:
     cfg = {
         "main": {
@@ -97,7 +97,7 @@ async def test_git_url_watcher_find_new_file(
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
@@ -153,7 +153,7 @@ async def test_git_url_watcher_pull_only_selected_files(
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]

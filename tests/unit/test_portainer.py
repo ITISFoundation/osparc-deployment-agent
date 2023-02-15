@@ -6,6 +6,7 @@
 # pylint: disable=protected-access
 
 import asyncio
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -16,8 +17,8 @@ from yarl import URL
 from simcore_service_deployment_agent import portainer
 
 
-@pytest.fixture()
-async def aiohttp_client_session() -> ClientSession:
+@pytest.fixture
+async def aiohttp_client_session() -> AsyncIterator[ClientSession]:
     async with ClientSession() as client:
         yield client
 

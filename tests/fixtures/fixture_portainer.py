@@ -3,7 +3,10 @@ from typing import Literal
 
 import pytest
 import requests
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random
+from tenacity import retry
+from tenacity.retry import retry_if_exception_type
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_random
 from yarl import URL
 
 

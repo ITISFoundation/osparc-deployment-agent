@@ -2,6 +2,7 @@
 # pylint: disable=unused-argument
 
 import asyncio
+from collections.abc import AsyncIterator
 
 import pytest
 from aiohttp import ClientSession
@@ -10,8 +11,8 @@ from yarl import URL
 from simcore_service_deployment_agent import portainer
 
 
-@pytest.fixture()
-async def aiohttp_client_session() -> ClientSession:
+@pytest.fixture
+async def aiohttp_client_session() -> AsyncIterator[ClientSession]:
     async with ClientSession() as client:
         yield client
 

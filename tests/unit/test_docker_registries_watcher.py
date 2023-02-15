@@ -35,7 +35,7 @@ def _assert_docker_client_calls(
     mocked_docker_client.reset_mock()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_docker_client(mocker):
     mocked_docker_package = mocker.patch("docker.from_env", autospec=True)
     mocked_docker_package.return_value.images.get_registry_data.return_value.attrs = {
