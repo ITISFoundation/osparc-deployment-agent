@@ -7,20 +7,17 @@ import tempfile
 from asyncio.exceptions import CancelledError
 from pathlib import Path
 from shutil import copy2
-from typing import Dict, List, Tuple
 
 import yaml
 from aiohttp import ClientError, ClientSession, web
 from aiohttp.client import ClientTimeout
 from aiohttp.client_exceptions import ClientConnectorError
 from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_fixed,
-)
+from tenacity import retry
+from tenacity.before_sleep import before_sleep_log
+from tenacity.retry import retry_if_exception_type
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_fixed
 from yarl import URL
 
 from . import portainer
@@ -33,15 +30,15 @@ from .notifier import notify, notify_state
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
-TASK_NAME = __name__ + "_autodeploy_task"
-TASK_SESSION_NAME = __name__ + "session"
 
+TASK_NAME = f"{__name__}_autodeploy_task"
+TASK_SESSION_NAME = f"{__name__}session"
 
 RETRY_WAIT_SECS = 2
 RETRY_COUNT = 10
 
 
-async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
+async def filter_services(app_config: dict, stack_file: Path) -> dict:
     excluded_services = app_config["main"]["docker_stack_recipe"]["excluded_services"]
     excluded_volumes = app_config["main"]["docker_stack_recipe"]["excluded_volumes"]
     log.debug("filtering services and volumes")
@@ -73,7 +70,7 @@ async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
         return stack_cfg
 
 
-async def add_parameters(app_config: Dict, stack_cfg: Dict) -> Dict:
+async def add_parameters(app_config: dict, stack_cfg: dict) -> dict:
     additional_parameters = app_config["main"]["docker_stack_recipe"][
         "additional_parameters"
     ]
@@ -98,7 +95,7 @@ async def add_parameters(app_config: Dict, stack_cfg: Dict) -> Dict:
     return stack_cfg
 
 
-async def add_prefix_to_services(app_config: Dict, stack_cfg: Dict) -> Dict:
+async def add_prefix_to_services(app_config: dict, stack_cfg: dict) -> dict:
     services_prefix = app_config["main"]["docker_stack_recipe"]["services_prefix"]
     if services_prefix:
         log.debug("adding service prefix %s to all services", services_prefix)
@@ -111,7 +108,7 @@ async def add_prefix_to_services(app_config: Dict, stack_cfg: Dict) -> Dict:
     return stack_cfg
 
 
-async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path:
+async def generate_stack_file(app_config: dict, git_task: GitUrlWatcher) -> Path:
     # collect repos informations
     git_repos = {}
     git_repos.update({x.repo_id: x for x in git_task.watched_repos})
@@ -164,7 +161,7 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
 
 
 async def update_portainer_stack(
-    app_config: Dict, app_session: ClientSession, stack_cfg: Dict
+    app_config: dict, app_session: ClientSession, stack_cfg: dict
 ):
     log.debug("updateing portainer stack using: %s", stack_cfg)
     portainer_cfg = app_config["main"]["portainer"]
@@ -203,7 +200,7 @@ async def update_portainer_stack(
 
 
 async def create_docker_registries_watch_subtask(
-    app_config: Dict, stack_cfg: Dict
+    app_config: dict, stack_cfg: dict
 ) -> DockerRegistriesWatcher:
     log.debug("creating docker watch subtask")
     docker_subtask = DockerRegistriesWatcher(app_config, stack_cfg)
@@ -211,20 +208,22 @@ async def create_docker_registries_watch_subtask(
     return docker_subtask
 
 
-async def create_git_watch_subtask(app_config: Dict) -> Tuple[GitUrlWatcher, Dict]:
+async def create_git_watch_subtask(app_config: dict) -> tuple[GitUrlWatcher, dict]:
     log.debug("creating git repo watch subtask")
     git_sub_task = GitUrlWatcher(app_config)
     descriptions = await git_sub_task.init()
     return (git_sub_task, descriptions)
 
 
-async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
+async def create_stack(git_task: GitUrlWatcher, app_config: dict) -> dict:
     # generate the stack file
     stack_file = await generate_stack_file(app_config, git_task)
     log.debug("generated stack file in %s", stack_file.name)
+
     # filter the stack file if needed
     stack_cfg = await filter_services(app_config, stack_file)
     log.debug("filtered stack configuration")
+
     # add parameter to the stack file if needed
     stack_cfg = await add_parameters(app_config, stack_cfg)
     log.debug("new stack config is\n%s", stack_file)
@@ -235,7 +234,7 @@ async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
     return stack_cfg
 
 
-async def check_changes(subtasks: List[SubTask]) -> Dict:
+async def check_changes(subtasks: list[SubTask]) -> dict:
     changes = {}
     for task in subtasks:
         changes.update(await task.check_for_changes())
@@ -249,7 +248,7 @@ async def check_changes(subtasks: List[SubTask]) -> Dict:
     retry=retry_if_exception_type(DependencyNotReadyError),
     reraise=True,
 )
-async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
+async def wait_for_dependencies(app_config: dict, app_session: ClientSession):
     log.info("waiting for dependencies to start...")
     # wait for a portainer instance
     portainer_cfg = app_config["main"]["portainer"]
@@ -262,14 +261,12 @@ async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
             log.info("portainer at %s ready", url)
         except (ClientError, ClientConnectorError) as e:
             log.exception("portainer not ready at %s", url)
-            raise DependencyNotReadyError(
-                "Portainer not ready at {}".format(url)
-            ) from e
+            raise DependencyNotReadyError(f"Portainer not ready at {url}") from e
 
 
 async def _init_deploy(
     app: web.Application,
-) -> Tuple[GitUrlWatcher, DockerRegistriesWatcher]:
+) -> tuple[GitUrlWatcher, DockerRegistriesWatcher]:
     try:
         log.info("initialising...")
         # get configs
