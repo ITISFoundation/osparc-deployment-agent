@@ -4,6 +4,7 @@ import re
 import shutil
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -200,6 +201,21 @@ async def _git_get_logs_tags(
 
 watched_repos = []
 
+RepoID = str
+
+
+@attr.s(auto_attribs=True)
+class GitRepo:  # pylint: disable=too-many-instance-attributes, too-many-arguments
+    repo_id: RepoID
+    repo_url: URL
+    branch: str
+    tags: str
+    username: str
+    password: str
+    paths: list[Path]
+    pull_only_files: bool
+    directory: str = ""
+
 
 async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
     await _git_checkout_files(repo.directory, [], tag)
@@ -217,8 +233,24 @@ async def _pull_repository(repo: GitRepo):
     await _git_pull(repo.directory)
 
 
-async def _init_repositories(repos: list[GitRepo]) -> dict:
-    description = {}
+@dataclass
+class ClonedRepoInfo:
+    repo_id: RepoID
+    sha: str
+    branch: str
+    latest_tag: Optional[str]
+    tag_date: Optional[datetime] = None
+
+    def message(self) -> str:
+        return (
+            f"{self.repo_id}:{self.branch}:{self.latest_tag}:{self.sha}"
+            if self.latest_tag
+            else f"{self.repo_id}:{self.branch}:{self.sha}"
+        )
+
+
+async def _init_repositories(repos: list[GitRepo]) -> dict[RepoID, ClonedRepoInfo]:
+    cloned_repos_info = {}
     log.info("Initializing git repositories...")
     for repo in repos:
         directoryName = tempfile.mkdtemp()
@@ -230,11 +262,13 @@ async def _init_repositories(repos: list[GitRepo]) -> dict:
             repo.repo_url, repo.directory, repo.branch, repo.username, repo.password
         )
         await _git_fetch(repo.directory)
+
         latest_tag = (
             await _git_get_latest_matching_tag(repo.directory, repo.tags)
             if repo.tags
             else None
         )
+
         log.debug(
             "latest tag found for %s is %s, now checking out...",
             repo.repo_id,
@@ -253,9 +287,7 @@ async def _init_repositories(repos: list[GitRepo]) -> dict:
         await _git_checkout_files(repo.directory, [], latest_tag)
         # This subsequent call will checkout the files at the given revision
         await _checkout_repository(repo, latest_tag)
-        #
-        #
-        #
+
         log.info("repository %s checked out on %s", repo, latest_tag)
         #
         #
@@ -265,13 +297,16 @@ async def _init_repositories(repos: list[GitRepo]) -> dict:
             sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
         else:
             sha = await _git_get_FETCH_HEAD_sha(repo.directory)
+
         log.debug("sha for %s is %s", repo.repo_id, sha)
-        description[repo.repo_id] = (
-            f"{repo.repo_id}:{repo.branch}:{latest_tag}:{sha}"
-            if latest_tag
-            else f"{repo.repo_id}:{repo.branch}:{sha}"
+
+        cloned_repos_info[repo.repo_id] = ClonedRepoInfo(
+            repo_id=repo.repo_id,
+            branch=repo.branch,
+            latest_tag=latest_tag,
+            sha=sha,
         )
-    return description
+    return cloned_repos_info
 
 
 async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool:
@@ -414,7 +449,8 @@ async def _delete_repositories(repos: list[GitRepo]):
 class GitUrlWatcher(SubTask):
     def __init__(self, app_config: dict):
         super().__init__(name="git repo watcher")
-        self.watched_repos = []
+        self.watched_repos: list[GitRepo] = []
+
         watched_compose_files_config = app_config["main"]["watched_git_repositories"]
         for config in watched_compose_files_config:
             repo = GitRepo(
@@ -428,9 +464,11 @@ class GitUrlWatcher(SubTask):
             )
             self.watched_repos.append(repo)
 
-    async def init(self) -> dict:
-        description = await _init_repositories(self.watched_repos)
-        return description
+        self.clone_info: dict[RepoID, ClonedRepoInfo] = {}
+
+    async def init(self) -> dict[RepoID, str]:
+        self.clone_info = await _init_repositories(self.watched_repos)
+        return {repo_id: info.message() for repo_id, info in self.clone_info.items()}
 
     @retry(
         reraise=True,
