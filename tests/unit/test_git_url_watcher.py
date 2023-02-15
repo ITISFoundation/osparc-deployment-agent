@@ -1,13 +1,11 @@
-import asyncio
-import subprocess
-
-# pylint: disable=wildcard-import
-# pylint: disable=unused-import
-# pylint: disable=unused-variable
-# pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
-# pylint: disable=bare-except
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=too-many-arguments
+
+import subprocess
 import time
+from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Any
 
@@ -19,8 +17,9 @@ from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
 @pytest.fixture
-def git_repo_path(tmpdir: Path) -> Path:
-    p = tmpdir.mkdir("test_git_repo")
+def git_repo_path(tmp_path: Path) -> Path:
+    p = tmp_path / "test_git_repo"
+    p.mkdir()
     assert p.exists()
     return p
 
@@ -43,8 +42,7 @@ def git_repository(git_repo_path: Path) -> str:
         "touch initial_file.txt; git add .; git commit -m 'initial commit';",
         cwd=git_repo_path,
     )
-
-    yield f"file://localhost{git_repo_path}"
+    return f"file://localhost{git_repo_path}"
 
 
 @pytest.fixture
@@ -65,11 +63,11 @@ def git_config(git_repository: str) -> dict[str, Any]:
             ]
         }
     }
-    yield cfg
+    return cfg
 
 
 async def test_git_url_watcher_find_new_file(
-    event_loop, git_config: dict[str, Any], git_repo_path: Path
+    event_loop: AbstractEventLoop, git_config: dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -105,7 +103,7 @@ def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
 
 
 async def test_git_url_watcher_pull_only_selected_files(
-    event_loop: asyncio.AbstractEventLoop,
+    event_loop: AbstractEventLoop,
     git_config_pull_only_files: dict[str, Any],
     git_repo_path: Path,
 ):
@@ -162,7 +160,9 @@ def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any
 
 
 async def test_git_url_watcher_pull_only_selected_files_tags(
-    loop, git_config_pull_only_files_tags: dict[str, Any], git_repo_path: Path
+    event_loop: AbstractEventLoop,
+    git_config_pull_only_files_tags: dict[str, Any],
+    git_repo_path: Path,
 ):
     REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
         "id"
