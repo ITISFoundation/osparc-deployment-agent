@@ -6,8 +6,10 @@ import logging
 import tempfile
 from asyncio import create_task
 from asyncio.exceptions import CancelledError
+from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
+from typing import Any
 
 import yaml
 from aiohttp import ClientError, ClientSession, web
@@ -79,7 +81,9 @@ def filter_services(
     return stack_cfg
 
 
-def add_parameters(app_config: dict, stack_cfg: ComposeSpecsDict) -> ComposeSpecsDict:
+def add_parameters(
+    app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
+) -> ComposeSpecsDict:
     additional_parameters = app_config["main"]["docker_stack_recipe"][
         "additional_parameters"
     ]
@@ -105,7 +109,7 @@ def add_parameters(app_config: dict, stack_cfg: ComposeSpecsDict) -> ComposeSpec
 
 
 def add_prefix_to_services(
-    app_config: dict, stack_cfg: ComposeSpecsDict
+    app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
 ) -> ComposeSpecsDict:
     services_prefix = app_config["main"]["docker_stack_recipe"]["services_prefix"]
     if services_prefix:
@@ -119,7 +123,9 @@ def add_prefix_to_services(
     return stack_cfg
 
 
-async def generate_stack_file(app_config: dict, git_task: GitUrlWatcher) -> Path:
+async def generate_stack_file(
+    app_config: dict[str, Any], git_task: GitUrlWatcher
+) -> Path:
     # collect repos informations
     git_repos = {}
     git_repos.update({x.repo_id: x for x in git_task.watched_repos})
@@ -172,7 +178,7 @@ async def generate_stack_file(app_config: dict, git_task: GitUrlWatcher) -> Path
 
 
 async def update_portainer_stack(
-    app_config: dict, app_session: ClientSession, stack_cfg: ComposeSpecsDict
+    app_config: dict[str, Any], app_session: ClientSession, stack_cfg: ComposeSpecsDict
 ):
     log.debug("updating portainer stack using: %s", stack_cfg)
     portainer_cfg = app_config["main"]["portainer"]
@@ -211,7 +217,7 @@ async def update_portainer_stack(
 
 
 async def create_docker_registries_watch_subtask(
-    app_config: dict, stack_cfg: ComposeSpecsDict
+    app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
 ) -> DockerRegistriesWatcher:
     log.debug("creating docker watch subtask")
     docker_subtask = DockerRegistriesWatcher(app_config, stack_cfg)
@@ -219,14 +225,18 @@ async def create_docker_registries_watch_subtask(
     return docker_subtask
 
 
-async def create_git_watch_subtask(app_config: dict) -> tuple[GitUrlWatcher, dict]:
+async def create_git_watch_subtask(
+    app_config: dict[str, Any]
+) -> tuple[GitUrlWatcher, dict]:
     log.debug("creating git repo watch subtask")
     git_sub_task = GitUrlWatcher(app_config)
     descriptions = await git_sub_task.init()
     return (git_sub_task, descriptions)
 
 
-async def create_stack(git_task: GitUrlWatcher, app_config: dict) -> ComposeSpecsDict:
+async def create_stack(
+    git_task: GitUrlWatcher, app_config: dict[str, Any]
+) -> ComposeSpecsDict:
     # generate the stack file
     stack_file = await generate_stack_file(app_config, git_task)
     log.debug("generated stack file in %s", stack_file.name)
@@ -267,7 +277,7 @@ async def check_changes(subtasks: list[SubTask]) -> dict:
     retry=retry_if_exception_type(DependencyNotReadyError),
     reraise=True,
 )
-async def wait_for_dependencies(app_config: dict, app_session: ClientSession):
+async def wait_for_dependencies(app_config: dict[str, Any], app_session: ClientSession):
     log.info("waiting for dependencies to start...")
     # wait for a portainer instance
     portainer_cfg = app_config["main"]["portainer"]
@@ -414,11 +424,9 @@ async def background_task(app: web.Application):
     app[TASK_NAME] = create_task(auto_deploy(app))
     yield
     task = app[TASK_NAME]
-    try:
-        task.cancel()
+    task.cancel()
+    with suppress(asyncio.CancelledError):
         await task
-    except Exception:  # pylint: disable=broad-exception-caught
-        log.exception("Unexpected exception while canceling background task")
 
 
 async def persistent_session(app):
