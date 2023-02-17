@@ -48,8 +48,6 @@ dill==0.3.6
     # via pylint
 docopt==0.6.2
     # via coveralls
-exceptiongroup==1.1.0
-    # via pytest
 execnet==1.9.0
     # via pytest-xdist
 faker==16.6.1
@@ -97,7 +95,9 @@ pluggy==1.0.0
 pprintpp==0.4.0
     # via pytest-icdiff
 ptvsd==4.3.2
-    # via -r requirements/_test.in
+    # via
+    #   -c requirements/_base.txt
+    #   -r requirements/_test.in
 pylint==2.16.1
     # via -r requirements/_test.in
 pytest==7.2.1
@@ -127,7 +127,7 @@ pytest-runner==6.0.0
     # via -r requirements/_test.in
 pytest-sugar==0.9.6
     # via -r requirements/_test.in
-pytest-xdist==3.1.0
+pytest-xdist==3.2.0
     # via -r requirements/_test.in
 python-dateutil==2.8.2
     # via faker
@@ -142,24 +142,16 @@ six==1.16.0
     #   python-dateutil
 termcolor==2.1.0
     # via pytest-sugar
-tomli==2.0.1
-    # via
-    #   coverage
-    #   pylint
-    #   pytest
 tomlkit==0.11.6
     # via pylint
-typing-extensions==4.4.0
-    # via
-    #   -c requirements/_base.txt
-    #   astroid
-    #   pylint
 urllib3==1.26.12
     # via
     #   -c requirements/_base.txt
     #   requests
 werkzeug==2.2.2
-    # via -r requirements/_test.in
+    # via
+    #   -c requirements/_base.txt
+    #   -r requirements/_test.in
 wrapt==1.14.1
     # via astroid
 yarl==1.8.1
