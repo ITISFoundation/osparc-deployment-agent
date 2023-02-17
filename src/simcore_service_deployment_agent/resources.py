@@ -3,7 +3,7 @@
 """
 from servicelib.resources import ResourcesFacade
 
-from .settings import RSC_CONFIG_DIR_KEY  # pylint: disable=unused-import
+from .settings import RSC_CONFIG_DIR_KEY
 
 resources = ResourcesFacade(
     package_name=__name__,
@@ -11,8 +11,9 @@ resources = ResourcesFacade(
     config_folder=RSC_CONFIG_DIR_KEY,
 )
 
+assert RSC_CONFIG_DIR_KEY  # nosec
 
-__all__ = (
+__all__: tuple[str, ...] = (
     "resources",
     "RSC_CONFIG_DIR_KEY",
 )

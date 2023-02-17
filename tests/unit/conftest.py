@@ -1,17 +1,21 @@
-# pylint:disable=redefined-outer-name
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=too-many-arguments
 
 import re
+from collections.abc import Iterator
 from random import randint
-from typing import Any, Dict
+from typing import Any
+from unittest.mock import MagicMock
 
-import faker
 import pytest
 from aioresponses import aioresponses
 from aioresponses.core import CallbackResult
+from faker import Faker
+from pytest_mock import MockerFixture
 
 from simcore_service_deployment_agent import auto_deploy_task
-
-fake = faker.Faker()
 
 
 @pytest.fixture(scope="session")
@@ -20,9 +24,10 @@ def bearer_code() -> str:
     return FAKE_BEARER_CODE
 
 
-@pytest.fixture(scope="session")
-def portainer_stacks(valid_config: Dict[str, Any]) -> Dict[str, Any]:
-
+@pytest.fixture
+def portainer_stacks(
+    valid_config: dict[str, Any], faker: Faker
+) -> list[dict[str, Any]]:
     stacks = [
         # some of the Portainer API fields here
         {
@@ -33,7 +38,7 @@ def portainer_stacks(valid_config: Dict[str, Any]) -> Dict[str, Any]:
         },
         {
             "Id": randint(1, 10),
-            "Name": fake.name(),
+            "Name": faker.name(),
             "Type": 1,
             "EndpointID": randint(1, 10),
         },
@@ -41,17 +46,17 @@ def portainer_stacks(valid_config: Dict[str, Any]) -> Dict[str, Any]:
     return stacks
 
 
-@pytest.fixture()
-def aioresponse_mocker() -> aioresponses:
+@pytest.fixture
+def aioresponse_mocker() -> Iterator[aioresponses]:
     PASSTHROUGH_REQUESTS_PREFIXES = ["http://127.0.0.1", "ws://"]
     with aioresponses(passthrough=PASSTHROUGH_REQUESTS_PREFIXES) as mock:
         yield mock
 
 
-@pytest.fixture()
-async def mattermost_service_mock(
-    aioresponse_mocker: aioresponses, valid_config: Dict[str, Any]
-) -> aioresponses:
+@pytest.fixture
+def mattermost_service_mock(
+    aioresponse_mocker: aioresponses, valid_config: dict[str, Any]
+) -> Iterator[aioresponses]:
     get_channels_pattern = (
         re.compile(
             rf'{valid_config["main"]["notifications"][0]["url"]}/api/v4/channels/.+'
@@ -76,13 +81,13 @@ async def mattermost_service_mock(
     yield aioresponse_mocker
 
 
-@pytest.fixture()
-async def portainer_service_mock(
+@pytest.fixture
+def portainer_service_mock(
     aioresponse_mocker: aioresponses,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
-    valid_config: Dict[str, Any],
-) -> aioresponses:
+    portainer_stacks: dict[str, Any],
+    valid_config: dict[str, Any],
+) -> Iterator[aioresponses]:
     def _check_auth(**kwargs) -> bool:
         return (
             "headers" in kwargs
@@ -167,11 +172,9 @@ async def portainer_service_mock(
     yield aioresponse_mocker
 
 
-@pytest.fixture()
-def mocked_cmd_utils(mocker):
+@pytest.fixture
+def mocked_cmd_utils(mocker: MockerFixture) -> MagicMock:
     mock_run_cmd_line = mocker.patch.object(
-        auto_deploy_task,
-        "run_cmd_line_unsafe",
-        return_value="",
+        auto_deploy_task, "run_cmd_line_unsafe", return_value="", autospec=True
     )
-    yield mock_run_cmd_line
+    return mock_run_cmd_line

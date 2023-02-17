@@ -1,14 +1,13 @@
-import subprocess
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=too-many-arguments
 
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=bare-except
+import subprocess
 import time
+from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -17,9 +16,10 @@ from simcore_service_deployment_agent.cmd_utils import CmdLineError
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
-@pytest.fixture()
-def git_repo_path(tmpdir: Path) -> Path:
-    p = tmpdir.mkdir("test_git_repo")
+@pytest.fixture
+def git_repo_path(tmp_path: Path) -> Path:
+    p = tmp_path / "test_git_repo"
+    p.mkdir()
     assert p.exists()
     return p
 
@@ -32,7 +32,7 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     return result.stdout.rstrip() if result.stdout else ""
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_repository(git_repo_path: Path) -> str:
     _run_cmd(
         "git init; git config user.name tester; git config user.email tester@test.com",
@@ -42,18 +42,17 @@ def git_repository(git_repo_path: Path) -> str:
         "touch initial_file.txt; git add .; git commit -m 'initial commit';",
         cwd=git_repo_path,
     )
+    return f"file://localhost{git_repo_path}"
 
-    yield f"file://localhost{git_repo_path}"
 
-
-@pytest.fixture()
-def git_config(git_repository: str) -> Dict[str, Any]:
+@pytest.fixture
+def git_config(git_repository: str) -> dict[str, Any]:
     cfg = {
         "main": {
             "watched_git_repositories": [
                 {
                     "id": "test-repo-1",
-                    "url": str(git_repository),
+                    "url": f"{git_repository}",
                     "branch": "master",
                     "tags": "",
                     "pull_only_files": False,
@@ -64,11 +63,11 @@ def git_config(git_repository: str) -> Dict[str, Any]:
             ]
         }
     }
-    yield cfg
+    return cfg
 
 
 async def test_git_url_watcher_find_new_file(
-    loop, git_config: Dict[str, Any], git_repo_path: Path
+    event_loop: AbstractEventLoop, git_config: dict[str, Any], git_repo_path: Path
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -96,15 +95,17 @@ async def test_git_url_watcher_find_new_file(
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
-def git_config_pull_only_files(git_config: Dict[str, Any]) -> Dict[str, Any]:
+@pytest.fixture
+def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     return git_config
 
 
 async def test_git_url_watcher_pull_only_selected_files(
-    loop, git_config_pull_only_files: Dict[str, Any], git_repo_path: Path
+    event_loop: AbstractEventLoop,
+    git_config_pull_only_files: dict[str, Any],
+    git_repo_path: Path,
 ):
     REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]
@@ -150,8 +151,8 @@ async def test_git_url_watcher_pull_only_selected_files(
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
-def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any]:
+@pytest.fixture
+def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     git_config["main"]["watched_git_repositories"][0]["tags"] = "^staging_.+$"
@@ -159,7 +160,9 @@ def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any
 
 
 async def test_git_url_watcher_pull_only_selected_files_tags(
-    loop, git_config_pull_only_files_tags: Dict[str, Any], git_repo_path: Path
+    event_loop: AbstractEventLoop,
+    git_config_pull_only_files_tags: dict[str, Any],
+    git_repo_path: Path,
 ):
     REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
         "id"
