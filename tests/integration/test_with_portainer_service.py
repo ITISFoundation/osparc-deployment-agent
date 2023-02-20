@@ -2,6 +2,8 @@
 # pylint: disable=unused-argument
 
 import asyncio
+import os
+import time
 from collections.abc import AsyncIterator
 
 import pytest
@@ -9,6 +11,22 @@ from aiohttp import ClientSession
 from yarl import URL
 
 from simcore_service_deployment_agent import exceptions, portainer
+
+
+@pytest.fixture
+async def portainer_baerer_code(
+    loop: asyncio.AbstractEventLoop,
+    portainer_container: tuple[URL, str],
+    aiohttp_client_session: ClientSession,
+) -> str:
+    portainer_url, portainer_password = portainer_container
+    received_bearer_code = await portainer.authenticate(
+        portainer_url,
+        aiohttp_client_session,
+        username="admin",
+        password=portainer_password,
+    )
+    return received_bearer_code
 
 
 @pytest.fixture
@@ -29,10 +47,10 @@ async def test_portainer_connection(
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 async def portainer_endpoint_id(
     loop: asyncio.AbstractEventLoop,
-    portainer_container: Tuple[URL, str],
+    portainer_container: tuple[URL, str],
     aiohttp_client_session: ClientSession,
     portainer_baerer_code: str,
 ) -> int:
@@ -47,7 +65,7 @@ async def portainer_endpoint_id(
 
 async def test_portainer_test_create_stack(
     loop: asyncio.AbstractEventLoop,
-    portainer_container: Tuple[URL, str],
+    portainer_container: tuple[URL, str],
     aiohttp_client_session: ClientSession,
     portainer_baerer_code: str,
     portainer_endpoint_id: int,
@@ -94,7 +112,7 @@ async def test_portainer_test_create_stack(
 
 async def test_portainer_raises_when_stack_already_present_and_can_delete(
     loop: asyncio.AbstractEventLoop,
-    portainer_container: Tuple[URL, str],
+    portainer_container: tuple[URL, str],
     aiohttp_client_session: ClientSession,
     portainer_baerer_code: str,
     portainer_endpoint_id: int,

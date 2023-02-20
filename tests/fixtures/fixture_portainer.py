@@ -47,7 +47,8 @@ def _wait_for_instance(url: URL, code: int = 200):
         "portainer/portainer-ce:2.1.1",
         "portainer/portainer-ce:latest",
         "portainer/portainer-ce:2.13.1",
-        "portainer/portainer-ce:2.25.0",
+        "portainer/portainer-ce:2.16.2",
+        "portainer/portainer-ce:2.17.0",
     ],
 )
 def portainer_container(request) -> Iterator[tuple[URL, str]]:

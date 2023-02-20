@@ -25,23 +25,9 @@ async def aiohttp_client_session() -> AsyncIterator[ClientSession]:
         yield client
 
 
-@pytest.fixture()
-async def faked_stack_name(faker: Faker) -> str:
-    return faker.word()
-
-
-async def test_authenticate(
-    event_loop: asyncio.AbstractEventLoop,
-    valid_config: dict[str, Any],
-    portainer_service_mock: aioresponses,
-    aiohttp_client_session: ClientSession,
-    bearer_code: str,
-):
-    origin = URL(valid_config["main"]["portainer"][0]["url"])
-    received_bearer_code = await portainer.authenticate(
-        origin, aiohttp_client_session, username="testuser", password="password"
-    )
-    assert received_bearer_code == bearer_code
+@pytest.fixture
+def faked_stack_name(faker: Faker) -> str:
+    return str(faker.word()).lower()
 
 
 async def test_first_endpoint_id(
@@ -80,6 +66,7 @@ async def test_stacks(
     aiohttp_client_session: ClientSession,
     bearer_code: str,
     portainer_stacks: dict[str, Any],
+    faked_stack_name: str,
 ):
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
@@ -140,7 +127,7 @@ async def test_create_stack(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_id=str(faker.pyint(min=1)),
+            stack_id=str(faker.pyint(min_value=1)),
             endpoint_id=endpoint,
             stack_cfg=valid_docker_stack,
         )
@@ -148,11 +135,11 @@ async def test_create_stack(
 
 async def test_create_stack_fails_when_name_contains_uppercase_chars(
     loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
+    portainer_stacks: dict[str, Any],
     valid_docker_stack,
 ):
     swarm_id = 1

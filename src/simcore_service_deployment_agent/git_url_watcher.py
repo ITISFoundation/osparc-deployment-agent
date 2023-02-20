@@ -379,9 +379,7 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(
-    repos: List[GitRepo], syncedViaTags: bool = False
-) -> Dict:
+async def _check_repositories(repos: [GitRepo], syncedViaTags: bool = False) -> dict:
     changes = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
@@ -455,7 +453,7 @@ class GitUrlWatcher(SubTask):
         wait=wait_random(min=1, max=MAX_TIME_TO_WAIT_S),
         after=after_log(log, logging.DEBUG),
     )
-    async def check_for_changes(self) -> Dict:
+    async def check_for_changes(self) -> dict:
         return await _check_repositories(self.watched_repos, self.synced_via_tags)
 
     async def cleanup(self):

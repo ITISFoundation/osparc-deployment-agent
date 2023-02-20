@@ -38,7 +38,7 @@ def portainer_stacks(
         },
         {
             "Id": randint(1, 10),
-            "Name": fake.name().replace(" ", "").lower(),
+            "Name": faker.name().replace(" ", "").lower(),
             "Type": 1,
             "EndpointID": randint(1, 10),
         },
