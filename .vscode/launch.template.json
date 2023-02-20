@@ -26,16 +26,17 @@
       "module": "pytest",
       "args": [
         "--ff",
-        "--log-cli-level=INFO",
-        "--pdb",
+        "--asyncio-mode=auto",
+        "--log-cli-level=DEBUG",
         "--setup-show",
-        "-sx",
+        "--pdb",
+        "-xs",
         "-vv",
         "${file}"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": false
-    }
+    },
   ]
 }

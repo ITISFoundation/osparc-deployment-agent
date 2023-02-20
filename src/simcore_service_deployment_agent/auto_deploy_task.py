@@ -4,23 +4,23 @@ import copy
 import json
 import logging
 import tempfile
+from asyncio import create_task
 from asyncio.exceptions import CancelledError
+from contextlib import suppress
 from pathlib import Path
 from shutil import copy2
-from typing import Dict, List, Tuple
+from typing import Any
 
 import yaml
 from aiohttp import ClientError, ClientSession, web
 from aiohttp.client import ClientTimeout
 from aiohttp.client_exceptions import ClientConnectorError
 from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_fixed,
-)
+from tenacity import retry
+from tenacity.before_sleep import before_sleep_log
+from tenacity.retry import retry_if_exception_type
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_fixed
 from yarl import URL
 
 from . import portainer
@@ -29,51 +29,61 @@ from .cmd_utils import run_cmd_line_unsafe
 from .docker_registries_watcher import DockerRegistriesWatcher
 from .exceptions import ConfigurationError, DependencyNotReadyError
 from .git_url_watcher import GitUrlWatcher
+from .models import ComposeSpecsDict, ServiceName, VolumeName
 from .notifier import notify, notify_state
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
-TASK_NAME = __name__ + "_autodeploy_task"
-TASK_SESSION_NAME = __name__ + "session"
 
+TASK_NAME = f"{__name__}_autodeploy_task"
+TASK_SESSION_NAME = f"{__name__}session"
 
 RETRY_WAIT_SECS = 2
 RETRY_COUNT = 10
 
 
-async def filter_services(app_config: Dict, stack_file: Path) -> Dict:
-    excluded_services = app_config["main"]["docker_stack_recipe"]["excluded_services"]
-    excluded_volumes = app_config["main"]["docker_stack_recipe"]["excluded_volumes"]
+def filter_services(
+    excluded_services: list[ServiceName],
+    excluded_volumes: list[VolumeName],
+    stack_file: Path,
+) -> ComposeSpecsDict:
     log.debug("filtering services and volumes")
-    with Path(stack_file).open("r+", encoding="UTF-8") as fp:
-        stack_cfg = yaml.safe_load(fp)
-        # remove excluded services
-        for service in excluded_services:
-            stack_cfg["services"].pop(service, None)
-        # remove excluded volumes
-        for volume in excluded_volumes:
-            stack_cfg.get("volumes", {}).pop(volume, None)
-        # remove build part, useless in a stack
-        for service in stack_cfg["services"].keys():
-            stack_cfg["services"][service].pop("build", None)
-            # Taking care of wrong format in extra_hosts
-            if "extra_hosts" in stack_cfg["services"][service]:
-                if isinstance(stack_cfg["services"][service]["extra_hosts"], dict):
-                    if (
-                        len(stack_cfg["services"][service]["extra_hosts"].keys()) == 1
-                        and "" in stack_cfg["services"][service]["extra_hosts"]
-                    ):
-                        if stack_cfg["services"][service]["extra_hosts"][""] == "":
-                            stack_cfg["services"][service]["extra_hosts"] = []
 
-        log.debug(
-            "filtered services: result in:\n%s",
-            json.dumps(stack_cfg, indent=2, sort_keys=True),
-        )
-        return stack_cfg
+    stack_cfg: ComposeSpecsDict = yaml.safe_load(
+        Path(stack_file).read_text(encoding="UTF-8")
+    )
+    # remove excluded services
+    for service in excluded_services:
+        stack_cfg["services"].pop(service, None)
+
+    # remove excluded volumes
+    for volume in excluded_volumes:
+        stack_cfg.get("volumes", {}).pop(volume, None)
+
+    # remove build part, useless in a stack
+    for service in stack_cfg["services"].keys():
+        stack_cfg["services"][service].pop("build", None)
+
+        # Taking care of wrong format in extra_hosts
+        if "extra_hosts" in stack_cfg["services"][service]:
+            if isinstance(stack_cfg["services"][service]["extra_hosts"], dict):
+                if (
+                    len(stack_cfg["services"][service]["extra_hosts"].keys()) == 1
+                    and "" in stack_cfg["services"][service]["extra_hosts"]
+                ):
+                    if stack_cfg["services"][service]["extra_hosts"][""] == "":
+                        stack_cfg["services"][service]["extra_hosts"] = []
+
+    log.debug(
+        "filtered services: result in:\n%s",
+        json.dumps(stack_cfg, indent=2, sort_keys=True),
+    )
+    return stack_cfg
 
 
-async def add_parameters(app_config: Dict, stack_cfg: Dict) -> Dict:
+def add_parameters(
+    app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
+) -> ComposeSpecsDict:
     additional_parameters = app_config["main"]["docker_stack_recipe"][
         "additional_parameters"
     ]
@@ -98,7 +108,9 @@ async def add_parameters(app_config: Dict, stack_cfg: Dict) -> Dict:
     return stack_cfg
 
 
-async def add_prefix_to_services(app_config: Dict, stack_cfg: Dict) -> Dict:
+def add_prefix_to_services(
+    app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
+) -> ComposeSpecsDict:
     services_prefix = app_config["main"]["docker_stack_recipe"]["services_prefix"]
     if services_prefix:
         log.debug("adding service prefix %s to all services", services_prefix)
@@ -111,7 +123,9 @@ async def add_prefix_to_services(app_config: Dict, stack_cfg: Dict) -> Dict:
     return stack_cfg
 
 
-async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path:
+async def generate_stack_file(
+    app_config: dict[str, Any], git_task: GitUrlWatcher
+) -> Path:
     # collect repos informations
     git_repos = {}
     git_repos.update({x.repo_id: x for x in git_task.watched_repos})
@@ -164,7 +178,7 @@ async def generate_stack_file(app_config: Dict, git_task: GitUrlWatcher) -> Path
 
 
 async def update_portainer_stack(
-    app_config: Dict, app_session: ClientSession, stack_cfg: Dict
+    app_config: dict[str, Any], app_session: ClientSession, stack_cfg: ComposeSpecsDict
 ):
     log.debug("updating portainer stack using: %s", stack_cfg)
     portainer_cfg = app_config["main"]["portainer"]
@@ -203,7 +217,7 @@ async def update_portainer_stack(
 
 
 async def create_docker_registries_watch_subtask(
-    app_config: Dict, stack_cfg: Dict
+    app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
 ) -> DockerRegistriesWatcher:
     log.debug("creating docker watch subtask")
     docker_subtask = DockerRegistriesWatcher(app_config, stack_cfg)
@@ -211,31 +225,45 @@ async def create_docker_registries_watch_subtask(
     return docker_subtask
 
 
-async def create_git_watch_subtask(app_config: Dict) -> Tuple[GitUrlWatcher, Dict]:
+async def create_git_watch_subtask(
+    app_config: dict[str, Any]
+) -> tuple[GitUrlWatcher, dict]:
     log.debug("creating git repo watch subtask")
     git_sub_task = GitUrlWatcher(app_config)
     descriptions = await git_sub_task.init()
     return (git_sub_task, descriptions)
 
 
-async def create_stack(git_task: GitUrlWatcher, app_config: Dict) -> Dict:
+async def create_stack(
+    git_task: GitUrlWatcher, app_config: dict[str, Any]
+) -> ComposeSpecsDict:
     # generate the stack file
     stack_file = await generate_stack_file(app_config, git_task)
     log.debug("generated stack file in %s", stack_file.name)
+
     # filter the stack file if needed
-    stack_cfg = await filter_services(app_config, stack_file)
+    stack_cfg = filter_services(
+        excluded_services=app_config["main"]["docker_stack_recipe"][
+            "excluded_services"
+        ],
+        excluded_volumes=app_config["main"]["docker_stack_recipe"]["excluded_volumes"],
+        stack_file=stack_file,
+    )
     log.debug("filtered stack configuration")
+
     # add parameter to the stack file if needed
-    stack_cfg = await add_parameters(app_config, stack_cfg)
+    stack_cfg = add_parameters(app_config, stack_cfg)
     log.debug("new stack config is\n%s", stack_file)
+
     # change services names to avoid conflicts in common networks
-    stack_cfg = await add_prefix_to_services(app_config, stack_cfg)
-    log.debug("final stack config is:")
+    stack_cfg = add_prefix_to_services(app_config, stack_cfg)
+
+    log.debug("final stack compose specs is:")
     log.debug(json.dumps(stack_cfg, indent=4, sort_keys=True))
     return stack_cfg
 
 
-async def check_changes(subtasks: List[SubTask]) -> Dict:
+async def check_changes(subtasks: list[SubTask]) -> dict:
     changes = {}
     for task in subtasks:
         changes.update(await task.check_for_changes())
@@ -249,7 +277,7 @@ async def check_changes(subtasks: List[SubTask]) -> Dict:
     retry=retry_if_exception_type(DependencyNotReadyError),
     reraise=True,
 )
-async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
+async def wait_for_dependencies(app_config: dict[str, Any], app_session: ClientSession):
     log.info("waiting for dependencies to start...")
     # wait for a portainer instance
     portainer_cfg = app_config["main"]["portainer"]
@@ -262,30 +290,32 @@ async def wait_for_dependencies(app_config: Dict, app_session: ClientSession):
             log.info("portainer at %s ready", url)
         except (ClientError, ClientConnectorError) as e:
             log.exception("portainer not ready at %s", url)
-            raise DependencyNotReadyError(
-                "Portainer not ready at {}".format(url)
-            ) from e
+            raise DependencyNotReadyError(f"Portainer not ready at {url}") from e
 
 
 async def _init_deploy(
     app: web.Application,
-) -> Tuple[GitUrlWatcher, DockerRegistriesWatcher]:
+) -> tuple[GitUrlWatcher, DockerRegistriesWatcher]:
     try:
         log.info("initialising...")
         # get configs
         app["state"][TASK_NAME] = State.STARTING
         app_config = app[APP_CONFIG_KEY]
         app_session = app[TASK_SESSION_NAME]
+
         # wait for portainer to be available
         await wait_for_dependencies(app_config, app_session)
+
         # create initial stack
         git_task, descriptions = await create_git_watch_subtask(app_config)
         stack_cfg = await create_stack(git_task, app_config)
         docker_task = await create_docker_registries_watch_subtask(
             app_config, stack_cfg
         )
+
         # deploy stack to swarm
         await update_portainer_stack(app_config, app_session, stack_cfg)
+
         # notifications
         await notify(
             app_config,
@@ -348,20 +378,23 @@ async def auto_deploy(app: web.Application):
         app["state"][TASK_NAME] = State.STOPPED
         return
     except Exception:  # pylint: disable=broad-except
-        log.exception("Error while initializing deployment: ", exc_info=True)
+        log.exception("Error while initializing deployment: ")
         # this will trigger a restart from the docker swarm engine
         app["state"][TASK_NAME] = State.FAILED
         return
+
     # loop forever to detect changes
     while True:
         try:
             app["state"][TASK_NAME] = State.RUNNING
             docker_task = await _deploy(app, git_task, docker_task)
             await asyncio.sleep(app_config["main"]["polling_interval"])
+
         except asyncio.CancelledError:
             log.info("cancelling task...")
             app["state"][TASK_NAME] = State.STOPPED
             break
+
         except Exception as exc:  # pylint: disable=broad-except
             # some unknown error happened, let's wait 5 min and restart
             log.exception("Task error:")
@@ -372,29 +405,28 @@ async def auto_deploy(app: web.Application):
                         app_config,
                         app_session,
                         state=app["state"][TASK_NAME],
-                        message=str(exc),
+                        message=f"{exc}",
                     )
             await asyncio.sleep(300)
+
         finally:
             # cleanup the subtasks
             log.info("task completed...")
 
 
-def setup(app: web.Application):
-    app.cleanup_ctx.append(persistent_session)
-    try:
-        app.cleanup_ctx.append(background_task)
-    except asyncio.CancelledError:
-        print("We Encountered an error in running the deployment agent:")
+#
+# EVENTS
+#
 
 
 async def background_task(app: web.Application):
     app["state"] = {TASK_NAME: State.STARTING}
-    app[TASK_NAME] = asyncio.get_event_loop().create_task(auto_deploy(app))
+    app[TASK_NAME] = create_task(auto_deploy(app))
     yield
     task = app[TASK_NAME]
     task.cancel()
-    await task
+    with suppress(asyncio.CancelledError):
+        await task
 
 
 async def persistent_session(app):
@@ -403,4 +435,17 @@ async def persistent_session(app):
         yield
 
 
-__all__ = ["setup"]
+#
+# API
+#
+
+
+def setup_auto_deploy_task(app: web.Application):
+    app.cleanup_ctx.append(persistent_session)
+    try:
+        app.cleanup_ctx.append(background_task)
+    except asyncio.CancelledError:
+        print("We Encountered an error in running the deployment agent:")
+
+
+__all__: tuple[str, ...] = ("setup_auto_deploy_task",)

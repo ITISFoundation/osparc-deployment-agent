@@ -1,15 +1,14 @@
-import subprocess
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=too-many-arguments
 
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=bare-except
+import subprocess
 import time
 import uuid
+from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Union
 
 import pytest
 from pytest import TempPathFactory
@@ -29,7 +28,7 @@ def git_repo_path(tmp_path_factory: TempPathFactory) -> Callable[[Path], Path]:
     yield createFolder
 
 
-@pytest.fixture()
+@pytest.fixture
 def branch_name() -> str:
     yield "pytestMockBranch"
 
@@ -42,7 +41,7 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     return result.stdout.rstrip() if result.stdout else ""
 
 
-@pytest.fixture()
+@pytest.fixture
 def git_repository(
     branch_name: str,
     git_repo_path: Callable[[Path], Path],
@@ -65,8 +64,8 @@ def git_repository(
     yield createGitRepo
 
 
-@pytest.fixture()
-def git_config(branch_name: str, git_repository: Callable[[], str]) -> Dict[str, Any]:
+@pytest.fixture
+def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str, Any]:
     cfg = {
         "main": {
             "synced_via_tags": False,
@@ -90,7 +89,7 @@ def git_config(branch_name: str, git_repository: Callable[[], str]) -> Dict[str,
 @pytest.fixture()
 def git_config_two_repos_synced_same_tag_regex(
     branch_name: str, git_repository: Callable[[], str]
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     cfg = {
         "main": {
             "synced_via_tags": True,
@@ -109,11 +108,11 @@ def git_config_two_repos_synced_same_tag_regex(
             ],
         }
     }
-    yield cfg
+    return cfg
 
 
 async def test_git_url_watcher_tag_sync(
-    event_loop, git_config_two_repos_synced_same_tag_regex: Dict[str, Any]
+    event_loop, git_config_two_repos_synced_same_tag_regex: dict[str, Any]
 ):
     REPO_ID = git_config_two_repos_synced_same_tag_regex["main"][
         "watched_git_repositories"
@@ -192,7 +191,7 @@ async def test_git_url_watcher_tag_sync(
     await git_watcher.cleanup()
 
 
-async def test_git_url_watcher_find_new_file(loop, git_config: Dict[str, Any]):
+async def test_git_url_watcher_find_new_file(loop, git_config: dict[str, Any]):
     LOCAL_PATH = git_config["main"]["watched_git_repositories"][0]["url"].replace(
         "file://localhost", ""
     )
@@ -223,7 +222,7 @@ async def test_git_url_watcher_find_new_file(loop, git_config: Dict[str, Any]):
 
 
 async def test_git_url_watcher_find_tag_on_branch_succeeds(
-    loop, git_config: Dict[str, Any]
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
 ):
     LOCAL_PATH = git_config["main"]["watched_git_repositories"][0]["url"].replace(
         "file://localhost", ""
@@ -246,7 +245,7 @@ async def test_git_url_watcher_find_tag_on_branch_succeeds(
 
 
 async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
-    loop, git_config: Dict[str, Any]
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -273,7 +272,7 @@ async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
 
 
 async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
-    loop, git_config: Dict[str, Any]
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
 ):
     REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
@@ -297,15 +296,16 @@ async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
-def git_config_pull_only_files(git_config: Dict[str, Any]) -> Dict[str, Any]:
+@pytest.fixture
+def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     return git_config
 
 
 async def test_git_url_watcher_pull_only_selected_files(
-    loop, git_config_pull_only_files: Dict[str, Any]
+    event_loop: AbstractEventLoop,
+    git_config_pull_only_files: dict[str, Any],
 ):
     REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
     BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]
@@ -353,8 +353,8 @@ async def test_git_url_watcher_pull_only_selected_files(
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
-def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any]:
+@pytest.fixture
+def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     git_config["main"]["watched_git_repositories"][0]["tags"] = "^staging_.+$"
@@ -362,7 +362,8 @@ def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any
 
 
 async def test_git_url_watcher_pull_only_selected_files_tags(
-    loop, git_config_pull_only_files_tags: Dict[str, Any]
+    event_loop: AbstractEventLoop,
+    git_config_pull_only_files_tags: dict[str, Any],
 ):
     LOCAL_PATH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
         "url"

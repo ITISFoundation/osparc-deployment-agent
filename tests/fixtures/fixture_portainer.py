@@ -1,13 +1,17 @@
 import subprocess
-from typing import Literal
+from collections.abc import Iterator
+from contextlib import suppress
 
 import pytest
 import requests
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random
+from tenacity import retry
+from tenacity.retry import retry_if_exception_type
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_random
 from yarl import URL
 
 
-def _run_cmd(cmd: str, **kwargs) -> str:
+def _run_cmd(cmd: list[str], **kwargs) -> str:
     result = subprocess.run(
         cmd, capture_output=True, check=True, shell=False, encoding="utf-8", **kwargs
     )
@@ -32,7 +36,7 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     ),
 )
 def _wait_for_instance(url: URL, code: int = 200):
-    r = requests.get(url)
+    r = requests.get(f"{url}")
     assert r.status_code == code
 
 
@@ -46,8 +50,9 @@ def _wait_for_instance(url: URL, code: int = 200):
         "portainer/portainer-ce:2.25.0",
     ],
 )
-def portainer_container(request) -> tuple[URL, Literal]:
+def portainer_container(request) -> Iterator[tuple[URL, str]]:
     portainer_image = request.param
+
     # create a password (https://documentation.portainer.io/v2.0/deploy/cli/)
     password = "adminadmin"
     encrypted_password = _run_cmd(
@@ -62,10 +67,10 @@ def portainer_container(request) -> tuple[URL, Literal]:
             password,
         ]
     ).split(":")[-1]
-    try:
+
+    with suppress(Exception):
         _run_cmd(["docker", "rm", "--force", "portainer"])
-    except Exception:
-        pass
+
     _run_cmd(
         [
             "docker",
@@ -81,13 +86,14 @@ def portainer_container(request) -> tuple[URL, Literal]:
             "--volume",
             "/var/run/docker.sock:/var/run/docker.sock",
             portainer_image,
-            "--admin-password=" + str(encrypted_password),
+            "--admin-password=" + f"{encrypted_password}",
             "--host",
             "unix:///var/run/docker.sock",
         ]
     )
     url = URL("http://127.0.0.1:9000/")
     _wait_for_instance(url, code=200)
-    yield url, password
+
+    yield (url, password)
 
     _run_cmd(["docker", "rm", "--force", "portainer"])

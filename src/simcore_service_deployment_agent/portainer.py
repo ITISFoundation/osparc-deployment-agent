@@ -2,19 +2,17 @@ import asyncio
 import json
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Optional
 
 from aiohttp import ClientSession, ClientTimeout
-from tenacity import (
-    before_sleep_log,
-    retry,
-    stop_after_attempt,
-    wait_fixed,
-    wait_random,
-)
+from tenacity import retry
+from tenacity.before_sleep import before_sleep_log
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_fixed, wait_random
 from yarl import URL
 
 from .exceptions import AutoDeployAgentException, ConfigurationError
+from .models import ComposeSpecsDict
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +53,7 @@ async def _portainer_request(
         log.error("Unknown error")
         raise AutoDeployAgentException(
             "Unknown error ({}) while accessing Portainer app in {}:\n {}".format(
-                str(resp.status), url, await resp.text()
+                f"{resp.status}", url, await resp.text()
             )
         )
 
@@ -79,7 +77,7 @@ async def get_first_endpoint_id(
     base_url: URL, app_session: ClientSession, bearer_code: str
 ) -> int:
     log.debug("getting first endpoint id %s", base_url)
-    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    headers = {"Authorization": f"Bearer {bearer_code}"}
     url = base_url.with_path("api/endpoints")
     data = await _portainer_request(url, app_session, "GET", headers=headers)
     log.debug("received list of endpoints: %s", data)
@@ -92,7 +90,7 @@ async def get_swarm_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, endpoint_id: int
 ) -> str:
     log.debug("getting swarm id %s", base_url)
-    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    headers = {"Authorization": f"Bearer {bearer_code}"}
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
     url = base_url.with_path(f"api/endpoints/{endpoint_id}/docker/swarm")
@@ -104,9 +102,9 @@ async def get_swarm_id(
 
 async def get_stacks_list(
     base_url: URL, app_session: ClientSession, bearer_code: str
-) -> List[Dict]:
+) -> list[dict]:
     log.debug("getting stacks list %s", base_url)
-    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    headers = {"Authorization": f"Bearer {bearer_code}"}
     url = base_url.with_path("api/stacks")
     data = await _portainer_request(url, app_session, "GET", headers=headers)
     log.debug("received list of stacks: %s", data)
@@ -134,7 +132,7 @@ async def post_new_stack(
     swarm_id: str,
     endpoint_id: int,
     stack_name: str,
-    stack_cfg: Dict,
+    stack_cfg: ComposeSpecsDict,
 ):  # pylint: disable=too-many-arguments
     if stack_name.lower() != stack_name:
         raise ConfigurationError("Docker swarm stack names must be lowercase only!")
@@ -142,7 +140,7 @@ async def post_new_stack(
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
         log.debug("Determined the following endpoint id: %i", endpoint_id)
-    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    headers = {"Authorization": f"Bearer {bearer_code}"}
     body_data = {
         "Name": stack_name,
         "SwarmID": swarm_id,
@@ -169,19 +167,19 @@ async def update_stack(
     bearer_code: str,
     stack_id: str,
     endpoint_id: int,
-    stack_cfg: Dict,
+    stack_cfg: ComposeSpecsDict,
 ):  # pylint: disable=too-many-arguments
     log.debug("updating stack %s", base_url)
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
         log.debug("Determined the following endpoint id: %i", endpoint_id)
-    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    headers = {"Authorization": f"Bearer {bearer_code}"}
     body_data = {"StackFileContent": json.dumps(stack_cfg, indent=2)}
     log.debug("StackFileContent:")
     log.debug(json.dumps(stack_cfg, indent=2, sort_keys=True))
     url = (
         URL(base_url)
-        .with_path("api/stacks/{}".format(stack_id))
+        .with_path(f"api/stacks/{stack_id}")
         .with_query({"endpointId": endpoint_id, "method": "string", "type": 1})
     )
     time.sleep(0.5)
@@ -205,10 +203,10 @@ async def delete_stack(
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
         log.debug("Determined the following endpoint id: %i", endpoint_id)
-    headers = {"Authorization": "Bearer {}".format(bearer_code)}
+    headers = {"Authorization": f"Bearer {bearer_code}"}
     url = (
         URL(base_url)
-        .with_path("api/stacks/{}".format(stack_id))
+        .with_path(f"api/stacks/{stack_id}")
         .with_query({"endpointId": endpoint_id})
     )
     time.sleep(0.5)
