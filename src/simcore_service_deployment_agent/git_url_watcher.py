@@ -230,10 +230,13 @@ async def _update_repository(repo: GitRepo):
 
 async def _init_repositories(repos: List[GitRepo]) -> Dict:
     description = {}
+    log.info("Initializing git repositories...")
     for repo in repos:
         directoryName = tempfile.mkdtemp()
         repo.directory = copy.deepcopy(directoryName)
-        log.debug("cloning %s in %s...", repo.repo_id, repo.directory)
+        log.debug(
+            "Initializing repo: cloning %s in %s...", repo.repo_id, repo.directory
+        )
         await _git_clone_repo(
             repo.repo_url, repo.directory, repo.branch, repo.username, repo.password
         )
