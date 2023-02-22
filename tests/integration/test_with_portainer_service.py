@@ -96,6 +96,7 @@ async def test_portainer_test_create_stack(
     portainer_baerer_code: str,
     portainer_endpoint_id: int,
     valid_docker_stack,
+    docker_swarm: None,
 ):
     portainer_url, _ = portainer_container
     try_to_format_url = URL(portainer_url)
@@ -106,17 +107,17 @@ async def test_portainer_test_create_stack(
         portainer_baerer_code,
         portainer_endpoint_id,
     )
+    current_stack_name = "pytestintegration"
     # Assuring a clean state by deleting any remnants
-    os.system("docker stack rm pytestintegration")
+    os.system("docker stack rm " + current_stack_name)
 
-    current_stack_name = ("pytestintegration",)
     new_stack = await portainer.post_new_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_baerer_code,
         swarm_id=swarm_id,
         endpoint_id=portainer_endpoint_id,
-        stack_name="pytestintegration",
+        stack_name=current_stack_name,
         stack_cfg=valid_docker_stack,
     )
     time.sleep(2)
@@ -124,7 +125,7 @@ async def test_portainer_test_create_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_baerer_code,
-        stack_name="pytestintegration",
+        stack_name=current_stack_name,
     )
     time.sleep(2)
     await portainer.delete_stack(
@@ -146,6 +147,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     docker_registry: str,
     docker_registry_image_injector: Callable,
     faker: Faker,
+    docker_swarm: None,
 ):
     ### Push image to local registry
     # Note for the future: This boilerplate might also help: https://github.com/docker/docker-py/issues/2104#issuecomment-410802929
@@ -244,6 +246,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
     portainer_baerer_code: str,
     portainer_endpoint_id: int,
     valid_docker_stack,
+    docker_swarm: None,
 ):
     portainer_url, _ = portainer_container
     swarm_id = await portainer.get_swarm_id(
