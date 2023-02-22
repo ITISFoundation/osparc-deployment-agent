@@ -174,7 +174,7 @@ async def update_stack(
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
         log.debug("Determined the following endpoint id: %i", endpoint_id)
     headers = {"Authorization": f"Bearer {bearer_code}"}
-    body_data = {"StackFileContent": json.dumps(stack_cfg, indent=2)}
+    body_data = {"StackFileContent": json.dumps(stack_cfg, indent=2), "pullImage": True}
     log.debug("StackFileContent:")
     log.debug(json.dumps(stack_cfg, indent=2, sort_keys=True))
     url = (
