@@ -168,16 +168,17 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         portainer_endpoint_id,
     )
     # Assuring a clean state by deleting any remnants
-    os.system("docker stack rm pytestintegration")
+    current_stack_name = "pytestintegration"
 
-    current_stack_name = ("pytestintegration",)
+    os.system("docker stack rm " + current_stack_name)
+
     new_stack = await portainer.post_new_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_baerer_code,
         swarm_id=swarm_id,
         endpoint_id=portainer_endpoint_id,
-        stack_name="pytestintegration",
+        stack_name=current_stack_name,
         stack_cfg=valid_docker_stack_with_local_registry,
     )
     time.sleep(2)
@@ -196,7 +197,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_baerer_code,
-        stack_name="pytestintegration",
+        stack_name=current_stack_name,
     )
     # Get sha of currently running container image
     rawContainerImageBefore = _run_cmd(
@@ -221,7 +222,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     # Note:
     # Alternatively, we could also check the sha of the contianer and assess the container is re-deployed
     # But this takes time ti take affect and would require sleeps or retr ying polycies. So we dont do it for now. The following call can be used for this purpose:
-    # rawContainerImageAfter = _run_cmd_with_retry("docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'")
+    # rawContainerImageAfter = _run_cmd("docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'")
 
     containerImageSHAAfter = rawContainerImageAfter.split("@")[1]
     assert containerImageSHABefore != containerImageSHAAfter
@@ -252,16 +253,16 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         portainer_endpoint_id,
     )
     # Assuring a clean state by deleting any remnants
-    os.system("docker stack rm pytestintegration")
+    current_stack_name = "pytestintegration"
+    os.system("docker stack rm " + current_stack_name)
 
-    current_stack_name = ("pytestintegration",)
     new_stack = await portainer.post_new_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_baerer_code,
         swarm_id=swarm_id,
         endpoint_id=portainer_endpoint_id,
-        stack_name="pytestintegration",
+        stack_name=current_stack_name,
         stack_cfg=valid_docker_stack,
     )
     time.sleep(2)
@@ -272,7 +273,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
             bearer_code=portainer_baerer_code,
             swarm_id=swarm_id,
             endpoint_id=portainer_endpoint_id,
-            stack_name="pytestintegration",
+            stack_name=current_stack_name,
             stack_cfg=valid_docker_stack,
         )
     ## Cleanup for subsequent tests: ...
@@ -280,7 +281,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_baerer_code,
-        stack_name="pytestintegration",
+        stack_name=current_stack_name,
     )
     await portainer.delete_stack(
         base_url=portainer_url,
