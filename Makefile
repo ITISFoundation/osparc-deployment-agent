@@ -148,6 +148,7 @@ devenv: .venv ## create a python virtual environment with dev tools (e.g. linter
 	$</bin/pip3 --quiet install -r requirements/devenv.txt
 	# Installing pre-commit hooks in current .git repo
 	@$</bin/pre-commit install
+	@mkdir -p .temp && cd .temp && rm -fr osparc-simcore || true && git clone https://github.com/ITISFoundation/osparc-simcore.git && cd osparc-simcore/packages/pytest-simcore && ../../../../$</bin/pip3 --quiet install .
 	@echo "To activate the venv, execute 'source .venv/bin/activate'"
 
 .vscode/settings.json: .vscode-template/settings.json
