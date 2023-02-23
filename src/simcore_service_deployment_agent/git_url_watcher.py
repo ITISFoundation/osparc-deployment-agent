@@ -149,7 +149,7 @@ async def _git_get_current_matching_tag(repo: GitRepo) -> list[str]:
         "--tags",
         "--dereference",
     ]
-    all_tags = await run_cmd_line(cmd, str(repo.directory))
+    all_tags = await run_cmd_line(cmd, f"{repo.directory}")
     all_tags = all_tags.split("\n")
 
     cmd2 = ["git", "rev-parse", "HEAD"]
