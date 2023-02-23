@@ -484,6 +484,7 @@ async def test_git_url_watcher_tags_capture_group_replacement(
         f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
         cwd=LOCAL_PATH,
     )
+    await asyncio.sleep(0.5)
     # expected to work now
     init_result = await git_watcher.init()
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=LOCAL_PATH)
@@ -497,6 +498,7 @@ async def test_git_url_watcher_tags_capture_group_replacement(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=LOCAL_PATH,
     )
+    await asyncio.sleep(0.5)
     NEW_VALID_TAG_ON_NEW_SHA = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
