@@ -33,7 +33,6 @@ class GitRepo:  # pylint: disable=too-many-instance-attributes, too-many-argumen
     username: str
     password: str
     paths: list[Path]
-    pull_only_files: bool
     directory: str = ""
 
 
@@ -138,10 +137,9 @@ async def _git_get_latest_matching_tag_capture_groups(
     list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
     if not list_tags:
         return None
-    elif re.compile(regexp).groups == 0:
+    if re.compile(regexp).groups == 0:
         return (list_tags[-1],)
-    else:
-        return re.search(regexp, list_tags[-1]).groups()
+    return re.search(regexp, list_tags[-1]).groups()
 
 
 async def _git_get_latest_matching_tag(
@@ -231,17 +229,19 @@ watched_repos = []
 
 
 async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
-    if repo.pull_only_files:
-        await _git_checkout_files(repo.directory, repo.paths, tag)
-    else:
-        await _git_checkout_files(repo.directory, [], tag)
+    await _git_checkout_files(repo.directory, [], tag)
+    cmd = ["find", "."]
+    filesInRepo = (await run_cmd_line(cmd, f"{repo.directory}")).split("\n")
+    areAllFilesPresent = sum(
+        1 for i in repo.paths if i in [i.replace("./", "") for i in filesInRepo]
+    ) == len(repo.paths)
+    if not areAllFilesPresent:
+        # no change affected the watched files
+        raise ConfigurationError("No change affected the watched files")
 
 
 async def _pull_repository(repo: GitRepo):
-    if repo.pull_only_files:
-        await _git_pull_files(repo.directory, repo.paths)
-    else:
-        await _git_pull(repo.directory)
+    await _git_pull(repo.directory)
 
 
 async def _init_repositories(repos: list[GitRepo]) -> dict:
@@ -278,12 +278,14 @@ async def _init_repositories(repos: list[GitRepo]) -> dict:
         # I'd call this a workaround and a design deficiency (DK Nov2022)
         # See github.com/ITISFoundation/osparc-deployment-agent/issues/118
         await _git_checkout_files(repo.directory, [], latest_tag)
-        # This subsequent call, if repo.pull_only_files==true, will only checkout the specified files at the given revision
+        # This subsequent call will checkout the files at the given revision
         await _checkout_repository(repo, latest_tag)
         #
         #
         #
         log.info("repository %s checked out on %s", repo, latest_tag)
+        #
+        #
         # If no tag: fetch head
         # if tag: sha of tag
         if repo.tags and latest_tag:
@@ -355,7 +357,7 @@ async def _update_repo_using_tags(
     if latest_tag in list_current_tags:
         log.debug("no change detected")
     else:
-        log.info(f"New tag detected: {latest_tag} on repo {repo.repo_id}")
+        log.info("New tag detected: %s on repo %s", latest_tag, repo.repo_id)
 
     # get modifications
     logged_changes = await _git_get_logs_tags(
@@ -366,14 +368,13 @@ async def _update_repo_using_tags(
     # checkout no matter if there are changes, to put HEAD of git repo at desired latest matching tag
     await _checkout_repository(repo, latest_tag)
     # Report if code changed only
-    if latest_tag in list_current_tags:
-        log.info(f"New tag {latest_tag} checked out on repo {repo.repo_id}")
+    if latest_tag not in list_current_tags:
+        log.info("New tag %s checked out on repo %s", latest_tag, repo.repo_id)
 
         # if the tag changed, an update is needed even if no files were changed
         sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
         return f"{repo.repo_id}:{repo.branch}:{latest_tag}:{sha}"
-    else:
-        return None
+    return None
 
 
 async def _update_repo_using_branch_head(
@@ -431,7 +432,7 @@ async def _check_repositories(repos: [GitRepo], syncedViaTags: bool = False) -> 
                 "Latest (matching) tags per repo, displaying first regex capture group:"
             )
             for repo in latestTags:
-                log.info(f"{list(repo.keys())[0]}: {list(repo.values())[0][0]}")
+                log.info("%s: %s", list(repo.keys())[0], list(repo.values())[0][0])
             log.info("Will only update those repos that have no tag-regex specified!")
         elif len(uniqueLatestTags) == 1:
             log.info("All synced repos have the same latest tag! Deploying....")
@@ -477,7 +478,6 @@ class GitUrlWatcher(SubTask):
                 repo_url=config["url"],
                 branch=config["branch"],
                 tags=config["tags"],
-                pull_only_files=config["pull_only_files"],
                 username=config["username"],
                 password=config["password"],
                 paths=config["paths"],

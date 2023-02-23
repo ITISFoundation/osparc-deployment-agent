@@ -17,7 +17,6 @@ main:
       username: "blahblag"
       password: "somestuffverysecret"
       tags: ""
-      pull_only_files: false # if true will only pull the files define in paths
       paths:
         # lists the files where to look for changes in the repo
         - services/docker-compose.yml

@@ -366,11 +366,12 @@ async def _deploy(
     if not stacks_exist:
         log.warning("stacks do not exist, initialising...")
         # notifications
+        stack_cfg = await create_stack(git_task, app_config)
         await deploy_portainer_stacks(app_config, app_session, stack_cfg)
         await notify(
             app_config,
             app_session,
-            message=f"Stack was not found and re-initialised.",
+            message="Stack was not found and re-initialised.",
         )
         main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
         await notify_state(
@@ -386,8 +387,7 @@ async def _deploy(
     if not changes:
         log.info("--> no changes detected")
         return docker_task
-    else:
-        log.info("--> changes detected")
+    log.info("--> changes detected")
 
     stack_cfg = await create_stack(git_task, app_config)
     docker_task = await create_docker_registries_watch_subtask(app_config, stack_cfg)

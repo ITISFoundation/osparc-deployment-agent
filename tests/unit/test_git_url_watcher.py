@@ -15,7 +15,6 @@ import pytest
 from pytest import TempPathFactory
 
 from simcore_service_deployment_agent import git_url_watcher
-from simcore_service_deployment_agent.cmd_utils import CmdLineError
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
@@ -76,7 +75,6 @@ def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str,
                     "url": str(next(git_repository())),
                     "branch": branch_name,
                     "tags": "",
-                    "pull_only_files": False,
                     "paths": [],
                     "username": "",
                     "password": "",
@@ -100,7 +98,6 @@ def git_config_two_repos_synced_same_tag_regex(
                     "url": str(next(git_repository())),
                     "branch": branch_name,
                     "tags": "^staging_.+",
-                    "pull_only_files": False,
                     "paths": [],
                     "username": "",
                     "password": "",
@@ -298,24 +295,23 @@ async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
 
 
 @pytest.fixture
-def git_config_pull_only_files(git_config: dict[str, Any]) -> dict[str, Any]:
-    git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
+def git_config_paths(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     return git_config
 
 
-async def test_git_url_watcher_pull_only_selected_files(
+async def test_git_url_watcher_paths(
     event_loop: AbstractEventLoop,
-    git_config_pull_only_files: dict[str, Any],
+    git_config_paths: dict[str, Any],
 ):
-    REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
-    BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]
-    LOCAL_PATH = git_config_pull_only_files["main"]["watched_git_repositories"][0][
-        "url"
-    ].replace("file://localhost", "")
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files)
+    REPO_ID = git_config_paths["main"]["watched_git_repositories"][0]["id"]
+    BRANCH = git_config_paths["main"]["watched_git_repositories"][0]["branch"]
+    LOCAL_PATH = git_config_paths["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_paths)
     # the file does not exist yet
-    with pytest.raises(CmdLineError):
+    with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
 
     # add the file
@@ -355,28 +351,23 @@ async def test_git_url_watcher_pull_only_selected_files(
 
 
 @pytest.fixture
-def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any]:
-    git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
+def git_config_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     git_config["main"]["watched_git_repositories"][0]["tags"] = "^test(staging_.+)$"
     return git_config
 
 
-async def test_git_url_watcher_pull_only_selected_files_tags(
+async def test_git_url_watcher_tags(
     event_loop: AbstractEventLoop,
-    git_config_pull_only_files_tags: dict[str, Any],
+    git_config_tags: dict[str, Any],
 ):
-    LOCAL_PATH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "url"
-    ].replace("file://localhost", "")
-    REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "id"
-    ]
-    BRANCH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "branch"
-    ]
+    LOCAL_PATH = git_config_tags["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+    REPO_ID = git_config_tags["main"]["watched_git_repositories"][0]["id"]
+    BRANCH = git_config_tags["main"]["watched_git_repositories"][0]["branch"]
 
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files_tags)
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
 
     # the file does not exist yet
     with pytest.raises(ConfigurationError):
@@ -442,11 +433,11 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         cwd=LOCAL_PATH,
     )
     time.sleep(1.1)
-    # now there should be changes
+    # now there should be NO changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=LOCAL_PATH)
-    assert change_results[REPO_ID].split(":")[-1] == git_sha
+    assert not change_results
 
     # Check that tags are sorted in correct order, by tag time, not alphabetically
     assert len(git_watcher.watched_repos) == 1
@@ -473,19 +464,15 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
 
 async def test_git_url_watcher_tags_capture_group_replacement(
     event_loop: AbstractEventLoop,
-    git_config_pull_only_files_tags: dict[str, Any],
+    git_config_tags: dict[str, Any],
 ):
-    LOCAL_PATH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "url"
-    ].replace("file://localhost", "")
-    REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "id"
-    ]
-    BRANCH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "branch"
-    ]
+    LOCAL_PATH = git_config_tags["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+    REPO_ID = git_config_tags["main"]["watched_git_repositories"][0]["id"]
+    BRANCH = git_config_tags["main"]["watched_git_repositories"][0]["branch"]
 
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files_tags)
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
 
     # the file does not exist yet
     with pytest.raises(ConfigurationError):
@@ -515,7 +502,8 @@ async def test_git_url_watcher_tags_capture_group_replacement(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=LOCAL_PATH,
     )
-    await asyncio.sleep(1.1)
+    await asyncio.sleep(1.5)
+    time.sleep(1.1)
     # we should have a change here
 
     change_results = await git_watcher.check_for_changes()
@@ -523,6 +511,6 @@ async def test_git_url_watcher_tags_capture_group_replacement(
     latestTag = await git_url_watcher._git_get_latest_matching_tag_capture_groups(
         git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
     )
-    assert latestTag == NEW_VALID_TAG_ON_NEW_SHA.replace("test", "")
+    assert latestTag[0] == NEW_VALID_TAG_ON_NEW_SHA.replace("test", "")
     #
     await git_watcher.cleanup()

@@ -27,7 +27,6 @@ app_schema = T.Dict(
                     T.Key("tags", default="", optional=True): T.String(
                         allow_blank=True
                     ),
-                    "pull_only_files": T.Bool(),
                     "paths": T.List(T.String()),
                 }
             ),
