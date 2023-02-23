@@ -114,6 +114,8 @@ async def get_stacks_list(
 async def get_current_stack_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, stack_name: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+    if stack_name.lower() != stack_name:
+        raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("getting current stack id %s", base_url)
     stacks_list = await get_stacks_list(base_url, app_session, bearer_code)
     for stack in stacks_list:
