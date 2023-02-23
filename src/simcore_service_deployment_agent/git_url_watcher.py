@@ -92,10 +92,6 @@ async def _git_checkout_files(directory: str, paths: list[Path], tag: Optional[s
     await run_cmd_line(cmd, f"{directory}")
 
 
-async def _git_checkout_repo(directory: str, tag: Optional[str]):
-    await _git_checkout_files(directory, [], tag)
-
-
 async def _git_pull_files(directory: str, paths: list[Path]):
     cmd = ["git", "checkout", "FETCH_HEAD"] + [f"{path}" for path in paths]
     await run_cmd_line(cmd, f"{directory}")
@@ -214,7 +210,7 @@ async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
     if repo.pull_only_files:
         await _git_checkout_files(repo.directory, repo.paths, tag)
     else:
-        await _git_checkout_repo(repo.directory, tag)
+        await _git_checkout_files(repo.directory, [], tag)
 
 
 async def _update_repository(repo: GitRepo):
@@ -257,7 +253,7 @@ async def _init_repositories(repos: list[GitRepo]) -> dict:
         # will return an empty list since HEAD==origin/master is not tagged. This will make the deployment agent fail.
         # I'd call this a workaround and a design deficiency (DK Nov2022)
         # See github.com/ITISFoundation/osparc-deployment-agent/issues/118
-        await _git_checkout_repo(repo.directory, latest_tag)
+        await _git_checkout_files(repo.directory, [], latest_tag)
         # This subsequent call, if repo.pull_only_files==true, will only checkout the specified files at the given revision
         await _checkout_repository(repo, latest_tag)
         #
