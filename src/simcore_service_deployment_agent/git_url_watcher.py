@@ -140,7 +140,7 @@ async def _git_get_current_matching_tag(directory: str, regexp: str) -> list[str
         "show-ref",
         "--tags",
         "--dereference",
-    ]  # | grep --perl-regexp --only-matching "(?<=$(git rev-parse HEAD) refs/tags/){reg}"']
+    ]
     all_tags = await run_cmd_line(cmd, f"{directory}")
     all_tags = all_tags.split("\n")
 
