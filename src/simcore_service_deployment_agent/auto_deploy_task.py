@@ -216,6 +216,25 @@ async def deploy_portainer_stacks(
             )
 
 
+async def do_portainer_stacks_exist(
+    app_config: dict[str, Any], app_session: ClientSession
+) -> bool:
+    log.debug("checking if portainer stacks exist...")
+    portainer_cfg = app_config["main"]["portainer"]
+    for config in portainer_cfg:
+        url = URL(config["url"])
+        bearer_code = await portainer.authenticate(
+            url, app_session, config["username"], config["password"]
+        )
+        current_stack_id = await portainer.get_current_stack_id(
+            url, app_session, bearer_code, config["stack_name"]
+        )
+        if not current_stack_id:
+            # stack does not exist
+            return False
+    return True
+
+
 async def create_docker_registries_watch_subtask(
     app_config: dict[str, Any], stack_cfg: ComposeSpecsDict
 ) -> DockerRegistriesWatcher:
@@ -341,6 +360,27 @@ async def _deploy(
 ) -> DockerRegistriesWatcher:
     app_config = app[APP_CONFIG_KEY]
     app_session = app[TASK_SESSION_NAME]
+
+    log.info("check if stacks exist...")
+    stacks_exist = await do_portainer_stacks_exist(app_config, app_session)
+    if not stacks_exist:
+        log.warning("stacks do not exist, initialising...")
+        # notifications
+        await deploy_portainer_stacks(app_config, app_session, stack_cfg)
+        await notify(
+            app_config,
+            app_session,
+            message=f"Stack was not found and re-initialised.",
+        )
+        main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
+        await notify_state(
+            app_config,
+            app_session,
+            state=app["state"][TASK_NAME],
+            message="Stack was not found and re-initialised.",
+        )
+        log.info("initialisation completed")
+
     log.info("Checking for changes...")
     changes = await check_changes([git_task, docker_task])
     if not changes:
