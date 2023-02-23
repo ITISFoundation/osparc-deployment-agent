@@ -54,7 +54,7 @@ class DockerRegistriesWatcher(SubTask):
                     self.watched_repos.append({"image": image_url})
 
     async def init(self):
-        log.debug("initialising docker watcher..")
+        log.info("initialising docker watcher..")
         with docker_client(self.private_registries) as client:
             for repo in self.watched_repos:
                 try:
