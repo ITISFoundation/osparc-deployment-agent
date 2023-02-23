@@ -24,6 +24,19 @@ NUMBER_OF_ATTEMPS = 5
 MAX_TIME_TO_WAIT_S = 10
 
 
+@attr.s(auto_attribs=True)
+class GitRepo:  # pylint: disable=too-many-instance-attributes, too-many-arguments
+    repo_id: str
+    repo_url: URL
+    branch: str
+    tags: str
+    username: str
+    password: str
+    paths: list[Path]
+    pull_only_files: bool
+    directory: str = ""
+
+
 @retry(
     stop=stop_after_attempt(NUMBER_OF_ATTEMPS),
     wait=wait_fixed(1) + wait_random(0, MAX_TIME_TO_WAIT_S),
@@ -193,19 +206,6 @@ async def _git_get_logs_tags(
 watched_repos = []
 
 
-@attr.s(auto_attribs=True)
-class GitRepo:  # pylint: disable=too-many-instance-attributes, too-many-arguments
-    repo_id: str
-    repo_url: URL
-    branch: str
-    tags: str
-    username: str
-    password: str
-    paths: list[Path]
-    pull_only_files: bool
-    directory: str = ""
-
-
 async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
     if repo.pull_only_files:
         await _git_checkout_files(repo.directory, repo.paths, tag)
@@ -213,7 +213,7 @@ async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
         await _git_checkout_files(repo.directory, [], tag)
 
 
-async def _update_repository(repo: GitRepo):
+async def _pull_repository(repo: GitRepo):
     if repo.pull_only_files:
         await _git_pull_files(repo.directory, repo.paths)
     else:
@@ -358,7 +358,7 @@ async def _update_repo_using_branch_head(
     # get the logs
     logged_changes = await _git_get_logs(repo.directory, repo.branch, repo.branch)
     log.debug("Changelog:\n%s", logged_changes)
-    await _update_repository(repo)
+    await _pull_repository(repo)
     # check if a watched file has changed
     modified_files = modified_files.split()
     common_files = (

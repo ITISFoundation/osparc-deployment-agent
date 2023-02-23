@@ -177,7 +177,7 @@ async def generate_stack_file(
     return stack_file
 
 
-async def update_portainer_stack(
+async def deploy_portainer_stacks(
     app_config: dict[str, Any], app_session: ClientSession, stack_cfg: ComposeSpecsDict
 ):
     log.debug("updating portainer stack using: %s", stack_cfg)
@@ -314,7 +314,7 @@ async def _init_deploy(
         )
 
         # deploy stack to swarm
-        await update_portainer_stack(app_config, app_session, stack_cfg)
+        await deploy_portainer_stacks(app_config, app_session, stack_cfg)
 
         # notifications
         await notify(
@@ -341,17 +341,20 @@ async def _deploy(
 ) -> DockerRegistriesWatcher:
     app_config = app[APP_CONFIG_KEY]
     app_session = app[TASK_SESSION_NAME]
-    log.info("checking for changes...")
+    log.info("Checking for changes...")
     changes = await check_changes([git_task, docker_task])
     if not changes:
+        log.info("--> no changes detected")
         return docker_task
+    else:
+        log.info("--> changes detected")
 
     stack_cfg = await create_stack(git_task, app_config)
     docker_task = await create_docker_registries_watch_subtask(app_config, stack_cfg)
 
     # deploy stack to swarm
     log.info("redeploying the stack...")
-    await update_portainer_stack(app_config, app_session, stack_cfg)
+    await deploy_portainer_stacks(app_config, app_session, stack_cfg)
     log.info("sending notifications...")
     changes_as_texts = [f"{key}:{value}" for key, value in changes.items()]
     await notify(app_config, app_session, message=f"Updated stack\n{changes_as_texts}")
