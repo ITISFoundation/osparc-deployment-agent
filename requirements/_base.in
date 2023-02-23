@@ -4,7 +4,8 @@
 --constraint ./constraints.txt
 # osparc-simcore packages
 simcore-service-library[aiohttp] @ git+https://github.com/ITISFoundation/osparc-simcore.git@ad3711e2e8bfcdb6d8970b98840da06e7b8aea9f#subdirectory=packages/service-library
-
+pytest-simcore[aiohttp] @ git+https://github.com/ITISFoundation/osparc-simcore.git@v1.49.0#subdirectory=packages/pytest-simcore
+#
 aiohttp
 docker
 ptvsd
