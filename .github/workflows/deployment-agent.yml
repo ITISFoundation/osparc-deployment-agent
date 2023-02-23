@@ -24,7 +24,7 @@ env:
 
 jobs:
   unit-test-deployment-agent:
-    timeout-minutes: 10
+    timeout-minutes: 30
     name: "[unit] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
@@ -64,7 +64,7 @@ jobs:
           flags: unittests #optional
 
   integration-test-deployment-agent:
-    timeout-minutes: 10
+    timeout-minutes: 30
     name: "[integration] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
@@ -104,7 +104,7 @@ jobs:
           flags: integrationtests #optional
 
   system-test-deployment-agent:
-    timeout-minutes: 10
+    timeout-minutes: 30
     name: "[system] deployment-agent"
     runs-on: ${{ matrix.os }}
     strategy:
