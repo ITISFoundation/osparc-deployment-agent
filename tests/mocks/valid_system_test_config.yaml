@@ -49,5 +49,5 @@ main:
       endpoint_id: -1
       username: admin
       password: adminadmin
-      stack_name: master-simcore
+      stack_name: deployment_agent
   polling_interval: 15
