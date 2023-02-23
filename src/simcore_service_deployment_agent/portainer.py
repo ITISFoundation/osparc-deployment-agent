@@ -40,6 +40,8 @@ async def _portainer_request(
         if resp.status == 200:
             data = await resp.json()
             return data
+        if resp.status == 204:
+            return {"content": ""}
         if resp.status == 404:
             log.error("could not find route in %s", url)
             raise ConfigurationError(
