@@ -151,10 +151,11 @@ async def _git_get_current_matching_tag(directory: str, regexp: str) -> list[str
     associatedTagsFound = []
     for tag in all_tags:
         if shaToBeFound in tag:
-            associatedTagsFound.append(tag.split()[-1].split("/")[-1])
+            associatedTagsFound.append(tag.split()[-1].split("refs/tags/")[-1])
     foundMatchingTags = []
     for i in associatedTagsFound:
-        foundMatchingTags += re.findall(reg, i)
+        if re.search(reg, i):
+            foundMatchingTags += [i]
     return foundMatchingTags
 
 
