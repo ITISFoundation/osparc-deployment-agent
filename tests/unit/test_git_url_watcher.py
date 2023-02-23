@@ -3,6 +3,7 @@
 # pylint: disable=unused-variable
 # pylint: disable=too-many-arguments
 
+import asyncio
 import subprocess
 import time
 import uuid
@@ -357,7 +358,7 @@ async def test_git_url_watcher_pull_only_selected_files(
 def git_config_pull_only_files_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
-    git_config["main"]["watched_git_repositories"][0]["tags"] = "^staging_.+$"
+    git_config["main"]["watched_git_repositories"][0]["tags"] = "^test(staging_.+)$"
     return git_config
 
 
@@ -382,7 +383,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         init_result = await git_watcher.init()
 
     # add the file
-    VALID_TAG = "staging_z1stvalid"
+    VALID_TAG = "teststaging_z1stvalid"
     _run_cmd(
         f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
         cwd=LOCAL_PATH,
@@ -423,7 +424,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
 
-    NEW_VALID_TAG = "staging_g2ndvalid"
+    NEW_VALID_TAG = "teststaging_g2ndvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG}",
         cwd=LOCAL_PATH,
@@ -435,7 +436,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=LOCAL_PATH)
     assert change_results == {REPO_ID: f"{REPO_ID}:{BRANCH}:{NEW_VALID_TAG}:{git_sha}"}
 
-    NEW_VALID_TAG_ON_SAME_SHA = "staging_a3rdvalid"
+    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_a3rdvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=LOCAL_PATH,
@@ -449,12 +450,12 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
 
     # Check that tags are sorted in correct order, by tag time, not alphabetically
     assert len(git_watcher.watched_repos) == 1
-    NEW_VALID_TAG_ON_SAME_SHA = "staging_z4thvalid"
+    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_z4thvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=LOCAL_PATH,
     )
-    NEW_VALID_TAG_ON_NEW_SHA = "staging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
+    NEW_VALID_TAG_ON_NEW_SHA = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=LOCAL_PATH,
@@ -466,5 +467,62 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
         git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
     )
     assert latestTag == NEW_VALID_TAG_ON_NEW_SHA
+    #
+    await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_tags_capture_group_replacement(
+    event_loop: AbstractEventLoop,
+    git_config_pull_only_files_tags: dict[str, Any],
+):
+    LOCAL_PATH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
+        "url"
+    ].replace("file://localhost", "")
+    REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
+        "id"
+    ]
+    BRANCH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
+        "branch"
+    ]
+
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files_tags)
+
+    # the file does not exist yet
+    with pytest.raises(ConfigurationError):
+        init_result = await git_watcher.init()
+
+    # add the file
+    VALID_TAG = "teststaging_z1stvalid"
+    _run_cmd(
+        f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
+        cwd=LOCAL_PATH,
+    )
+    # expected to work now
+    init_result = await git_watcher.init()
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=LOCAL_PATH)
+    assert init_result == {REPO_ID: f"{REPO_ID}:{BRANCH}:{VALID_TAG}:{git_sha}"}
+
+    # there are no changes
+    assert not await git_watcher.check_for_changes()
+
+    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_z4thvalid"
+    _run_cmd(
+        f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
+        cwd=LOCAL_PATH,
+    )
+    NEW_VALID_TAG_ON_NEW_SHA = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
+    _run_cmd(
+        f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
+        cwd=LOCAL_PATH,
+    )
+    await asyncio.sleep(1.1)
+    # we should have a change here
+
+    change_results = await git_watcher.check_for_changes()
+    assert change_results
+    latestTag = await git_url_watcher._git_get_latest_matching_tag_capture_groups(
+        git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
+    )
+    assert latestTag == NEW_VALID_TAG_ON_NEW_SHA.replace("test", "")
     #
     await git_watcher.cleanup()
