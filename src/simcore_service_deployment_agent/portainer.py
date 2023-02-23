@@ -24,6 +24,7 @@ MAX_TIME_TO_WAIT_S = 10
     stop=stop_after_attempt(NUMBER_OF_ATTEMPS),
     wait=wait_fixed(3) + wait_random(0, MAX_TIME_TO_WAIT_S),
     before_sleep=before_sleep_log(log, logging.WARNING),
+    reraise=True,
 )
 async def _portainer_request(
     url: URL, app_session: ClientSession, method: str, **kwargs
