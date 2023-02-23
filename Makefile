@@ -129,7 +129,7 @@ test-dev-system test-ci-system: ## Run integration tests.
 
 test-dev: test-dev-unit test-dev-integration ## runs unit and integration tests for development (e.g. w/ pdb)
 
-test-pytest:
+test-pylint:
 	@pytest --cov=$(APP_PACKAGE_NAME) --color=yes $(CURDIR)/tests/unit -k test_run_pylint
 ## PYTHON -------------------------------
 
