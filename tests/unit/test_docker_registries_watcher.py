@@ -94,8 +94,8 @@ async def test_docker_registries_watcher(
     }
     change_result = await docker_watcher.check_for_changes()
     assert change_result == {
-        "jenkins:latest": "image signature changed",
-        "ubuntu": "image signature changed",
+        "alpine:latest": "image signature changed",
+        "ubuntu:latest": "image signature changed",
     }
     registry_config = valid_config["main"]["docker_private_registries"][0]
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
@@ -129,7 +129,7 @@ async def test_docker_registries_watcher_when_registry_fetch_fails(
     mock_docker_client.return_value.images.get_registry_data.side_effect = None
     change_result = await docker_watcher.check_for_changes()
     assert change_result == {
-        "jenkins:latest": "image signature changed",
-        "ubuntu": "image signature changed",
+        "alpine:latest": "image signature changed",
+        "ubuntu:latest": "image signature changed",
     }
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
