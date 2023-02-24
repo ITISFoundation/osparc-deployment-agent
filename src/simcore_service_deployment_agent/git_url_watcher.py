@@ -3,10 +3,10 @@ import logging
 import re
 import shutil
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import attr
 from tenacity import retry
 from tenacity.after import after_log
 from tenacity.before_sleep import before_sleep_log
@@ -24,7 +24,7 @@ NUMBER_OF_ATTEMPS = 5
 MAX_TIME_TO_WAIT_S = 10
 
 
-@attr.s(auto_attribs=True)
+@dataclass
 class GitRepo:  # pylint: disable=too-many-instance-attributes, too-many-arguments
     repo_id: str
     repo_url: URL
@@ -295,9 +295,6 @@ async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool
         ) from e
     if not data:
         return False
-    if "malformed object name" in data:
-        log.error("Tag does not exist. Aborting!")
-        raise RuntimeError("Tag does not exist. Aborting!")
     for line in data.split("\n"):
         if branch in line and tag in line:
             return True
@@ -386,10 +383,8 @@ async def _check_repositories(repos: [GitRepo]) -> dict:
     changes = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
-        assert repo.directory
         await _git_fetch(repo.directory)
         log.debug("checking repo: %s...", repo.repo_url)
-        assert repo.directory
         await _git_clean_repo(repo.directory)
         if repo.tags:
             if not await _check_if_tag_on_branch(

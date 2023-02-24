@@ -177,7 +177,7 @@ async def generate_stack_file(
     return stack_file
 
 
-async def deploy_portainer_stacks(
+async def deploy_stacks(
     app_config: dict[str, Any], app_session: ClientSession, stack_cfg: ComposeSpecsDict
 ):
     log.debug("updating portainer stack using: %s", stack_cfg)
@@ -216,9 +216,7 @@ async def deploy_portainer_stacks(
             )
 
 
-async def do_portainer_stacks_exist(
-    app_config: dict[str, Any], app_session: ClientSession
-) -> bool:
+async def stacks_exist(app_config: dict[str, Any], app_session: ClientSession) -> bool:
     log.debug("checking if portainer stacks exist...")
     portainer_cfg = app_config["main"]["portainer"]
     for config in portainer_cfg:
@@ -333,7 +331,7 @@ async def _init_deploy(
         )
 
         # deploy stack to swarm
-        await deploy_portainer_stacks(app_config, app_session, stack_cfg)
+        await deploy_stacks(app_config, app_session, stack_cfg)
 
         # notifications
         await notify(
@@ -362,12 +360,11 @@ async def _deploy(
     app_session = app[TASK_SESSION_NAME]
 
     log.info("check if stacks exist...")
-    stacks_exist = await do_portainer_stacks_exist(app_config, app_session)
-    if not stacks_exist:
+    if not await stacks_exist(app_config, app_session):
         log.warning("stacks do not exist, initialising...")
         # notifications
         stack_cfg = await create_stack(git_task, app_config)
-        await deploy_portainer_stacks(app_config, app_session, stack_cfg)
+        await deploy_stacks(app_config, app_session, stack_cfg)
         await notify(
             app_config,
             app_session,
@@ -394,7 +391,7 @@ async def _deploy(
 
     # deploy stack to swarm
     log.info("redeploying the stack...")
-    await deploy_portainer_stacks(app_config, app_session, stack_cfg)
+    await deploy_stacks(app_config, app_session, stack_cfg)
     log.info("sending notifications...")
     changes_as_texts = [f"{key}:{value}" for key, value in changes.items()]
     await notify(app_config, app_session, message=f"Updated stack\n{changes_as_texts}")
