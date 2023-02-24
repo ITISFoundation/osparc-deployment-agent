@@ -8,7 +8,6 @@ main:
   log_level: INFO
   host: 127.0.0.1
   port: 8888
-  synced_via_tags: false
   watched_git_repositories:
     # all git repositories that shall be controlled
     - id: simcore-github-repo

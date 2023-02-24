@@ -404,44 +404,12 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(repos: [GitRepo], syncedViaTags: bool = False) -> dict:
+async def _check_repositories(repos: [GitRepo]) -> dict:
     changes = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
-        assert repo.directory
         await _git_fetch(repo.directory)
-    latestTags = [
-        {
-            repo.repo_id: await _git_get_latest_matching_tag_capture_groups(
-                repo.directory, repo.tags
-            )
-        }
-        for repo in repos
-    ]
-    uniqueLatestTags = list(
-        {
-            list(i.values())[0][0] if list(i.values())[0] else None
-            for i in latestTags
-            if i.values()
-        }
-    )
-    if syncedViaTags:
-        if len(uniqueLatestTags) > 1:
-            log.info("Repos did not match in their latest tag's first capture group!")
-            log.info(
-                "Latest (matching) tags per repo, displaying first regex capture group:"
-            )
-            for repo in latestTags:
-                log.info("%s: %s", list(repo.keys())[0], list(repo.values())[0][0])
-            log.info("Will only update those repos that have no tag-regex specified!")
-        elif len(uniqueLatestTags) == 1:
-            log.info("All synced repos have the same latest tag! Deploying....")
-    for repo in repos:
-        if syncedViaTags and len(uniqueLatestTags) > 1:
-            if repo.tags:
-                continue
         log.debug("checking repo: %s...", repo.repo_url)
-        assert repo.directory
         await _git_clean_repo(repo.directory)
         if repo.tags:
             if not await _check_if_tag_on_branch(
@@ -471,7 +439,6 @@ class GitUrlWatcher(SubTask):
         super().__init__(name="git repo watcher")
         self.watched_repos = []
         watched_compose_files_config = app_config["main"]["watched_git_repositories"]
-        self.synced_via_tags = app_config["main"]["synced_via_tags"]
         for config in watched_compose_files_config:
             repo = GitRepo(
                 repo_id=config["id"],
@@ -495,7 +462,7 @@ class GitUrlWatcher(SubTask):
         after=after_log(log, logging.DEBUG),
     )
     async def check_for_changes(self) -> dict:
-        return await _check_repositories(self.watched_repos, self.synced_via_tags)
+        return await _check_repositories(self.watched_repos)
 
     async def cleanup(self):
         await _delete_repositories(self.watched_repos)
