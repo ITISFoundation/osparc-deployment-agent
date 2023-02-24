@@ -85,7 +85,7 @@ def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str,
             ],
         }
     }
-    yield cfg
+    return cfg
 
 
 async def test_git_url_watcher_find_new_file(

@@ -156,7 +156,6 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     img_tag = "2.1.1"
 
     # Note DK2023: On my wsl2 machine, the image is pulled as 127.0.0.1:5000/simcore/services/comp/itis/sleeper:2.1.1,
-    # which is not the tag I would have expected. I gueuess this might a potential pitfall on other OS or ports
     sleeper_service = docker_registry_image_injector(img_name, img_tag, faker.email())
     # Retag image
     sleeper_image_name = f"{docker_registry}/{sleeper_service['image']['name']}:{sleeper_service['image']['tag']}"
