@@ -24,6 +24,7 @@ MAX_TIME_TO_WAIT_S = 10
     stop=stop_after_attempt(NUMBER_OF_ATTEMPS),
     wait=wait_fixed(3) + wait_random(0, MAX_TIME_TO_WAIT_S),
     before_sleep=before_sleep_log(log, logging.WARNING),
+    reraise=True,
 )
 async def _portainer_request(
     url: URL, app_session: ClientSession, method: str, **kwargs
@@ -40,6 +41,8 @@ async def _portainer_request(
         if resp.status == 200:
             data = await resp.json()
             return data
+        if resp.status == 204:
+            return {"content": ""}
         if resp.status == 404:
             log.error("could not find route in %s", url)
             raise ConfigurationError(
@@ -111,10 +114,13 @@ async def get_stacks_list(
 async def get_current_stack_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, stack_name: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+    if stack_name.lower() != stack_name:
+        raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("getting current stack id %s", base_url)
     stacks_list = await get_stacks_list(base_url, app_session, bearer_code)
     for stack in stacks_list:
-        if stack_name == stack["Name"]:
+        # Portainer / Swarm stacks absolutely need to be lowercase only strings
+        if stack_name.lower() == stack["Name"].lower():
             return stack["Id"]
     return None
 
@@ -128,6 +134,8 @@ async def post_new_stack(
     stack_name: str,
     stack_cfg: ComposeSpecsDict,
 ):  # pylint: disable=too-many-arguments
+    if stack_name.lower() != stack_name:
+        raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("creating new stack %s", base_url)
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)

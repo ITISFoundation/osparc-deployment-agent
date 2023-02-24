@@ -177,7 +177,7 @@ async def test_add_parameters(
     assert envs["ANOTHER_TEST_ENV"] == "some other test"
 
     assert "image" in stack_cfg["services"]["app"]
-    assert "jenkins:latest" in stack_cfg["services"]["app"]["image"]
+    assert "alpine:latest" in stack_cfg["services"]["app"]["image"]
     assert "image" in stack_cfg["services"]["anotherapp"]
     assert "ubuntu" in stack_cfg["services"]["anotherapp"]["image"]
 
@@ -193,6 +193,7 @@ async def test_setup_task(
 ):
     assert client.app
     assert auto_deploy_task.TASK_NAME in client.app
+    await asyncio.sleep(1)
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)
     assert client.app["state"][auto_deploy_task.TASK_NAME] == State.RUNNING
