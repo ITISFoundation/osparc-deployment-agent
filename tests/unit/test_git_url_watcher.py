@@ -7,7 +7,7 @@ import subprocess
 import time
 import uuid
 from asyncio import AbstractEventLoop
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Callable, Literal, Union
 
@@ -23,13 +23,13 @@ from simcore_service_deployment_agent.exceptions import ConfigurationError
 @pytest.fixture(scope="session")
 def git_repo_path(
     tmp_path_factory: TempPathFactory,
-) -> Iterator[Callable[[None], Generator[Path, None, None]]]:
-    def create_folder() -> Generator[Path, None, None]:
-        p = tmp_path_factory.mktemp(str(uuid.uuid4()))
+) -> Callable[[], Path]:
+    def create_folder() -> Path:
+        p: Path = tmp_path_factory.mktemp(str(uuid.uuid4()))
         assert p.exists()
-        yield p
+        return p
 
-    yield create_folder
+    return create_folder
 
 
 @pytest.fixture
@@ -48,11 +48,11 @@ def _run_cmd(cmd: str, **kwargs) -> str:
 @pytest.fixture
 def git_repository(
     branch_name: str,
-    git_repo_path: Callable[[Path], Path],
+    git_repo_path: Callable[[], Path],
     branch: Union[str, None] = None,
 ) -> Iterator[Callable[[], str]]:
-    def create_git_repo() -> Generator[str, None, None]:
-        cwd_ = next(git_repo_path())
+    def create_git_repo() -> str:
+        cwd_: Path = git_repo_path()
         _run_cmd(
             "git init; git config user.name tester; git config user.email tester@test.com",
             cwd=cwd_,
@@ -63,19 +63,19 @@ def git_repository(
             + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
             cwd=cwd_,
         )
-        yield f"file://localhost{cwd_}"
+        return f"file://localhost{cwd_}"
 
     yield create_git_repo
 
 
 @pytest.fixture
 def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str, Any]:
-    cfg = {
+    cfg: dict = {
         "main": {
             "watched_git_repositories": [
                 {
                     "id": "test-repo-0",
-                    "url": str(next(git_repository())),
+                    "url": f"{git_repository()}",
                     "branch": branch_name,
                     "tags": "",
                     "paths": [],
