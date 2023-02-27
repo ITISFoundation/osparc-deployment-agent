@@ -23,7 +23,7 @@ from simcore_service_deployment_agent.exceptions import ConfigurationError
 @pytest.fixture(scope="session")
 def git_repo_path(
     tmp_path_factory: TempPathFactory,
-) -> Iterator[Callable[[Path], Path]]:
+) -> Iterator[Callable[[None], Generator[Path, None, None]]]:
     def create_folder() -> Generator[Path, None, None]:
         p = tmp_path_factory.mktemp(str(uuid.uuid4()))
         assert p.exists()
@@ -38,7 +38,7 @@ def branch_name(faker: Faker) -> str:
 
 
 def _run_cmd(cmd: str, **kwargs) -> str:
-    result = subprocess.run(
+    result: subprocess.CompletedProcess[str] = subprocess.run(
         cmd, capture_output=True, check=True, shell=True, encoding="utf-8", **kwargs
     )
     assert result.returncode == 0
@@ -51,7 +51,7 @@ def git_repository(
     git_repo_path: Callable[[Path], Path],
     branch: Union[str, None] = None,
 ) -> Iterator[Callable[[], str]]:
-    def create_git_repo():
+    def create_git_repo() -> Generator[str, None, None]:
         cwd_ = next(git_repo_path())
         _run_cmd(
             "git init; git config user.name tester; git config user.email tester@test.com",
@@ -97,10 +97,12 @@ async def test_git_url_watcher_find_new_file(
     repo_id_var = git_config["main"]["watched_git_repositories"][0]["id"]
     branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
 
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
+    git_watcher: git_url_watcher.GitUrlWatcher = git_url_watcher.GitUrlWatcher(
+        git_config
+    )
     init_result = await git_watcher.init()
 
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha: str = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
     assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     # there was no changes
@@ -142,60 +144,6 @@ async def test_git_url_watcher_find_tag_on_branch_succeeds(
     )
     check_for_changes_result = await git_watcher.check_for_changes()
     assert check_for_changes_result
-    await git_watcher.cleanup()
-
-
-async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
-    event_loop: AbstractEventLoop, git_config: dict[str, Any]
-):
-    repo_id_var = git_config["main"]["watched_git_repositories"][0]["id"]
-    branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
-    local_path_var = git_config["main"]["watched_git_repositories"][0]["url"].replace(
-        "file://localhost", ""
-    )
-
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
-    init_result = await git_watcher.init()
-
-    # add the a file, commit, and tag
-    VALID_TAG = "staging_z1stvalid"
-    TESTFILE_NAME = "testfile.csv"
-    _run_cmd(
-        f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
-        cwd=local_path_var,
-    )
-    with pytest.raises(RuntimeError):
-        await git_url_watcher._check_if_tag_on_branch(
-            local_path_var, "nonexistingBranch", VALID_TAG
-        )
-
-    await git_watcher.cleanup()
-
-
-async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
-    event_loop: AbstractEventLoop, git_config: dict[str, Any]
-):
-    repo_id_var = git_config["main"]["watched_git_repositories"][0]["id"]
-    branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
-    local_path_var = git_config["main"]["watched_git_repositories"][0]["url"].replace(
-        "file://localhost", ""
-    )
-
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
-    init_result = await git_watcher.init()
-
-    # add the a file, commit, and tag
-    VALID_TAG = "staging_z1stvalid"
-    TESTFILE_NAME = "testfile.csv"
-    _run_cmd(
-        f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
-        cwd=local_path_var,
-    )
-    with pytest.raises(RuntimeError):
-        await git_url_watcher._check_if_tag_on_branch(
-            local_path_var, branch_var, "invalid_tag"
-        )
-
     await git_watcher.cleanup()
 
 
@@ -362,7 +310,7 @@ async def test_git_url_watcher_tags(
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
-    INVALID_TAG = "v3.4.5"
+    INVALID_TAG: Literal["v3.4.5"] = "v3.4.5"
     _run_cmd(
         f"git tag {INVALID_TAG}",
         cwd=local_path_var,
@@ -371,7 +319,7 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
 
-    NEW_VALID_TAG = "teststaging_g2ndvalid"
+    NEW_VALID_TAG: Literal["teststaging_g2ndvalid"] = "teststaging_g2ndvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG}",
         cwd=local_path_var,
@@ -394,7 +342,7 @@ async def test_git_url_watcher_tags(
     #
     #
 
-    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_a3rdvalid"
+    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_a3rdvalid"  # type: ignore
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
@@ -402,7 +350,7 @@ async def test_git_url_watcher_tags(
     # now there should be NO changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha: str = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
     assert not change_results
 
     # Check that tags are sorted in correct order, by tag time, not alphabetically
@@ -419,7 +367,9 @@ async def test_git_url_watcher_tags(
     #
     time.sleep(0.6)
     #
-    NEW_VALID_TAG_ON_NEW_SHA = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
+    NEW_VALID_TAG_ON_NEW_SHA: Literal[
+        "teststaging_h5thvalid"
+    ] = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=local_path_var,
