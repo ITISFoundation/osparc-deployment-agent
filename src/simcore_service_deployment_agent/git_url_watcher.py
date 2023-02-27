@@ -120,28 +120,6 @@ async def _git_fetch(directory: str):
     await run_cmd_line(cmd, f"{directory}")
 
 
-async def _git_get_latest_matching_tag_capture_groups(
-    directory: str, regexp: str
-) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    cmd = [
-        "git",
-        "tag",
-        "--list",
-        "--sort=creatordate",  # Sorted ascending by date
-    ]
-    all_tags = await run_cmd_line(cmd, f"{directory}")
-    if all_tags == None:
-        return None
-    all_tags = all_tags.split("\n")
-    all_tags = [tag for tag in all_tags if tag != ""]
-    list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
-    if not list_tags:
-        return None
-    if re.compile(regexp).groups == 0:
-        return (list_tags[-1],)
-    return re.search(regexp, list_tags[-1]).groups()
-
-
 async def _git_get_latest_matching_tag(
     directory: str, regexp: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
