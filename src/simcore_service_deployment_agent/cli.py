@@ -38,7 +38,7 @@ def create_environ(skip_system_environ=False):
 
     # rootdir = search_osparc_repo_dir(start=here)
     # if rootdir is not None:
-    #     environ['OSPARC_SIMCORE_REPO_ROOTDIR'] = str(rootdir)
+    #     environ['OSPARC_SIMCORE_REPO_ROOTDIR'] = f"{rootdir}"
 
     return environ
 

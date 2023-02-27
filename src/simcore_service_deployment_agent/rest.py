@@ -14,7 +14,10 @@ from servicelib.aiohttp import openapi
 from servicelib.aiohttp.application_keys import APP_CONFIG_KEY
 from servicelib.aiohttp.openapi import create_openapi_specs
 from servicelib.aiohttp.rest_middlewares import append_rest_middlewares
-from tenacity import before_sleep_log, retry, stop_after_attempt, wait_fixed
+from tenacity import retry
+from tenacity.before_sleep import before_sleep_log
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_fixed
 from yarl import URL
 
 from . import rest_handlers
@@ -34,12 +37,12 @@ RETRY_COUNT = 10
     before_sleep=before_sleep_log(log, logging.WARNING),
     reraise=True,
 )
-async def get_specs(location):
+async def _get_specs(location):
     specs = await create_openapi_specs(location)
     return specs
 
 
-def create_routes(specs):
+def _create_routes(specs):
     base_path = openapi.get_base_path(specs)
 
     log.debug("creating %s ", __name__)
@@ -55,7 +58,7 @@ def create_routes(specs):
     return routes
 
 
-def setup(app: web.Application, *, devel=False):
+def setup_rest(app: web.Application, *, devel=False):
     """Subsystem's setup
 
     :param app: aiohttp application
@@ -77,7 +80,7 @@ def setup(app: web.Application, *, devel=False):
                 if resources.exists(location):
                     location = resources.get_path(location)
 
-        specs = loop.run_until_complete(get_specs(location))
+        specs = loop.run_until_complete(_get_specs(location))
 
         # TODO: What if many specs to expose? v0, v1, v2 ... perhaps a dict instead?
         app[APP_OPENAPI_SPECS_KEY] = specs  # validated openapi specs
@@ -89,7 +92,7 @@ def setup(app: web.Application, *, devel=False):
         log.exception("Invalid rest API specs. Rest API is DISABLED")
     else:
         # routes
-        routes = create_routes(specs)
+        routes = _create_routes(specs)
         log.debug("%s API routes:\n%s", CONFIG_SECTION_NAME, pformat(routes))
         app.router.add_routes(routes)
 
@@ -100,7 +103,4 @@ def setup(app: web.Application, *, devel=False):
         append_rest_middlewares(app, base_path)
 
 
-# alias
-setup_rest = setup
-
-__all__ = ["setup_rest"]
+__all__: tuple[str, ...] = ("setup_rest",)

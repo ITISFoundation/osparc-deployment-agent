@@ -6,6 +6,7 @@
 import trafaret as T
 from servicelib.aiohttp.application_keys import APP_OPENAPI_SPECS_KEY
 
+assert APP_OPENAPI_SPECS_KEY  # nosec
 CONFIG_SECTION_NAME = "rest"
 
 schema = T.Dict(
@@ -17,4 +18,4 @@ schema = T.Dict(
     }
 )
 
-__all__ = ["APP_OPENAPI_SPECS_KEY"]
+__all__: tuple[str, ...] = ("APP_OPENAPI_SPECS_KEY",)

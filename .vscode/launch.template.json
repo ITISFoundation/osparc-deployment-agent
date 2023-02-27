@@ -18,6 +18,25 @@
           "remoteRoot": "/devel/services/deployment-agent"
         }
       ]
-    }
+    },
+    {
+      "name": "Python: Test",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "--ff",
+        "--asyncio-mode=auto",
+        "--log-cli-level=DEBUG",
+        "--setup-show",
+        "--pdb",
+        "-xs",
+        "-vv",
+        "${file}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
   ]
 }

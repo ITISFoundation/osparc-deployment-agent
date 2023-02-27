@@ -117,7 +117,7 @@ test-dev-unit test-ci-unit: _check_venv_active ## Run unit tests.
 	# targets tests/unit folder
 	@make --no-print-directory _run-$(subst -unit,,$@) target=$(CURDIR)/tests/unit
 
-test-dev-integration test-ci-integration: ## Run integration tests.
+test-dev-integration test-ci-integration: .init-swarm _check_venv_active## Run integration tests.
 	# targets tests/integration folder using local/$(image-name):production images
 	@export DOCKER_REGISTRY=local; \
 	export DOCKER_IMAGE_TAG=production; \
@@ -129,6 +129,8 @@ test-dev-system test-ci-system: ## Run integration tests.
 
 test-dev: test-dev-unit test-dev-integration ## runs unit and integration tests for development (e.g. w/ pdb)
 
+test-pylint:
+	@pytest --cov=$(APP_PACKAGE_NAME) --color=yes $(CURDIR)/tests/unit -k test_run_pylint
 ## PYTHON -------------------------------
 
 .PHONY: devenv devenv-all

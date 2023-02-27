@@ -8,6 +8,7 @@ simcore-service-library[aiohttp] @ git+https://github.com/ITISFoundation/osparc-
 aiohttp
 docker
 ptvsd
+pydantic
 semantic_version
 tenacity
 trafaret_config

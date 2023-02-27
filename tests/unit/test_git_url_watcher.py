@@ -1,27 +1,39 @@
-import subprocess
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=too-many-arguments
 
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=bare-except
+import subprocess
 import time
+import uuid
+from asyncio import AbstractEventLoop
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Union
 
 import pytest
+from faker import Faker
+from pytest import TempPathFactory
 
 from simcore_service_deployment_agent import git_url_watcher
-from simcore_service_deployment_agent.cmd_utils import CmdLineError
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
-@pytest.fixture()
-def git_repo_path(tmpdir: Path) -> Path:
-    p = tmpdir.mkdir("test_git_repo")
-    assert p.exists()
-    return p
+@pytest.fixture(scope="session")
+def git_repo_path(
+    tmp_path_factory: TempPathFactory,
+) -> Iterator[Callable[[Path], Path]]:
+    def create_folder():
+        p = tmp_path_factory.mktemp(str(uuid.uuid4()))
+        assert p.exists()
+        yield p
+
+    yield create_folder
+
+
+@pytest.fixture
+def branch_name(faker: Faker) -> str:
+    return "pytestMockBranch_" + faker.word()
 
 
 def _run_cmd(cmd: str, **kwargs) -> str:
@@ -32,52 +44,63 @@ def _run_cmd(cmd: str, **kwargs) -> str:
     return result.stdout.rstrip() if result.stdout else ""
 
 
-@pytest.fixture()
-def git_repository(git_repo_path: Path) -> str:
-    _run_cmd(
-        "git init; git config user.name tester; git config user.email tester@test.com",
-        cwd=git_repo_path,
-    )
-    _run_cmd(
-        "touch initial_file.txt; git add .; git commit -m 'initial commit';",
-        cwd=git_repo_path,
-    )
+@pytest.fixture
+def git_repository(
+    branch_name: str,
+    git_repo_path: Callable[[Path], Path],
+    branch: Union[str, None] = None,
+) -> Iterator[Callable[[], str]]:
+    def create_git_repo():
+        cwd_ = next(git_repo_path())
+        _run_cmd(
+            "git init; git config user.name tester; git config user.email tester@test.com",
+            cwd=cwd_,
+        )
+        _run_cmd(
+            "git checkout -b "
+            + branch_name
+            + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
+            cwd=cwd_,
+        )
+        yield f"file://localhost{cwd_}"
 
-    yield f"file://localhost{git_repo_path}"
+    yield create_git_repo
 
 
-@pytest.fixture()
-def git_config(git_repository: str) -> Dict[str, Any]:
+@pytest.fixture
+def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str, Any]:
     cfg = {
         "main": {
             "watched_git_repositories": [
                 {
-                    "id": "test-repo-1",
-                    "url": str(git_repository),
-                    "branch": "master",
+                    "id": "test-repo-0",
+                    "url": str(next(git_repository())),
+                    "branch": branch_name,
                     "tags": "",
-                    "pull_only_files": False,
                     "paths": [],
-                    "username": "fakeuser",
-                    "password": "fakepassword",
+                    "username": "",
+                    "password": "",
                 }
-            ]
+            ],
         }
     }
-    yield cfg
+    return cfg
 
 
 async def test_git_url_watcher_find_new_file(
-    loop, git_config: Dict[str, Any], git_repo_path: Path
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
 ):
-    REPO_ID = git_config["main"]["watched_git_repositories"][0]["id"]
-    BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
+    local_path_var = git_config["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+    repo_id_var = git_config["main"]["watched_git_repositories"][0]["id"]
+    branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
 
     git_watcher = git_url_watcher.GitUrlWatcher(git_config)
     init_result = await git_watcher.init()
 
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert init_result == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
@@ -85,44 +108,125 @@ async def test_git_url_watcher_find_new_file(
     # now add a file in the repo
     _run_cmd(
         "touch my_file.txt; git add .; git commit -m 'I added a file';",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     # we should have some changes here now
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert change_results == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert change_results == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
-def git_config_pull_only_files(git_config: Dict[str, Any]) -> Dict[str, Any]:
-    git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
+async def test_git_url_watcher_find_tag_on_branch_succeeds(
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
+):
+    local_path_var = git_config["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+    branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
+
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
+    await git_watcher.init()
+    # add the a file, commit, and tag
+    VALID_TAG = "staging_z1stvalid"
+    TESTFILE_NAME = "testfile.csv"
+    _run_cmd(
+        f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+        cwd=local_path_var,
+    )
+    assert await git_url_watcher._check_if_tag_on_branch(
+        local_path_var, branch_var, VALID_TAG
+    )
+    check_for_changes_result = await git_watcher.check_for_changes()
+    assert check_for_changes_result
+    await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
+):
+    repo_id_var = git_config["main"]["watched_git_repositories"][0]["id"]
+    branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
+    local_path_var = git_config["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
+    init_result = await git_watcher.init()
+
+    # add the a file, commit, and tag
+    VALID_TAG = "staging_z1stvalid"
+    TESTFILE_NAME = "testfile.csv"
+    _run_cmd(
+        f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+        cwd=local_path_var,
+    )
+    with pytest.raises(RuntimeError):
+        await git_url_watcher._check_if_tag_on_branch(
+            local_path_var, "nonexistingBranch", VALID_TAG
+        )
+
+    await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
+    event_loop: AbstractEventLoop, git_config: dict[str, Any]
+):
+    repo_id_var = git_config["main"]["watched_git_repositories"][0]["id"]
+    branch_var = git_config["main"]["watched_git_repositories"][0]["branch"]
+    local_path_var = git_config["main"]["watched_git_repositories"][0]["url"].replace(
+        "file://localhost", ""
+    )
+
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
+    init_result = await git_watcher.init()
+
+    # add the a file, commit, and tag
+    VALID_TAG = "staging_z1stvalid"
+    TESTFILE_NAME = "testfile.csv"
+    _run_cmd(
+        f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+        cwd=local_path_var,
+    )
+    with pytest.raises(RuntimeError):
+        await git_url_watcher._check_if_tag_on_branch(
+            local_path_var, branch_var, "invalid_tag"
+        )
+
+    await git_watcher.cleanup()
+
+
+@pytest.fixture
+def git_config_paths(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
     return git_config
 
 
-async def test_git_url_watcher_pull_only_selected_files(
-    loop, git_config_pull_only_files: Dict[str, Any], git_repo_path: Path
+async def test_git_url_watcher_paths(
+    event_loop: AbstractEventLoop,
+    git_config_paths: dict[str, Any],
 ):
-    REPO_ID = git_config_pull_only_files["main"]["watched_git_repositories"][0]["id"]
-    BRANCH = git_config_pull_only_files["main"]["watched_git_repositories"][0]["branch"]
-
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files)
+    repo_id_var = git_config_paths["main"]["watched_git_repositories"][0]["id"]
+    branch_var = git_config_paths["main"]["watched_git_repositories"][0]["branch"]
+    local_path_var = git_config_paths["main"]["watched_git_repositories"][0][
+        "url"
+    ].replace("file://localhost", "")
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_paths)
     # the file does not exist yet
-    with pytest.raises(CmdLineError):
+    with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
 
     # add the file
     _run_cmd(
         "touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv';",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     # expect to work now
     init_result = await git_watcher.init()
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert init_result == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
@@ -130,7 +234,7 @@ async def test_git_url_watcher_pull_only_selected_files(
     # now add a file in the repo
     _run_cmd(
         "touch my_file.txt; git add .; git commit -m 'I added a file';",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
@@ -139,51 +243,52 @@ async def test_git_url_watcher_pull_only_selected_files(
     # now modify theonefile.csv
     _run_cmd(
         "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv';",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert change_results == {REPO_ID: f"{REPO_ID}:{BRANCH}:{git_sha}"}
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert change_results == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     await git_watcher.cleanup()
 
 
-@pytest.fixture()
-def git_config_pull_only_files_tags(git_config: Dict[str, Any]) -> Dict[str, Any]:
-    git_config["main"]["watched_git_repositories"][0]["pull_only_files"] = True
+@pytest.fixture
+def git_config_tags(git_config: dict[str, Any]) -> dict[str, Any]:
     git_config["main"]["watched_git_repositories"][0]["paths"] = ["theonefile.csv"]
-    git_config["main"]["watched_git_repositories"][0]["tags"] = "^staging_.+$"
+    git_config["main"]["watched_git_repositories"][0]["tags"] = "^test(staging_.+)$"
     return git_config
 
 
-async def test_git_url_watcher_pull_only_selected_files_tags(
-    loop, git_config_pull_only_files_tags: Dict[str, Any], git_repo_path: Path
+async def test_git_url_watcher_tags(
+    event_loop: AbstractEventLoop,
+    git_config_tags: dict[str, Any],
 ):
-    REPO_ID = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "id"
-    ]
-    BRANCH = git_config_pull_only_files_tags["main"]["watched_git_repositories"][0][
-        "branch"
-    ]
+    local_path_var = git_config_tags["main"]["watched_git_repositories"][0][
+        "url"
+    ].replace("file://localhost", "")
+    repo_id_var = git_config_tags["main"]["watched_git_repositories"][0]["id"]
+    branch_var = git_config_tags["main"]["watched_git_repositories"][0]["branch"]
 
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config_pull_only_files_tags)
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
 
     # the file does not exist yet
     with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
 
     # add the file
-    VALID_TAG = "staging_z1stvalid"
+    VALID_TAG = "teststaging_z1stvalid"
     _run_cmd(
         f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     # expect to work now
     init_result = await git_watcher.init()
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert init_result == {REPO_ID: f"{REPO_ID}:{BRANCH}:{VALID_TAG}:{git_sha}"}
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert init_result == {
+        repo_id_var: f"{repo_id_var}:{branch_var}:{VALID_TAG}:{git_sha}"
+    }
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
@@ -191,7 +296,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     # now add a file in the repo
     _run_cmd(
         "touch my_file.txt; git add .; git commit -m 'I added a file'",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
@@ -200,7 +305,7 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     # now modify theonefile.csv
     _run_cmd(
         "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     time.sleep(1.1)
     # we should have no change here
@@ -209,48 +314,50 @@ async def test_git_url_watcher_pull_only_selected_files_tags(
     INVALID_TAG = "v3.4.5"
     _run_cmd(
         f"git tag {INVALID_TAG}",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     time.sleep(1.1)
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
 
-    NEW_VALID_TAG = "staging_g2ndvalid"
+    NEW_VALID_TAG = "teststaging_g2ndvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG}",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     time.sleep(1.1)
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert change_results == {REPO_ID: f"{REPO_ID}:{BRANCH}:{NEW_VALID_TAG}:{git_sha}"}
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert change_results == {
+        repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
+    }
 
-    NEW_VALID_TAG_ON_SAME_SHA = "staging_a3rdvalid"
+    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_a3rdvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     time.sleep(1.1)
-    # now there should be changes
+    # now there should be NO changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=git_repo_path)
-    assert change_results[REPO_ID].split(":")[-1] == git_sha
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    assert not change_results
 
     # Check that tags are sorted in correct order, by tag time, not alphabetically
     assert len(git_watcher.watched_repos) == 1
-    NEW_VALID_TAG_ON_SAME_SHA = "staging_z4thvalid"
+    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_z4thvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
-    NEW_VALID_TAG_ON_NEW_SHA = "staging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
+    NEW_VALID_TAG_ON_NEW_SHA = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
-        cwd=git_repo_path,
+        cwd=local_path_var,
     )
     time.sleep(1.1)
     # we should have a change here

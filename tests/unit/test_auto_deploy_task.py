@@ -1,34 +1,36 @@
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=bare-except
+# pylint: disable=bare-except
+# pylint: disable=redefined-outer-name
+# pylint: disable=unused-argument
+# pylint: disable=unused-import
+# pylint: disable=unused-variable
+# pylint: disable=wildcard-import
 
 import asyncio
-from asyncio import Future
+from collections.abc import Awaitable, Iterator
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Iterator
+from typing import Any, Callable
 
 import aioresponses
 import pytest
 import yaml
 from aiohttp.test_utils import TestClient
 from aioresponses import aioresponses
-
-# Monkeypatch the tenacity wait time https://stackoverflow.com/questions/47906671/python-retry-with-tenacity-disable-wait-for-unittest
+from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
 from tenacity.wait import wait_none
 
 from simcore_service_deployment_agent import auto_deploy_task, portainer
 from simcore_service_deployment_agent.app_state import State
 from simcore_service_deployment_agent.application import create
 from simcore_service_deployment_agent.git_url_watcher import GitUrlWatcher
+from simcore_service_deployment_agent.models import ComposeSpecsDict
 
+# Monkeypatch the tenacity wait time https://stackoverflow.com/questions/47906671/python-retry-with-tenacity-disable-wait-for-unittest
 portainer._portainer_request.retry.wait = wait_none()
 
 
-@pytest.fixture()
-def mocked_docker_registries_watcher(mocker) -> Dict[str, Any]:
+@pytest.fixture
+def mocked_docker_registries_watcher(mocker: MockerFixture) -> dict[str, Any]:
     mock_docker_watcher = {
         "init": mocker.patch.object(
             auto_deploy_task.DockerRegistriesWatcher, "init", return_value={}
@@ -42,8 +44,8 @@ def mocked_docker_registries_watcher(mocker) -> Dict[str, Any]:
     return mock_docker_watcher
 
 
-@pytest.fixture()
-def mocked_git_url_watcher(mocker) -> Dict[str, Any]:
+@pytest.fixture
+def mocked_git_url_watcher(mocker: MockerFixture) -> dict[str, Any]:
     mock_git_changes = {
         "init": mocker.patch.object(GitUrlWatcher, "init", return_value={}),
         "check_for_changes": mocker.patch.object(
@@ -54,20 +56,22 @@ def mocked_git_url_watcher(mocker) -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="session")
-def mock_stack_config() -> Dict[str, Any]:
-    cfg = {
-        "version": "3.7",
-        "services": {
-            "fake_service": {"image": "fake_image"},
-            "fake_service2": {"image": "fake_image"},
-        },
-    }
+def mock_stack_config() -> ComposeSpecsDict:
+    cfg = ComposeSpecsDict(
+        **{
+            "version": "3.7",
+            "services": {
+                "fake_service": {"image": "fake_image"},
+                "fake_service2": {"image": "fake_image"},
+            },
+        }
+    )
     return cfg
 
 
-@pytest.fixture()
+@pytest.fixture
 def mocked_stack_file(
-    valid_config: Dict[str, Any], mock_stack_config: Dict[str, Any]
+    valid_config: dict[str, Any], mock_stack_config: ComposeSpecsDict
 ) -> Iterator[Path]:
     file_name = Path(valid_config["main"]["docker_stack_recipe"]["stack_file"])
     with file_name.open("w", encoding="utf-8") as fp:
@@ -78,21 +82,35 @@ def mocked_stack_file(
 
 @pytest.fixture
 def client(
-    loop: asyncio.AbstractEventLoop,
-    aiohttp_unused_port: Callable[[], int],
+    event_loop: asyncio.AbstractEventLoop,
+    unused_tcp_port_factory: Callable[[], int],
     aiohttp_client: Callable[..., Awaitable[TestClient]],
-    valid_config: Dict[str, Any],
-    monkeypatch,
-) -> Iterator[TestClient]:
+    valid_config: dict[str, Any],
+    monkeypatch: MonkeyPatch,
+    mocker: MockerFixture,
+) -> TestClient:
+    # Removes all the log errors
+    # mocker.patch(
+    #     "simcore_service_deployment_agent.auto_deploy_task.portainer.authenticate",
+    #     autospec=True,
+    #     return_value="bearercode",
+    # )
+
     # increase the speed to fail
     monkeypatch.setattr(auto_deploy_task, "RETRY_COUNT", 2)
     monkeypatch.setattr(auto_deploy_task, "RETRY_WAIT_SECS", 1)
 
     app = create(valid_config)
-    server_kwargs = {"port": aiohttp_unused_port(), "host": "localhost"}
-
-    client = loop.run_until_complete(aiohttp_client(app, server_kwargs=server_kwargs))
-    yield client
+    client = event_loop.run_until_complete(
+        aiohttp_client(
+            app,
+            server_kwargs={
+                "port": unused_tcp_port_factory(),
+                "host": "localhost",
+            },
+        )
+    )
+    return client
 
 
 def test_client(portainer_service_mock: aioresponses, client: TestClient):
@@ -102,6 +120,7 @@ def test_client(portainer_service_mock: aioresponses, client: TestClient):
 
 async def test_wait_for_dependencies_no_portainer_up(client: TestClient):
     assert client.app  # nosec
+
     # wait for the app to start
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)
@@ -109,10 +128,16 @@ async def test_wait_for_dependencies_no_portainer_up(client: TestClient):
 
 
 async def test_filter_services(
-    valid_config: Dict[str, Any], valid_docker_stack_file: Path
+    valid_config: dict[str, Any], valid_docker_stack_file: Path
 ):
-    stack_cfg = await auto_deploy_task.filter_services(
-        valid_config, valid_docker_stack_file
+    stack_cfg = auto_deploy_task.filter_services(
+        excluded_services=valid_config["main"]["docker_stack_recipe"][
+            "excluded_services"
+        ],
+        excluded_volumes=valid_config["main"]["docker_stack_recipe"][
+            "excluded_volumes"
+        ],
+        stack_file=valid_docker_stack_file,
     )
     assert "app" not in stack_cfg["services"]
     assert "some_volume" not in stack_cfg["volumes"]
@@ -120,9 +145,9 @@ async def test_filter_services(
 
 
 async def test_add_parameters(
-    valid_config: Dict[str, Any], valid_docker_stack: Dict[str, Any]
+    valid_config: dict[str, Any], valid_docker_stack: ComposeSpecsDict
 ):
-    stack_cfg = await auto_deploy_task.add_parameters(valid_config, valid_docker_stack)
+    stack_cfg = auto_deploy_task.add_parameters(valid_config, valid_docker_stack)
     assert "extra_hosts" in stack_cfg["services"]["app"]
     hosts = stack_cfg["services"]["app"]["extra_hosts"]
     assert "original_host:243.23.23.44" in hosts
@@ -152,7 +177,7 @@ async def test_add_parameters(
     assert envs["ANOTHER_TEST_ENV"] == "some other test"
 
     assert "image" in stack_cfg["services"]["app"]
-    assert "jenkins:latest" in stack_cfg["services"]["app"]["image"]
+    assert "alpine:latest" in stack_cfg["services"]["app"]["image"]
     assert "image" in stack_cfg["services"]["anotherapp"]
     assert "ubuntu" in stack_cfg["services"]["anotherapp"]["image"]
 
@@ -168,6 +193,7 @@ async def test_setup_task(
 ):
     assert client.app
     assert auto_deploy_task.TASK_NAME in client.app
+    await asyncio.sleep(1)
     while client.app["state"][auto_deploy_task.TASK_NAME] == State.STARTING:
         await asyncio.sleep(1)
     assert client.app["state"][auto_deploy_task.TASK_NAME] == State.RUNNING

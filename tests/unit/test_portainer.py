@@ -1,35 +1,42 @@
-# pylint:disable=wildcard-import
-# pylint:disable=unused-import
-# pylint:disable=unused-variable
-# pylint:disable=unused-argument
-# pylint:disable=redefined-outer-name
-# pylint:disable=protected-access
+# pylint: disable=wildcard-import
+# pylint: disable=unused-import
+# pylint: disable=unused-variable
+# pylint: disable=unused-argument
+# pylint: disable=redefined-outer-name
+# pylint: disable=protected-access
 
 import asyncio
-from typing import Any, Dict
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
 from aiohttp import ClientSession
 from aioresponses.core import aioresponses
+from faker import Faker
 from yarl import URL
 
 from simcore_service_deployment_agent import portainer
+from simcore_service_deployment_agent.exceptions import ConfigurationError
 
 
-@pytest.fixture()
-async def aiohttp_client_session() -> ClientSession:
+@pytest.fixture
+async def aiohttp_client_session() -> AsyncIterator[ClientSession]:
     async with ClientSession() as client:
         yield client
 
 
+@pytest.fixture
+def faked_stack_name(faker: Faker) -> str:
+    return str(faker.word()).lower()
+
+
 async def test_authenticate(
-    loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    event_loop: asyncio.AbstractEventLoop,
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
 ):
-
     origin = URL(valid_config["main"]["portainer"][0]["url"])
     received_bearer_code = await portainer.authenticate(
         origin, aiohttp_client_session, username="testuser", password="password"
@@ -38,8 +45,8 @@ async def test_authenticate(
 
 
 async def test_first_endpoint_id(
-    loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    event_loop: asyncio.AbstractEventLoop,
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
@@ -53,13 +60,12 @@ async def test_first_endpoint_id(
 
 
 async def test_get_swarm_id(
-    loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    event_loop: asyncio.AbstractEventLoop,
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
 ):
-
     origin = URL(valid_config["main"]["portainer"][0]["url"])
     swarm_id = await portainer.get_swarm_id(
         origin, aiohttp_client_session, bearer_code=bearer_code, endpoint_id=1
@@ -68,12 +74,13 @@ async def test_get_swarm_id(
 
 
 async def test_stacks(
-    loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    event_loop: asyncio.AbstractEventLoop,
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
+    portainer_stacks: dict[str, Any],
+    faked_stack_name: str,
 ):
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
@@ -98,22 +105,24 @@ async def test_stacks(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_name="this is a anknown name",
+            stack_name=faked_stack_name,
         )
         assert not current_stack_id
 
 
 async def test_create_stack(
-    loop: asyncio.AbstractEventLoop,
-    valid_config: Dict[str, Any],
+    event_loop: asyncio.AbstractEventLoop,
+    valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
-    portainer_stacks: Dict[str, Any],
+    portainer_stacks: dict[str, Any],
     valid_docker_stack,
+    faked_stack_name: str,
+    faker: Faker,
 ):
     swarm_id = 1
-    stack_name = "my amazing stack name"
+    stack_name = faked_stack_name
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
 
@@ -132,7 +141,33 @@ async def test_create_stack(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_id="1",
+            stack_id=f"{faker.pyint(min_value=1)}",
             endpoint_id=endpoint,
             stack_cfg=valid_docker_stack,
         )
+
+
+async def test_create_stack_fails_when_name_contains_uppercase_chars(
+    loop: asyncio.AbstractEventLoop,
+    valid_config: dict[str, Any],
+    portainer_service_mock: aioresponses,
+    aiohttp_client_session: ClientSession,
+    bearer_code: str,
+    portainer_stacks: dict[str, Any],
+    valid_docker_stack,
+):
+    swarm_id = 1
+    stack_name = "myAmazingstackname"
+    for portainer_cfg in valid_config["main"]["portainer"]:
+        origin = URL(portainer_cfg["url"])
+        endpoint = 1
+        with pytest.raises(ConfigurationError):
+            new_stack = await portainer.post_new_stack(
+                origin,
+                aiohttp_client_session,
+                bearer_code=bearer_code,
+                swarm_id=swarm_id,
+                endpoint_id=endpoint,
+                stack_name=stack_name,
+                stack_cfg=valid_docker_stack,
+            )

@@ -1,11 +1,17 @@
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Dict, List
 
-from tenacity import after_log, retry, stop_after_attempt, wait_random
+from tenacity import retry
+from tenacity.after import after_log
+from tenacity.stop import stop_after_attempt
+from tenacity.wait import wait_random
 
 import docker
+import docker.errors
+from docker import DockerClient
 
+from .models import ComposeSpecsDict
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
@@ -15,7 +21,7 @@ MAX_TIME_TO_WAIT_S = 10
 
 
 @contextmanager
-def docker_client(registries: List[Dict]) -> docker.client:
+def docker_client(registries: list[dict]) -> Iterator[DockerClient]:
     log.debug("creating docker client..")
     client = docker.from_env()
     log.debug("docker client ping returns: %s", client.ping())
@@ -35,7 +41,7 @@ def docker_client(registries: List[Dict]) -> docker.client:
 
 
 class DockerRegistriesWatcher(SubTask):
-    def __init__(self, app_config: Dict, stack_cfg: Dict):
+    def __init__(self, app_config: dict, stack_cfg: ComposeSpecsDict):
         super().__init__(name="dockerhub repo watcher")
         # get all the private registries
         self.private_registries = app_config["main"]["docker_private_registries"]
@@ -48,7 +54,7 @@ class DockerRegistriesWatcher(SubTask):
                     self.watched_repos.append({"image": image_url})
 
     async def init(self):
-        log.debug("initialising docker watcher..")
+        log.info("initialising docker watcher..")
         with docker_client(self.private_registries) as client:
             for repo in self.watched_repos:
                 try:
@@ -75,7 +81,7 @@ class DockerRegistriesWatcher(SubTask):
         wait=wait_random(min=1, max=MAX_TIME_TO_WAIT_S),
         after=after_log(log, logging.DEBUG),
     )
-    async def check_for_changes(self) -> Dict:
+    async def check_for_changes(self) -> dict:
         changes = {}
         with docker_client(self.private_registries) as client:
             for repo in self.watched_repos:
@@ -111,4 +117,4 @@ class DockerRegistriesWatcher(SubTask):
         pass
 
 
-__all__ = ["DockerRegistriesWatcher"]
+__all__: tuple[str, ...] = ("DockerRegistriesWatcher",)
