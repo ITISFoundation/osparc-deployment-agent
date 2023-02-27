@@ -80,7 +80,7 @@ psycopg2-binary==2.9.5
     #   sqlalchemy
 ptvsd==4.3.2
     # via -r requirements/_base.in
-pydantic==1.10.2
+pydantic==1.10.5
     # via
     #   -r requirements/_base.in
     #   simcore-service-library
