@@ -321,18 +321,17 @@ async def test_git_url_watcher_tags(
 
     NEW_VALID_TAG: Literal["teststaging_g2ndvalid"] = "teststaging_g2ndvalid"
     _run_cmd(
-        f"git tag {NEW_VALID_TAG}",
+        f"git tag {NEW_VALID_TAG} && sleep 1",
         cwd=local_path_var,
     )
     #
     ##
     # Wait for the tag to be present
     async for attempt in AsyncRetrying(
-        stop=stop_after_attempt(10),
-        wait=wait_fixed(1),
+        stop=stop_after_attempt(10), wait=wait_fixed(5), reraise=True
     ):
         with attempt:
-            change_results = await git_watcher.check_for_changes()
+            change_results: dict = await git_watcher.check_for_changes()
             # get new sha
             git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
             # now there should be changes

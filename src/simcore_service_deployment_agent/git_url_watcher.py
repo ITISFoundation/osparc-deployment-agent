@@ -379,7 +379,7 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(repos: [GitRepo]) -> dict:
+async def _check_repositories(repos: list[GitRepo]) -> dict:
     changes = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
@@ -387,6 +387,13 @@ async def _check_repositories(repos: [GitRepo]) -> dict:
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
         if repo.tags:
+            latest_matching_tag = _git_get_latest_matching_tag(
+                repo.directory, repo.tags
+            )
+            if latest_matching_tag is None:
+                raise ConfigurationError(
+                    msg=f"no tags found in {repo.repo_id} that follows defined tags pattern {repo.tags}"
+                )
             if not await _check_if_tag_on_branch(
                 repo.directory,
                 repo.branch,
