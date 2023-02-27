@@ -113,7 +113,7 @@ async def get_stacks_list(
 
 async def get_current_stack_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, stack_name: str
-) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+) -> Optional[int]:  # pylint: disable=unsubscriptable-object
     if stack_name.lower() != stack_name:
         raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("getting current stack id %s", base_url)
@@ -121,7 +121,7 @@ async def get_current_stack_id(
     for stack in stacks_list:
         # Portainer / Swarm stacks absolutely need to be lowercase only strings
         if stack_name.lower() == stack["Name"].lower():
-            return stack["Id"]
+            return int(stack["Id"])
     return None
 
 
@@ -165,7 +165,7 @@ async def update_stack(
     base_url: URL,
     app_session: ClientSession,
     bearer_code: str,
-    stack_id: str,
+    stack_id: int,
     endpoint_id: int,
     stack_cfg: ComposeSpecsDict,
 ):  # pylint: disable=too-many-arguments
@@ -187,15 +187,15 @@ async def update_stack(
             url, app_session, "PUT", headers=headers, json=body_data
         )
         log.debug("updated stack: %s", data)
-    except asyncio.exceptions.TimeoutError as err:
-        log.error(f"{err}")
+    except asyncio.exceptions.TimeoutError:
+        log.exception("Unhandled error while deleting stack %s", url)
 
 
 async def delete_stack(
     base_url: URL,
     app_session: ClientSession,
     bearer_code: str,
-    stack_id: str,
+    stack_id: int,
     endpoint_id: int,
 ):  # pylint: disable=too-many-arguments
     with log_context(f"deleting stack {base_url}", log, logging.DEBUG):
@@ -213,5 +213,5 @@ async def delete_stack(
         try:
             data = await _portainer_request(url, app_session, "DELETE", headers=headers)
             log.debug("deleted stack: %s", data)
-        except asyncio.exceptions.TimeoutError as err:
+        except asyncio.exceptions.TimeoutError:
             log.exception("Unhandled error while deleting stack %s", url)

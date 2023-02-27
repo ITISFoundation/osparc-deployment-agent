@@ -6,7 +6,7 @@ import os
 import subprocess
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 import pytest
 from aiohttp import ClientSession
@@ -16,6 +16,7 @@ from yarl import URL
 
 import docker
 from simcore_service_deployment_agent import exceptions, portainer
+from simcore_service_deployment_agent.models import ComposeSpecsDict
 
 pytest_plugins = [
     "pytest_simcore.docker_registry",
@@ -28,11 +29,29 @@ pytest_plugins = [
 
 @pytest.fixture(scope="session")
 def osparc_simcore_root_dir(
-    request,
+    request: type[pytest.FixtureRequest],
 ) -> (
     Path
 ):  # It is necessary to overwrite some pytest-simcore fixtures that assert file-paths
     return Path().cwd() / ".temp" / "osparc-simcore"
+
+
+@pytest.fixture
+def stack_name(faker: Faker) -> str:
+    return (
+        "pytestintegration" + faker.pystr().lower()
+    )  # portainer stack names absolutely need to be lwoer case
+
+
+@pytest.fixture
+def clean_stack(stack_name: str):
+    os.system(
+        "docker stack rm " + stack_name
+    )  # Assuring a clean state by deleting any remnants
+    yield
+    os.system(
+        "docker stack rm " + stack_name
+    )  # Assuring a clean state by deleting any remnants
 
 
 def _run_cmd(cmd: str, **kwargs) -> str:
@@ -69,7 +88,7 @@ async def test_portainer_connection(
     event_loop: asyncio.AbstractEventLoop,
     portainer_container: tuple[URL, str],
     aiohttp_client_session: ClientSession,
-):
+) -> None:
     portainer_url, portainer_password = portainer_container
 
     await portainer.authenticate(
@@ -98,12 +117,14 @@ async def test_portainer_test_create_stack(
     aiohttp_client_session: ClientSession,
     portainer_bearer_code: str,
     portainer_endpoint_id: int,
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
     docker_swarm: None,
-):
+    stack_name,
+    clean_stack,
+) -> None:
     portainer_url, _ = portainer_container
     ## Assert that formating to URL does not throw:
-    try_to_format_url = URL(portainer_url)
+    try_to_format_url: URL = URL(portainer_url)
     assert try_to_format_url
     #
     swarm_id = await portainer.get_swarm_id(
@@ -112,9 +133,6 @@ async def test_portainer_test_create_stack(
         portainer_bearer_code,
         portainer_endpoint_id,
     )
-    current_stack_name = "pytestintegration"
-    # Assuring a clean state by deleting any remnants
-    os.system("docker stack rm " + current_stack_name)
 
     await portainer.post_new_stack(
         base_url=portainer_url,
@@ -122,7 +140,7 @@ async def test_portainer_test_create_stack(
         bearer_code=portainer_bearer_code,
         swarm_id=swarm_id,
         endpoint_id=portainer_endpoint_id,
-        stack_name=current_stack_name,
+        stack_name=stack_name,
         stack_cfg=valid_docker_stack,
     )
     # Wait for the stack to be present
@@ -135,20 +153,21 @@ async def test_portainer_test_create_stack(
                 base_url=portainer_url,
                 app_session=aiohttp_client_session,
                 bearer_code=portainer_bearer_code,
-                stack_name=current_stack_name,
+                stack_name=stack_name,
             )
     #
     stack_id = await portainer.get_current_stack_id(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_bearer_code,
-        stack_name=current_stack_name,
+        stack_name=stack_name,
     )
+    assert stack_id
     await portainer.delete_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_bearer_code,
-        stack_id=int(stack_id),
+        stack_id=stack_id,
         endpoint_id=portainer_endpoint_id,
     )
 
@@ -159,11 +178,13 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     aiohttp_client_session: ClientSession,
     portainer_bearer_code: str,
     portainer_endpoint_id: int,
-    valid_docker_stack_with_local_registry: dict[str, Any],
+    valid_docker_stack_with_local_registry: ComposeSpecsDict,
     docker_registry: str,
     docker_registry_image_injector: Callable,
     faker: Faker,
     docker_swarm: None,
+    stack_name,
+    clean_stack,
 ):
     ### Push image to local registry
     # Note for the future: This boilerplate might also help: https://github.com/docker/docker-py/issues/2104#issuecomment-410802929
@@ -178,16 +199,12 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     sleeper_image = client.images.get(sleeper_image_name)
     ###
     portainer_url, _ = portainer_container
-    swarm_id = await portainer.get_swarm_id(
+    swarm_id: str = await portainer.get_swarm_id(
         portainer_url,
         aiohttp_client_session,
         portainer_bearer_code,
         portainer_endpoint_id,
     )
-    # Assuring a clean state by deleting any remnants
-    current_stack_name = "pytestintegration"
-
-    os.system("docker stack rm " + current_stack_name)
 
     await portainer.post_new_stack(
         base_url=portainer_url,
@@ -195,7 +212,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         bearer_code=portainer_bearer_code,
         swarm_id=swarm_id,
         endpoint_id=portainer_endpoint_id,
-        stack_name=current_stack_name,
+        stack_name=stack_name,
         stack_cfg=valid_docker_stack_with_local_registry,
     )
     # Wait for the stack to be present
@@ -208,7 +225,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
                 base_url=portainer_url,
                 app_session=aiohttp_client_session,
                 bearer_code=portainer_bearer_code,
-                stack_name=current_stack_name,
+                stack_name=stack_name,
             )
     #
     #
@@ -226,8 +243,9 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_bearer_code,
-        stack_name=current_stack_name,
+        stack_name=stack_name,
     )
+    assert stack_id
     # Get sha of currently running container image
     rawContainerImageBefore = _run_cmd(
         "docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'"
@@ -260,7 +278,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_bearer_code,
-        stack_id=int(stack_id),
+        stack_id=stack_id,
         endpoint_id=portainer_endpoint_id,
     )
 
@@ -271,7 +289,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
     aiohttp_client_session: ClientSession,
     portainer_bearer_code: str,
     portainer_endpoint_id: int,
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
     docker_swarm: None,
 ):
     portainer_url, _ = portainer_container
@@ -324,10 +342,11 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         bearer_code=portainer_bearer_code,
         stack_name=current_stack_name,
     )
+    assert stack_id
     await portainer.delete_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
         bearer_code=portainer_bearer_code,
-        stack_id=int(stack_id),
+        stack_id=stack_id,
         endpoint_id=portainer_endpoint_id,
     )

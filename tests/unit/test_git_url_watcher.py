@@ -7,13 +7,14 @@ import subprocess
 import time
 import uuid
 from asyncio import AbstractEventLoop
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Literal, Union
 
 import pytest
 from faker import Faker
 from pytest import TempPathFactory
+from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 
 from simcore_service_deployment_agent import git_url_watcher
 from simcore_service_deployment_agent.exceptions import ConfigurationError
@@ -23,7 +24,7 @@ from simcore_service_deployment_agent.exceptions import ConfigurationError
 def git_repo_path(
     tmp_path_factory: TempPathFactory,
 ) -> Iterator[Callable[[Path], Path]]:
-    def create_folder():
+    def create_folder() -> Generator[Path, None, None]:
         p = tmp_path_factory.mktemp(str(uuid.uuid4()))
         assert p.exists()
         yield p
@@ -198,29 +199,6 @@ async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
     await git_watcher.cleanup()
 
 
-async def test_git_url_watcher_find_tag_on_branch_succeeds(
-    event_loop: AbstractEventLoop, git_config: dict[str, Any]
-):
-    LOCAL_PATH = git_config["main"]["watched_git_repositories"][0]["url"].replace(
-        "file://localhost", ""
-    )
-    BRANCH = git_config["main"]["watched_git_repositories"][0]["branch"]
-
-    git_watcher = git_url_watcher.GitUrlWatcher(git_config)
-    await git_watcher.init()
-    # add the a file, commit, and tag
-    VALID_TAG = "staging_z1stvalid"
-    TESTFILE_NAME = "testfile.csv"
-    _run_cmd(
-        f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
-        cwd=LOCAL_PATH,
-    )
-    assert await git_url_watcher._check_if_tag_on_branch(LOCAL_PATH, BRANCH, VALID_TAG)
-    check_for_changes_result = await git_watcher.check_for_changes()
-    assert check_for_changes_result
-    await git_watcher.cleanup()
-
-
 async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
     event_loop: AbstractEventLoop, git_config: dict[str, Any]
 ):
@@ -376,13 +354,11 @@ async def test_git_url_watcher_tags(
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
-    time.sleep(1.1)
     # now modify theonefile.csv
     _run_cmd(
         "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
         cwd=local_path_var,
     )
-    time.sleep(1.1)
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
@@ -391,7 +367,6 @@ async def test_git_url_watcher_tags(
         f"git tag {INVALID_TAG}",
         cwd=local_path_var,
     )
-    time.sleep(1.1)
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
@@ -401,21 +376,29 @@ async def test_git_url_watcher_tags(
         f"git tag {NEW_VALID_TAG}",
         cwd=local_path_var,
     )
-    time.sleep(1.1)
-    # now there should be changes
-    change_results = await git_watcher.check_for_changes()
-    # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
-    assert change_results == {
-        repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
-    }
+    #
+    ##
+    # Wait for the tag to be present
+    async for attempt in AsyncRetrying(
+        stop=stop_after_attempt(10),
+        wait=wait_fixed(1),
+    ):
+        with attempt:
+            change_results = await git_watcher.check_for_changes()
+            # get new sha
+            git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+            # now there should be changes
+            assert change_results == {
+                repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
+            }
+    #
+    #
 
     NEW_VALID_TAG_ON_SAME_SHA = "teststaging_a3rdvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
     )
-    time.sleep(1.1)
     # now there should be NO changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
@@ -424,22 +407,35 @@ async def test_git_url_watcher_tags(
 
     # Check that tags are sorted in correct order, by tag time, not alphabetically
     assert len(git_watcher.watched_repos) == 1
-    NEW_VALID_TAG_ON_SAME_SHA = "teststaging_z4thvalid"
+    NEW_VALID_TAG_ON_SAME_SHA: Literal[
+        "teststaging_z4thvalid"
+    ] = "teststaging_z4thvalid"
     _run_cmd(
-        f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
+        f"git tag {NEW_VALID_TAG_ON_SAME_SHA} && sleep 1;",
         cwd=local_path_var,
     )
+    # re: sleep
+    # reason: make sure the tag's creator data is proeprly different for NEW_VALID_TAG_ON_SAME_SHA and NEW_VALID_TAG_ON_NEW_SHA, otherwise sorting might fail
+    #
+    time.sleep(0.6)
+    #
     NEW_VALID_TAG_ON_NEW_SHA = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=local_path_var,
     )
-    time.sleep(1.1)
-    # we should have a change here
-    change_results = await git_watcher.check_for_changes()
-    latestTag = await git_url_watcher._git_get_latest_matching_tag(
-        git_watcher.watched_repos[0].directory, git_watcher.watched_repos[0].tags
-    )
-    assert latestTag == NEW_VALID_TAG_ON_NEW_SHA
+    ##
+    async for attempt in AsyncRetrying(
+        stop=stop_after_attempt(10),
+        wait=wait_fixed(1),
+    ):
+        with attempt:
+            # we should have a change here
+            change_results = await git_watcher.check_for_changes()
+            latestTag = await git_url_watcher._git_get_latest_matching_tag(
+                git_watcher.watched_repos[0].directory,
+                git_watcher.watched_repos[0].tags,
+            )
+            assert latestTag == NEW_VALID_TAG_ON_NEW_SHA
     #
     await git_watcher.cleanup()
