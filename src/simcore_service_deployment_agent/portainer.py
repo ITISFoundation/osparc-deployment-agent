@@ -28,7 +28,7 @@ MAX_TIME_TO_WAIT_S = 10
 )
 async def _portainer_request(
     url: URL, app_session: ClientSession, method: str, **kwargs
-) -> str:
+) -> dict:
     attribute = getattr(app_session, method.lower())
     async with attribute(
         url,
@@ -108,7 +108,7 @@ async def get_stacks_list(
     url = base_url.with_path("api/stacks")
     data = await _portainer_request(url, app_session, "GET", headers=headers)
     log.debug("received list of stacks: %s", data)
-    return data
+    return [data]
 
 
 async def get_current_stack_id(
