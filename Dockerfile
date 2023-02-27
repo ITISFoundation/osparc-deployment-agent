@@ -50,11 +50,14 @@ EXPOSE 3000
 # necessary tools for running deployment-agent
 RUN apt-get update &&\
   apt-get install -y --no-install-recommends \
+  bash \
+  curl \
+  gawk \
+  git \
+  gpg \
   lsb-release \
   make \
-  bash \
   gettext \
-  git \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
