@@ -1,10 +1,10 @@
 import asyncio
 import json
 import logging
-import time
 from typing import Optional
 
 from aiohttp import ClientSession, ClientTimeout
+from servicelib.logging_utils import log_context
 from tenacity import retry
 from tenacity.before_sleep import before_sleep_log
 from tenacity.stop import stop_after_attempt
@@ -182,14 +182,13 @@ async def update_stack(
         .with_path(f"api/stacks/{stack_id}")
         .with_query({"endpointId": endpoint_id, "method": "string", "type": 1})
     )
-    time.sleep(0.5)
     try:
         data = await _portainer_request(
             url, app_session, "PUT", headers=headers, json=body_data
         )
         log.debug("updated stack: %s", data)
     except asyncio.exceptions.TimeoutError as err:
-        log.error(str(err))
+        log.error(f"{err}")
 
 
 async def delete_stack(
@@ -199,19 +198,20 @@ async def delete_stack(
     stack_id: str,
     endpoint_id: int,
 ):  # pylint: disable=too-many-arguments
-    log.debug("deleting stack %s", base_url)
-    if endpoint_id < 0:
-        endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
-        log.debug("Determined the following endpoint id: %i", endpoint_id)
-    headers = {"Authorization": f"Bearer {bearer_code}"}
-    url = (
-        URL(base_url)
-        .with_path(f"api/stacks/{stack_id}")
-        .with_query({"endpointId": endpoint_id})
-    )
-    time.sleep(0.5)
-    try:
-        data = await _portainer_request(url, app_session, "DELETE", headers=headers)
-        log.debug("deleted stack: %s", data)
-    except asyncio.exceptions.TimeoutError as err:
-        log.error(str(err))
+    with log_context(f"deleting stack {base_url}", log, logging.DEBUG):
+        if endpoint_id < 0:
+            endpoint_id = await get_first_endpoint_id(
+                base_url, app_session, bearer_code
+            )
+            log.debug("Determined the following endpoint id: %i", endpoint_id)
+        headers = {"Authorization": f"Bearer {bearer_code}"}
+        url = (
+            URL(base_url)
+            .with_path(f"api/stacks/{stack_id}")
+            .with_query({"endpointId": endpoint_id})
+        )
+        try:
+            data = await _portainer_request(url, app_session, "DELETE", headers=headers)
+            log.debug("deleted stack: %s", data)
+        except asyncio.exceptions.TimeoutError as err:
+            log.exception("Unhandled error while deleting stack %s", url)

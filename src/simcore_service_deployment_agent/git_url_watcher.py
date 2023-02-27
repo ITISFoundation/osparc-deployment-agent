@@ -130,7 +130,7 @@ async def _git_get_latest_matching_tag(
         "--sort=creatordate",  # Sorted ascending by date
     ]
     all_tags = await run_cmd_line(cmd, f"{directory}")
-    if all_tags == None:
+    if all_tags is None:
         return None
     all_tags = all_tags.split("\n")
     all_tags = [tag for tag in all_tags if tag != ""]
