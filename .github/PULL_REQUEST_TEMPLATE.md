@@ -16,7 +16,7 @@ PREFIX:
 or from https://gitmoji.dev/
 
 SUFFIX:
- (🚧🚧🚧)  changes in requireing manual intervention
+ (🚧🚧🚧)  changes in requiring manual intervention
 -->
 
 ## What do these changes do?
