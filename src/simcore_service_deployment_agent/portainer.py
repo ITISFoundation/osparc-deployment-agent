@@ -28,7 +28,7 @@ MAX_TIME_TO_WAIT_S = 10
 )
 async def _portainer_request(
     url: URL, app_session: ClientSession, method: str, **kwargs
-) -> dict:
+) -> list[dict]:
     attribute = getattr(app_session, method.lower())
     async with attribute(
         url,
@@ -39,10 +39,10 @@ async def _portainer_request(
     ) as resp:
         log.debug("request received with code %s", resp.status)
         if resp.status == 200:
-            data = await resp.json()
+            data: list[dict] = await resp.json()
             return data
         if resp.status == 204:
-            return {"content": ""}
+            return [{"content": ""}]
         if resp.status == 404:
             log.error("could not find route in %s", url)
             raise ConfigurationError(
@@ -93,10 +93,12 @@ async def get_swarm_id(
     headers = {"Authorization": f"Bearer {bearer_code}"}
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
-    url = base_url.with_path(f"api/endpoints/{endpoint_id}/docker/swarm")
-    data = await _portainer_request(url, app_session, "GET", headers=headers)
+    url: URL = base_url.with_path(f"api/endpoints/{endpoint_id}/docker/swarm")
+    data: list[dict] = await _portainer_request(
+        url, app_session, "GET", headers=headers
+    )
     log.debug("received swarm details: %s", data)
-    swarm_id = data["ID"]
+    swarm_id: str = data["ID"]
     return swarm_id
 
 
@@ -108,7 +110,7 @@ async def get_stacks_list(
     url = base_url.with_path("api/stacks")
     data = await _portainer_request(url, app_session, "GET", headers=headers)
     log.debug("received list of stacks: %s", data)
-    return [data]
+    return data
 
 
 async def get_current_stack_id(
@@ -117,7 +119,7 @@ async def get_current_stack_id(
     if stack_name.lower() != stack_name:
         raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("getting current stack id %s", base_url)
-    stacks_list = await get_stacks_list(base_url, app_session, bearer_code)
+    stacks_list: list[dict] = await get_stacks_list(base_url, app_session, bearer_code)
     for stack in stacks_list:
         # Portainer / Swarm stacks absolutely need to be lowercase only strings
         if stack_name.lower() == stack["Name"].lower():
@@ -198,7 +200,11 @@ async def delete_stack(
     stack_id: int,
     endpoint_id: int,
 ):  # pylint: disable=too-many-arguments
-    with log_context(f"deleting stack {base_url}", log, logging.DEBUG):
+    with log_context(
+        log,
+        logging.DEBUG,
+        msg=f"deleting stack {base_url}",
+    ):
         if endpoint_id < 0:
             endpoint_id = await get_first_endpoint_id(
                 base_url, app_session, bearer_code

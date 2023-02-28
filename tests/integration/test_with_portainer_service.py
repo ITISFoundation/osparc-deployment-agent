@@ -39,7 +39,7 @@ def osparc_simcore_root_dir(
 @pytest.fixture
 def stack_name(faker: Faker) -> str:
     return (
-        "pytestintegration" + faker.pystr().lower()
+        "pytest" + faker.pystr().lower()
     )  # portainer stack names absolutely need to be lwoer case
 
 
