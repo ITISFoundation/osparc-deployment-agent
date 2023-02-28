@@ -62,7 +62,8 @@ class GitRepo(WatchedGitRepoConfig):
 StatusStr = str
 
 
-class RepoStatusBase:
+@dataclass(frozen=True)
+class RepoStatus:
     """git status of current repo's checkout"""
 
     repo_id: RepoID
