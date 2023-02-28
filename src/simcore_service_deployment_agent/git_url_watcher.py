@@ -397,7 +397,7 @@ async def _check_repositories(repos: list[GitRepo]) -> dict:
             if not await _check_if_tag_on_branch(
                 repo.directory,
                 repo.branch,
-                await _git_get_latest_matching_tag(repo.directory, repo.tags),
+                latest_matching_tag,
             ):
                 continue
         repo_changes = (
