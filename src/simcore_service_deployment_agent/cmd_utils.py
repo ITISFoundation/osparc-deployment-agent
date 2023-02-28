@@ -1,13 +1,15 @@
 import asyncio
 import logging
-from typing import List
+from typing import Final
 
 from .exceptions import CmdLineError
 
 log = logging.getLogger(__name__)
 
+_EMPTY_STRING: Final[str] = ""
 
-async def run_cmd_line(cmd: List[str], cwd_: str = ".") -> str:
+
+async def run_cmd_line(cmd: list[str], cwd_: str = ".") -> str:
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -34,6 +36,7 @@ async def run_cmd_line(cmd: List[str], cwd_: str = ".") -> str:
         data = stdout.decode()
         log.debug("\n[stdout]%s", data)
         return data
+    return _EMPTY_STRING
 
 
 async def run_cmd_line_unsafe(cmd: str, cwd_: str = ".") -> str:
@@ -58,3 +61,4 @@ async def run_cmd_line_unsafe(cmd: str, cwd_: str = ".") -> str:
         data = stdout.decode()
         log.debug("\n[stdout]%s", data)
         return data
+    return _EMPTY_STRING

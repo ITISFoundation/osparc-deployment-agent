@@ -67,7 +67,7 @@ class RepoStatus:
     repo_id: RepoID
     commit_sha: str
     branch_name: str
-    tag_name: Optional[str]
+    tag_name: Optional[str] = None
     tag_date: Optional[date] = None
 
     def to_string(self) -> StatusStr:
