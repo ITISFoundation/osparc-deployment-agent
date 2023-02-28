@@ -9,7 +9,7 @@ FROM python:${PYTHON_VERSION}-slim-buster as base
 #
 #  REQUIRED: context expected at ``osparc-simcore/`` folder because we need access to osparc-simcore/packages
 
-LABEL maintainer=sanderegg
+LABEL maintainer=mrnicegyu11
 
 RUN set -eux; \
   apt-get update; \
@@ -50,11 +50,14 @@ EXPOSE 3000
 # necessary tools for running deployment-agent
 RUN apt-get update &&\
   apt-get install -y --no-install-recommends \
-  docker \
-  make \
   bash \
-  gettext \
+  curl \
+  gawk \
   git \
+  gpg \
+  lsb-release \
+  make \
+  gettext \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -67,6 +70,17 @@ RUN apt-get update &&\
 FROM base as build
 
 ENV SC_BUILD_TARGET=build
+
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+  echo \
+  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends \
+  docker-ce \
+  docker-ce-cli \
+  containerd.io \
+  docker-compose-plugin
 
 RUN apt-get update &&\
   apt-get install -y --no-install-recommends \

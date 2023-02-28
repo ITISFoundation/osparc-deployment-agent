@@ -103,7 +103,9 @@ pluggy==1.0.0
 pprintpp==0.4.0
     # via pytest-icdiff
 ptvsd==4.3.2
-    # via -r requirements/_test.in
+    # via
+    #   -c requirements/_base.txt
+    #   -r requirements/_test.in
 pylint==2.16.2
     # via -r requirements/_test.in
 pytest==7.2.1
