@@ -6,7 +6,7 @@
 import subprocess
 import time
 import uuid
-from asyncio import AbstractEventLoop
+from asyncio import AbstractEventLoop, sleep
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Callable, Literal, Union
@@ -327,6 +327,7 @@ async def test_git_url_watcher_tags(
     #
     ##
     # Wait for the tag to be present
+    await sleep(1)  # The following is flaky, this is to reduce flakyness
     async for attempt in AsyncRetrying(
         stop=stop_after_attempt(10), wait=wait_fixed(5), reraise=True
     ):
