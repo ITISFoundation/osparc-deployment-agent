@@ -28,10 +28,10 @@ RepoID = str
 
 
 @dataclass(frozen=True)
-class GitRepo:
+class WatchedGitRepoConfig:
     """Config of the to be observed
 
-    Corresponds to an item of the config's watched_git_repositories list
+    Corresponds to an item of the config's 'watched_git_repositories' list
 
     Example:
     - id: simcore-github-repo
@@ -41,7 +41,6 @@ class GitRepo:
       password: secret
       tags: ^testtag_v[0-9]+.[0-9]+.[0-9]+$
       paths:
-        # lists the files where to look for changes in the repo
         - services/docker-compose.yml
         - .env-devel
         - .env-wb-garbage-collector
@@ -53,15 +52,17 @@ class GitRepo:
     tags: str  # regex or blank
     username: str
     password: str
-    paths: list[Path]
+    paths: list[Path]  # lists the files where to look for changes in the repo
+
+
+class GitRepo(WatchedGitRepoConfig):
     directory: str = ""
 
 
 StatusStr = str
 
 
-@dataclass(frozen=True)
-class RepoStatus:
+class RepoStatusBase:
     """git status of current repo's checkout"""
 
     repo_id: RepoID
@@ -83,7 +84,8 @@ class RepoStatus:
         #  Tue Feb 28 20:34:50 2023 +0100
         # But for some reason, tags produced by github DO NOT HAVE taggerdate
         if self.tag_date is None and self.tag_name:
-            self.tag_date = datetime.today().date()
+            # SEE https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
+            object.__setattr__(self, "tag_date", datetime.today().date())
 
 
 @retry(
