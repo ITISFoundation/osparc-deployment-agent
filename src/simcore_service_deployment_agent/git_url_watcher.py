@@ -387,7 +387,7 @@ async def _check_repositories(repos: list[GitRepo]) -> dict:
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
         if repo.tags:
-            latest_matching_tag = _git_get_latest_matching_tag(
+            latest_matching_tag = await _git_get_latest_matching_tag(
                 repo.directory, repo.tags
             )
             if latest_matching_tag is None:

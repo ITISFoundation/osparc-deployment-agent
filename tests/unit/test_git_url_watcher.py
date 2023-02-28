@@ -327,14 +327,16 @@ async def test_git_url_watcher_tags(
     #
     ##
     # Wait for the tag to be present
-    await sleep(3)  # The following is flaky, this is to reduce flakyness
+    await sleep(1)  # The following is flaky, this is to reduce flakyness
     async for attempt in AsyncRetrying(
         stop=stop_after_attempt(10), wait=wait_fixed(5), reraise=True
     ):
         with attempt:
             change_results: dict = await git_watcher.check_for_changes()
             # get new sha
-            git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+            git_sha = _run_cmd(
+                "sleep 1 && git rev-parse --short HEAD", cwd=local_path_var
+            )
             # now there should be changes
             assert change_results == {
                 repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
