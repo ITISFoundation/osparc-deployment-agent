@@ -9,7 +9,7 @@ FROM python:${PYTHON_VERSION}-slim-buster as base
 #
 #  REQUIRED: context expected at ``osparc-simcore/`` folder because we need access to osparc-simcore/packages
 
-LABEL maintainer=sanderegg
+LABEL maintainer=mrnicegyu11
 
 RUN set -eux; \
   apt-get update; \
@@ -77,7 +77,10 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
-  docker-ce docker-ce-cli containerd.io
+  docker-ce \
+  docker-ce-cli \
+  containerd.io \
+  docker-compose-plugin
 
 RUN apt-get update &&\
   apt-get install -y --no-install-recommends \
