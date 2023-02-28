@@ -17,7 +17,6 @@ from yarl import URL
 
 from .cmd_utils import run_cmd_line
 from .exceptions import CmdLineError, ConfigurationError
-from .models import RepoID
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
