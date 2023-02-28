@@ -327,7 +327,7 @@ async def test_git_url_watcher_tags(
     #
     ##
     # Wait for the tag to be present
-    await sleep(1)  # The following is flaky, this is to reduce flakyness
+    await sleep(3)  # The following is flaky, this is to reduce flakyness
     async for attempt in AsyncRetrying(
         stop=stop_after_attempt(10), wait=wait_fixed(5), reraise=True
     ):
