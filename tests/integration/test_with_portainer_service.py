@@ -4,9 +4,9 @@
 import asyncio
 import os
 import subprocess
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Generator
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import pytest
 from aiohttp import ClientSession
@@ -18,13 +18,18 @@ import docker
 from simcore_service_deployment_agent import exceptions, portainer
 from simcore_service_deployment_agent.models import ComposeSpecsDict
 
-pytest_plugins = [
+pytest_plugins: list[str] = [
     "pytest_simcore.docker_registry",
     "pytest_simcore.docker_swarm",
     "pytest_simcore.schemas",
     "pytest_simcore.repository_paths",
     "fixtures.fixture_portainer",
 ]
+
+RETRYING_PARAMETERS: dict[str, Any] = {
+    "stop": stop_after_attempt(10),
+    "wait": wait_fixed(3),
+}
 
 
 @pytest.fixture(scope="session")
@@ -44,7 +49,7 @@ def stack_name(faker: Faker) -> str:
 
 
 @pytest.fixture
-def clean_stack(stack_name: str):
+def clean_stack(stack_name: str) -> Generator[None, None, None]:
     os.system(
         "docker stack rm " + stack_name
     )  # Assuring a clean state by deleting any remnants
@@ -69,7 +74,7 @@ async def portainer_bearer_code(
     aiohttp_client_session: ClientSession,
 ) -> str:
     portainer_url, portainer_password = portainer_container
-    received_bearer_code = await portainer.authenticate(
+    received_bearer_code: str = await portainer.authenticate(
         portainer_url,
         aiohttp_client_session,
         username="admin",
@@ -105,11 +110,81 @@ async def portainer_endpoint_id(
 ) -> int:
     portainer_url, _ = portainer_container
 
-    endpoint = await portainer.get_first_endpoint_id(
+    endpoint: int = await portainer.get_first_endpoint_id(
         portainer_url, aiohttp_client_session, portainer_bearer_code
     )
     assert type(endpoint) == int
     return endpoint
+
+
+async def test_portainer_delete_works(
+    portainer_container: tuple[URL, str],
+    aiohttp_client_session: ClientSession,
+    portainer_bearer_code: str,
+    portainer_endpoint_id: int,
+    valid_docker_stack: ComposeSpecsDict,
+    docker_swarm: None,
+    stack_name: str,
+    clean_stack: Generator[None, None, None],
+):
+    portainer_url, _ = portainer_container
+    ## Assert that formating to URL does not throw:
+    try_to_format_url: URL = URL(portainer_url)
+    assert try_to_format_url
+    #
+    swarm_id = await portainer.get_swarm_id(
+        portainer_url,
+        aiohttp_client_session,
+        portainer_bearer_code,
+        portainer_endpoint_id,
+    )
+
+    # Wait for the stack to be present
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            await portainer.post_new_stack(
+                base_url=portainer_url,
+                app_session=aiohttp_client_session,
+                bearer_code=portainer_bearer_code,
+                swarm_id=swarm_id,
+                endpoint_id=portainer_endpoint_id,
+                stack_name=stack_name,
+                stack_cfg=valid_docker_stack,
+            )
+
+    stack_id = await portainer.get_current_stack_id(
+        base_url=portainer_url,
+        app_session=aiohttp_client_session,
+        bearer_code=portainer_bearer_code,
+        stack_name=stack_name,
+    )
+    assert stack_id
+    #
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            returnOfCmdCommand = _run_cmd(f"docker stack ls | grep {stack_name} | cat")
+            assert returnOfCmdCommand != ""
+    await portainer.delete_stack(
+        base_url=portainer_url,
+        app_session=aiohttp_client_session,
+        bearer_code=portainer_bearer_code,
+        stack_id=stack_id,
+        endpoint_id=portainer_endpoint_id,
+    )
+    # Check that the swarm is actually gone
+    # Wait for the stack to be present
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            assert _run_cmd(f"docker stack ls | grep {stack_name} | cat") == ""
+    # Check that deleting a non-existant stack fails
+    with pytest.raises(exceptions.AutoDeployAgentException):
+        await portainer.delete_stack(
+            base_url=portainer_url,
+            app_session=aiohttp_client_session,
+            bearer_code=portainer_bearer_code,
+            stack_id=stack_id,
+            endpoint_id=portainer_endpoint_id,
+        )
 
 
 async def test_portainer_test_create_stack(
@@ -143,11 +218,8 @@ async def test_portainer_test_create_stack(
         stack_name=stack_name,
         stack_cfg=valid_docker_stack,
     )
-    # Wait for the stack to be present
-    async for attempt in AsyncRetrying(
-        stop=stop_after_attempt(10),
-        wait=wait_fixed(1),
-    ):
+
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -163,6 +235,9 @@ async def test_portainer_test_create_stack(
         stack_name=stack_name,
     )
     assert stack_id
+    ## Cleanup for subsequent tests:
+    # This is strictly necessary, even with the clean_stack fixture,
+    # As portainer might think stacks still exist when they are deleted using `docker stack rm`
     await portainer.delete_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
@@ -206,20 +281,19 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         portainer_endpoint_id,
     )
 
-    await portainer.post_new_stack(
-        base_url=portainer_url,
-        app_session=aiohttp_client_session,
-        bearer_code=portainer_bearer_code,
-        swarm_id=swarm_id,
-        endpoint_id=portainer_endpoint_id,
-        stack_name=stack_name,
-        stack_cfg=valid_docker_stack_with_local_registry,
-    )
-    # Wait for the stack to be present
-    async for attempt in AsyncRetrying(
-        stop=stop_after_attempt(10),
-        wait=wait_fixed(1),
-    ):
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            await portainer.post_new_stack(
+                base_url=portainer_url,
+                app_session=aiohttp_client_session,
+                bearer_code=portainer_bearer_code,
+                swarm_id=swarm_id,
+                endpoint_id=portainer_endpoint_id,
+                stack_name=stack_name,
+                stack_cfg=valid_docker_stack_with_local_registry,
+            )
+
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -273,7 +347,9 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     containerImageSHAAfter = rawContainerImageAfter.split("@")[1]
     assert containerImageSHABefore != containerImageSHAAfter
 
-    ## Cleanup for subsequent tests: ...
+    ## Cleanup for subsequent tests:
+    # This is strictly necessary, even with the clean_stack fixture,
+    # As portainer might think stacks still exist when they are deleted using `docker stack rm`
     await portainer.delete_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
@@ -313,10 +389,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         stack_cfg=valid_docker_stack,
     )
 
-    async for attempt in AsyncRetrying(
-        stop=stop_after_attempt(10),
-        wait=wait_fixed(1),
-    ):
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -335,7 +408,6 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
             stack_name=current_stack_name,
             stack_cfg=valid_docker_stack,
         )
-    ## Cleanup for subsequent tests: ...
     stack_id = await portainer.get_current_stack_id(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
@@ -343,6 +415,9 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         stack_name=current_stack_name,
     )
     assert stack_id
+    ## Cleanup for subsequent tests:
+    # This is strictly necessary, even with the clean_stack fixture,
+    # As portainer might think stacks still exist when they are deleted using `docker stack rm`
     await portainer.delete_stack(
         base_url=portainer_url,
         app_session=aiohttp_client_session,
