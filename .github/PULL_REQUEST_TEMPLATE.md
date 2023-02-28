@@ -1,16 +1,52 @@
-<!--  **WIP-** prefix in title if still work in progress -->
+<!-- Common title prefixes/annotations:
+PREFIX:
+
+  WIP: work in progress
+  🐛    Fix a bug.
+  ✨    Introduce new features.
+  ♻️     Refactor code.
+  🚑️    Critical hotfix.
+  ⚗️     Perform experiments.
+  ⬆️     Upgrade dependencies.
+  📝    Add or update documentation.
+  🔨    Add or update development scripts.
+  🔒️    Fix security issues.
+
+
+or from https://gitmoji.dev/
+
+SUFFIX:
+ (🚧🚧🚧)  changes in requireing manual intervention
+-->
 
 ## What do these changes do?
 
-<!-- Please give a short brief about these changes. -->
+<!-- Explain REVIEWERS what is this PR about -->
 
-## Related issue number
 
-<!-- Please add #issues -->
+## Related issue/s
+
+<!-- Enumerate REVIEWERS other issues
+
+- ITISFoundation/osparc-issues#428
+
+-->
+
+
+## How to test
+
+<!-- Give REVIEWERS some hits or code snippets on how could this be tested -->
+
 
 ## Checklist
 
-- [ ] I think the code is well written
+<!-- This is YOUR section
+
+Add here YOUR checklist/notes to guide and monitor the progress of the case!
+
+e.g.
+
 - [ ] Unit tests for the changes exist
+- [ ] Runs in the swarm
 - [ ] Documentation reflects the changes
-- [ ] If you design a new module, add your user to .github/CODEOWNERS
+-->
