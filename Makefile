@@ -124,7 +124,6 @@ test-dev-integration test-ci-integration: .init-swarm _check_venv_active## Run i
 	make --no-print-directory _run-$(subst -integration,,$@) target=$(CURDIR)/tests/integration
 
 test-dev-system: ## Run integration tests.
-	@./ci/github/system-testing/deployment-agent.bash install && \
 	make --no-print-directory _run-$(subst -system,,$@) target=$(CURDIR)/tests/system
 
 test-ci-system: ## Run integration tests.
