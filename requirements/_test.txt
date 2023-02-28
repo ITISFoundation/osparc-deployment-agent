@@ -15,7 +15,7 @@ aiosignal==1.2.0
     # via
     #   -c requirements/_base.txt
     #   aiohttp
-astroid==2.14.1
+astroid==2.14.2
     # via pylint
 async-timeout==4.0.2
     # via
@@ -98,7 +98,7 @@ ptvsd==4.3.2
     # via
     #   -c requirements/_base.txt
     #   -r requirements/_test.in
-pylint==2.16.1
+pylint==2.16.2
     # via -r requirements/_test.in
 pytest==7.2.1
     # via
