@@ -199,7 +199,7 @@ async def delete_stack(
     bearer_code: str,
     stack_id: int,
     endpoint_id: int,
-):  # pylint: disable=too-many-arguments
+) -> None:  # pylint: disable=too-many-arguments
     with log_context(
         log,
         logging.DEBUG,
