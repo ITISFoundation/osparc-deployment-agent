@@ -117,7 +117,7 @@ async def test_create_stack(
     aiohttp_client_session: ClientSession,
     bearer_code: str,
     portainer_stacks: dict[str, Any],
-    valid_docker_stack,
+    valid_docker_stack: dict[str, Any],
     faked_stack_name: str,
     faker: Faker,
 ):
@@ -148,13 +148,13 @@ async def test_create_stack(
 
 
 async def test_create_stack_fails_when_name_contains_uppercase_chars(
-    loop: asyncio.AbstractEventLoop,
+    event_loop: asyncio.AbstractEventLoop,
     valid_config: dict[str, Any],
     portainer_service_mock: aioresponses,
     aiohttp_client_session: ClientSession,
     bearer_code: str,
     portainer_stacks: dict[str, Any],
-    valid_docker_stack,
+    valid_docker_stack: dict[str, Any],
 ):
     swarm_id = 1
     stack_name = "myAmazingstackname"

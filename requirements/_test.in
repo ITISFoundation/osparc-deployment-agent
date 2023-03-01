@@ -21,6 +21,7 @@ pytest-mock
 pytest-runner
 pytest-sugar
 pytest-xdist
+pytest-simcore[aiohttp] @ git+https://github.com/ITISFoundation/osparc-simcore.git@v1.49.0#subdirectory=packages/pytest-simcore
 
 
 # tools

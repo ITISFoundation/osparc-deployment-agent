@@ -1,10 +1,10 @@
 import asyncio
 import json
 import logging
-import time
 from typing import Optional
 
 from aiohttp import ClientSession, ClientTimeout
+from servicelib.logging_utils import log_context
 from tenacity import retry
 from tenacity.before_sleep import before_sleep_log
 from tenacity.stop import stop_after_attempt
@@ -28,7 +28,7 @@ MAX_TIME_TO_WAIT_S = 10
 )
 async def _portainer_request(
     url: URL, app_session: ClientSession, method: str, **kwargs
-) -> str:
+) -> list[dict]:
     attribute = getattr(app_session, method.lower())
     async with attribute(
         url,
@@ -39,10 +39,10 @@ async def _portainer_request(
     ) as resp:
         log.debug("request received with code %s", resp.status)
         if resp.status == 200:
-            data = await resp.json()
+            data: list[dict] = await resp.json()
             return data
         if resp.status == 204:
-            return {"content": ""}
+            return [{"content": ""}]
         if resp.status == 404:
             log.error("could not find route in %s", url)
             raise ConfigurationError(
@@ -93,10 +93,12 @@ async def get_swarm_id(
     headers = {"Authorization": f"Bearer {bearer_code}"}
     if endpoint_id < 0:
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
-    url = base_url.with_path(f"api/endpoints/{endpoint_id}/docker/swarm")
-    data = await _portainer_request(url, app_session, "GET", headers=headers)
+    url: URL = base_url.with_path(f"api/endpoints/{endpoint_id}/docker/swarm")
+    data: list[dict] = await _portainer_request(
+        url, app_session, "GET", headers=headers
+    )
     log.debug("received swarm details: %s", data)
-    swarm_id = data["ID"]
+    swarm_id: str = data["ID"]
     return swarm_id
 
 
@@ -113,15 +115,15 @@ async def get_stacks_list(
 
 async def get_current_stack_id(
     base_url: URL, app_session: ClientSession, bearer_code: str, stack_name: str
-) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+) -> Optional[int]:  # pylint: disable=unsubscriptable-object
     if stack_name.lower() != stack_name:
         raise ConfigurationError("Docker swarm stack names must be lowercase only!")
     log.debug("getting current stack id %s", base_url)
-    stacks_list = await get_stacks_list(base_url, app_session, bearer_code)
+    stacks_list: list[dict] = await get_stacks_list(base_url, app_session, bearer_code)
     for stack in stacks_list:
         # Portainer / Swarm stacks absolutely need to be lowercase only strings
         if stack_name.lower() == stack["Name"].lower():
-            return stack["Id"]
+            return int(stack["Id"])
     return None
 
 
@@ -165,7 +167,7 @@ async def update_stack(
     base_url: URL,
     app_session: ClientSession,
     bearer_code: str,
-    stack_id: str,
+    stack_id: int,
     endpoint_id: int,
     stack_cfg: ComposeSpecsDict,
 ):  # pylint: disable=too-many-arguments
@@ -174,7 +176,7 @@ async def update_stack(
         endpoint_id = await get_first_endpoint_id(base_url, app_session, bearer_code)
         log.debug("Determined the following endpoint id: %i", endpoint_id)
     headers = {"Authorization": f"Bearer {bearer_code}"}
-    body_data = {"StackFileContent": json.dumps(stack_cfg, indent=2)}
+    body_data = {"StackFileContent": json.dumps(stack_cfg, indent=2), "pullImage": True}
     log.debug("StackFileContent:")
     log.debug(json.dumps(stack_cfg, indent=2, sort_keys=True))
     url = (
@@ -182,12 +184,40 @@ async def update_stack(
         .with_path(f"api/stacks/{stack_id}")
         .with_query({"endpointId": endpoint_id, "method": "string", "type": 1})
     )
-    time.sleep(0.5)
     try:
         data = await _portainer_request(
             url, app_session, "PUT", headers=headers, json=body_data
         )
         log.debug("updated stack: %s", data)
-    except asyncio.exceptions.TimeoutError as err:
-        print("ERROR")
-        print(f"{err}")
+    except asyncio.exceptions.TimeoutError:
+        log.exception("Unhandled error while deleting stack %s", url)
+
+
+async def delete_stack(
+    base_url: URL,
+    app_session: ClientSession,
+    bearer_code: str,
+    stack_id: int,
+    endpoint_id: int,
+) -> None:  # pylint: disable=too-many-arguments
+    with log_context(
+        log,
+        logging.DEBUG,
+        msg=f"deleting stack {base_url}",
+    ):
+        if endpoint_id < 0:
+            endpoint_id = await get_first_endpoint_id(
+                base_url, app_session, bearer_code
+            )
+            log.debug("Determined the following endpoint id: %i", endpoint_id)
+        headers = {"Authorization": f"Bearer {bearer_code}"}
+        url = (
+            URL(base_url)
+            .with_path(f"api/stacks/{stack_id}")
+            .with_query({"endpointId": endpoint_id})
+        )
+        try:
+            data = await _portainer_request(url, app_session, "DELETE", headers=headers)
+            log.debug("deleted stack: %s", data)
+        except asyncio.exceptions.TimeoutError:
+            log.exception("Unhandled error while deleting stack %s", url)
