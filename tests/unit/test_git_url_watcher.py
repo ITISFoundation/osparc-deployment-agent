@@ -20,7 +20,10 @@ from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
 from simcore_service_deployment_agent.exceptions import ConfigurationError
-from simcore_service_deployment_agent.git_url_watcher import GitUrlWatcher
+from simcore_service_deployment_agent.git_url_watcher import (
+    GitUrlWatcher,
+    _git_get_tag_created_dt,
+)
 from simcore_service_deployment_agent.models import WebserverExtraEnvirons
 
 
@@ -403,10 +406,11 @@ async def test_get_release_info_into_environs(
     # fakes tag filter
     assert re.search(watch_tags, tag_name)
 
-    # start task
+    # --
     git_task = GitUrlWatcher(app_config=git_config)
     status_labels = await git_task.init()
     print(status_labels)
+    # ---
 
     # find target repo
     target_repos = [
@@ -421,7 +425,14 @@ async def test_get_release_info_into_environs(
     repo = target_repos[0]
     repo_status = git_task.repo_status[repo.repo_id]
 
+    assert repo_status.tag_name is not None
     assert repo_status.tag_name == tag_name
+    assert repo_status.tag_created
+
+    # tests _git_get_tag_created_dt
+    tag_created = await _git_get_tag_created_dt(repo.directory, repo_status.tag_name)
+    assert tag_created
+    assert tag_created < repo_status.tag_created
 
     # if it raises, we do not inject extra environs, otherwise we do
     extra_environs = WebserverExtraEnvirons.parse_obj(

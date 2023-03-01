@@ -3,7 +3,7 @@ import logging
 import re
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -67,6 +67,7 @@ class RepoStatus:
     repo_id: RepoID
     commit_sha: str
     branch_name: str
+    # tag info (only one)
     tag_name: Optional[str] = None
     tag_created: Optional[datetime] = None
 
@@ -78,14 +79,11 @@ class RepoStatus:
         )
 
     def __post_init__(self):
-        # NOTE:
-        # $ tag -a test -m "Tagging <tag-name>" && git for-each-ref --format='%(taggerdate)' refs/tags/test
-        #  Tue Feb 28 20:34:50 2023 +0100
-        # But for some reason, tags produced by github DO NOT HAVE taggerdate
-        if self.tag_created is None and self.tag_name:
-            assert hasattr(self, "tag_created")  # nosec
+        # tag_created default if undefined
+        if self.tag_name and self.tag_created is None:
             # SEE https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
-            object.__setattr__(self, "tag_created", datetime.today())
+            assert hasattr(self, "tag_created")  # nosec
+            object.__setattr__(self, "tag_created", datetime.now(tz=timezone.utc))
 
 
 #
@@ -147,6 +145,30 @@ async def _git_get_sha_of_tag(directory: str, tag: str) -> str:
     cmd = ["git", "rev-parse", "--short", sha_long.strip("\n")]
     sha_short = await run_cmd_line(cmd, f"{directory}")
     return sha_short.strip("\n")
+
+
+async def _git_get_tag_created_dt(directory: str, tag: str) -> Optional[datetime]:
+    """
+    Returns tagger timestamp if exists, otherwise None
+
+    raises ValueError if invalid datetime format
+    """
+    date_string = await run_cmd_line(
+        ["git", "for-each-ref", "--format='%(taggerdate)'", f"refs/tags/{tag}"],
+        f"{directory}",
+    )
+    # NOTE:
+    #  $ tag -a test -m "Tagging <tag-name>"
+    #  $ git for-each-ref --format='%(taggerdate)' refs/tags/test
+    #    Tue Feb 28 20:34:50 2023 +0100
+    # Nonetheless, tags produced by Github DO NOT HAVE taggerdate so we add a default!!!
+    date_string = date_string.strip("'\n ")
+    if not date_string:
+        return None
+
+    # e.g. Tue Feb 28 20:34:50 2023 +0100
+    date_format = "%a %b %d %H:%M:%S %Y %z"
+    return datetime.strptime(date_string, date_format)
 
 
 async def _git_clean_repo(directory: str):
