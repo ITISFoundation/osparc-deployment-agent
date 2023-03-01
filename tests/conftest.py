@@ -74,6 +74,13 @@ def valid_docker_stack_file(mocks_dir: Path) -> Path:
     return path
 
 
+@pytest.fixture(scope="session")
+def valid_docker_stack_file_with_local_registry(mocks_dir: Path) -> Path:
+    path = mocks_dir / "valid_docker_stack_local_registry.yaml"
+    assert path.exists()
+    return path
+
+
 ## CONFIGs
 
 
@@ -86,4 +93,12 @@ def valid_config(valid_config_file: Path) -> dict[str, Any]:
 @pytest.fixture(scope="session")
 def valid_docker_stack(valid_docker_stack_file: Path) -> dict[str, Any]:
     with valid_docker_stack_file.open() as fp:
+        return yaml.safe_load(fp)
+
+
+@pytest.fixture(scope="session")
+def valid_docker_stack_with_local_registry(
+    valid_docker_stack_file_with_local_registry: Path,
+) -> dict[str, Any]:
+    with valid_docker_stack_file_with_local_registry.open() as fp:
         return yaml.safe_load(fp)

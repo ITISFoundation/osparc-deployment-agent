@@ -104,11 +104,6 @@ async def _git_checkout_files(directory: str, paths: list[Path], tag: Optional[s
     await run_cmd_line(cmd, f"{directory}")
 
 
-async def _git_pull_files(directory: str, paths: list[Path]):
-    cmd = ["git", "checkout", "FETCH_HEAD"] + [f"{path}" for path in paths]
-    await run_cmd_line(cmd, f"{directory}")
-
-
 async def _git_pull(directory: str):
     cmd = ["git", "pull"]
     await run_cmd_line(cmd, f"{directory}")
@@ -130,7 +125,7 @@ async def _git_get_latest_matching_tag(
         "--sort=creatordate",  # Sorted ascending by date
     ]
     all_tags = await run_cmd_line(cmd, f"{directory}")
-    if all_tags == None:
+    if all_tags is None:
         return None
     all_tags = all_tags.split("\n")
     all_tags = [tag for tag in all_tags if tag != ""]
@@ -379,7 +374,7 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(repos: [GitRepo]) -> dict:
+async def _check_repositories(repos: list[GitRepo]) -> dict:
     changes = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
@@ -387,10 +382,17 @@ async def _check_repositories(repos: [GitRepo]) -> dict:
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
         if repo.tags:
+            latest_matching_tag = await _git_get_latest_matching_tag(
+                repo.directory, repo.tags
+            )
+            if latest_matching_tag is None:
+                raise ConfigurationError(
+                    msg=f"no tags found in {repo.repo_id} that follows defined tags pattern {repo.tags}"
+                )
             if not await _check_if_tag_on_branch(
                 repo.directory,
                 repo.branch,
-                await _git_get_latest_matching_tag(repo.directory, repo.tags),
+                latest_matching_tag,
             ):
                 continue
         repo_changes = (
