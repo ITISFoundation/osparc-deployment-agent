@@ -68,7 +68,7 @@ class RepoStatus:
     commit_sha: str
     branch_name: str
     tag_name: Optional[str] = None
-    tag_created_at: Optional[datetime] = None
+    tag_created: Optional[datetime] = None
 
     def to_string(self) -> StatusStr:
         return (
@@ -82,9 +82,10 @@ class RepoStatus:
         # $ tag -a test -m "Tagging <tag-name>" && git for-each-ref --format='%(taggerdate)' refs/tags/test
         #  Tue Feb 28 20:34:50 2023 +0100
         # But for some reason, tags produced by github DO NOT HAVE taggerdate
-        if self.tag_created_at is None and self.tag_name:
+        if self.tag_created is None and self.tag_name:
+            assert hasattr(self, "tag_created")  # nosec
             # SEE https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
-            object.__setattr__(self, "tag_created_at", datetime.today().date())
+            object.__setattr__(self, "tag_created", datetime.today())
 
 
 #

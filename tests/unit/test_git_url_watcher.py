@@ -2,6 +2,8 @@
 # pylint: disable=unused-argument
 # pylint: disable=unused-variable
 # pylint: disable=too-many-arguments
+# pylint: disable=protected-access
+
 
 import subprocess
 import time
@@ -11,6 +13,7 @@ from typing import Any, Final, Literal
 
 import pytest
 from faker import Faker
+from servicelib.json_serialization import json_dumps
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from yarl import URL
 
@@ -25,6 +28,11 @@ def branch_name(faker: Faker) -> str:
     return "pytestMockBranch_" + faker.word()
 
 
+@pytest.fixture
+def tag_name(faker: Faker) -> str:
+    return f"staging_SprintName{faker.pyint()}"
+
+
 def _run_cmd(cmd: str, **kwargs) -> str:
     result: subprocess.CompletedProcess[str] = subprocess.run(
         cmd, capture_output=True, check=True, shell=True, encoding="utf-8", **kwargs
@@ -34,17 +42,18 @@ def _run_cmd(cmd: str, **kwargs) -> str:
 
 
 @pytest.fixture
-def git_repository_url(branch_name: str, tmp_path: Path) -> URL:
+def git_repository_url(tmp_path: Path, branch_name: str, tag_name: str) -> URL:
     _run_cmd(
         "git init; git config user.name tester; git config user.email tester@test.com",
         cwd=tmp_path,
     )
     _run_cmd(
-        "git checkout -b "
-        + branch_name
+        f"git checkout -b {branch_name}"
         + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
         cwd=tmp_path,
     )
+    _run_cmd(f'git tag -a {tag_name} -m "Release tag at {branch_name}"', cwd=tmp_path)
+
     return URL(f"file://localhost{tmp_path}")
 
 
@@ -368,25 +377,38 @@ async def test_git_url_watcher_tags(
     await git_watcher.cleanup()
 
 
-@pytest.mark.skip(reason="DEV")
-def test_it(git_config: dict[str, Any]):
-    git_task = GitUrlWatcher(app_config=git_config)
+async def test_get_release_info_into_environs(
+    git_config: dict[str, Any], tag_name: str
+):
+    # fakes tag filter
+    git_config["main"]["watched_git_repositories"][0]["tags"] = f"^{tag_name}$"
 
+    # start task
+    git_task = GitUrlWatcher(app_config=git_config)
+    status_labels = await git_task.init()
+    print(status_labels)
+
+    # find target repo
     target_repos = [
         r
         for r in git_task.watched_repos
-        if r.repo_url.path.endswith("osparc-simcore.git")
+        if URL(r.repo_url).path.endswith("osparc-simcore.git")
     ]
+    target_repos = git_task.watched_repos
     assert len(target_repos) == 1
 
     # osparc-simcore.git repo
     repo = target_repos[0]
     repo_status = git_task.repo_status[repo.repo_id]
 
+    assert repo_status.tag_name == tag_name
+
     # if it raises, we do not inject extra environs, otherwise we do
     extra_environs = WebserverExtraEnvirons.parse_obj(
         {
             "SIMCORE_VCS_RELEASE_TAG": repo_status.tag_name,
-            "SIMCORE_VCS_RELEASE_DATE": repo_status.tag_created_at,
+            "SIMCORE_VCS_RELEASE_DATE": repo_status.tag_created,
         }
-    )
+    ).dict()
+
+    print(json_dumps(extra_environs, indent=1))
