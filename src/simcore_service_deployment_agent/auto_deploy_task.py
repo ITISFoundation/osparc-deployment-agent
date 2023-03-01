@@ -271,13 +271,7 @@ async def create_stack(
     )
     log.debug("filtered stack configuration")
 
-    # TODO: inject SIMCORE_VCS_RELEASE_TAG, SIMCORE_VCS_RELEASE_DATE, SIMCORE_VCS_RELEASE_URL
-    # if co_info := git_task.clone_info.get("simcore-github-repo"):
-    #    extra_environs = WebserverExtraEnvirons(
-    #        SIMCORE_VCS_RELEASE_TAG=co_info.latest_tag,
-    #        SIMCORE_VCS_RELEASE_DATE=co_info.tag_date,
-    #        SIMCORE_VCS_RELEASE_URL=git_task.watched_repos["simcore-github-repo"].url / release / ,
-    #    ).dict()
+    # TODO: inject SIMCORE_VCS_RELEASE_TAG, SIMCORE_VCS_RELEASE_DATE !!!!
 
     # add parameter to the stack file if needed
     stack_cfg = add_parameters(app_config, stack_cfg)

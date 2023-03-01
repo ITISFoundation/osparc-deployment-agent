@@ -432,7 +432,7 @@ async def test_get_release_info_into_environs(
     # tests _git_get_tag_created_dt
     tag_created = await _git_get_tag_created_dt(repo.directory, repo_status.tag_name)
     assert tag_created
-    assert tag_created < repo_status.tag_created
+    assert tag_created == repo_status.tag_created
 
     # if it raises, we do not inject extra environs, otherwise we do
     extra_environs = WebserverExtraEnvirons.parse_obj(
