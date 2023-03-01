@@ -1,13 +1,13 @@
 import copy
 import logging
 import re
-import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from servicelib.file_utils import remove_directory
 from tenacity import retry
 from tenacity.after import after_log
 from tenacity.before_sleep import before_sleep_log
@@ -454,13 +454,20 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[RepoStatus]:
     )
 
 
-async def _check_repositories(repos: list[GitRepo]) -> dict:
-    changes = {}
+async def _check_for_changes_in_repositories(
+    repos: list[GitRepo],
+) -> dict[RepoID, RepoStatus]:
+    """
+    raises ConfigurationError
+    """
+    changes: dict[RepoID, RepoStatus] = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
+
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
+
         if repo.tags:
             latest_matching_tag = await _git_get_latest_matching_tag(
                 repo.directory, repo.tags
@@ -469,13 +476,16 @@ async def _check_repositories(repos: list[GitRepo]) -> dict:
                 raise ConfigurationError(
                     msg=f"no tags found in {repo.repo_id} that follows defined tags pattern {repo.tags}"
                 )
+
             if not await _check_if_tag_on_branch(
                 repo.directory,
                 repo.branch,
                 latest_matching_tag,
             ):
                 continue
-        repo_changes = (
+
+        # changes in repo
+        repo_changes: Optional[RepoStatus] = (
             await _update_repo_using_tags(repo)
             if repo.tags
             else await _update_repo_using_branch_head(repo)
@@ -488,7 +498,7 @@ async def _check_repositories(repos: list[GitRepo]) -> dict:
 
 async def _delete_repositories(repos: list[GitRepo]):
     for repo in repos:
-        shutil.rmtree(repo.directory, ignore_errors=True)
+        await remove_directory(Path(repo.directory), ignore_errors=True)
 
 
 class GitUrlWatcher(SubTask):
@@ -527,30 +537,18 @@ class GitUrlWatcher(SubTask):
     )
     async def check_for_changes(self) -> dict[RepoID, StatusStr]:
         # SubTask Override
-        changes: dict[RepoID, StatusStr] = {}
-        for repo in self.watched_repos:
-            log.debug("checking repo: %s...", repo.repo_url)
-            assert repo.directory
-
-            await _git_fetch(repo.directory)
-            await _git_clean_repo(repo.directory)
-
-            # status change
-            repo_status: Optional[RepoStatus] = (
-                await _update_repo_using_tags(repo)
-                if repo.tags
-                else await _update_repo_using_branch_head(repo)
-            )
-            if repo_status:
-                changes[repo.repo_id] = repo_status.to_string()
-                self.repo_status[repo.repo_id] = repo_status
-
+        repos_changes = await _check_for_changes_in_repositories(
+            repos=self.watched_repos
+        )
+        changes = {
+            repo_id: repo_status.to_string()
+            for repo_id, repo_status in repos_changes.items()
+        }
         return changes
 
     async def cleanup(self):
         # SubTask Override
-        for repo in self.watched_repos:
-            shutil.rmtree(repo.directory, ignore_errors=True)
+        await _delete_repositories(repos=self.watched_repos)
 
 
 __all__: tuple[str, ...] = ("GitUrlWatcher",)
