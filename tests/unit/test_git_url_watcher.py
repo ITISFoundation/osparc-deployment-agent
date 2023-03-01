@@ -6,7 +6,7 @@
 import subprocess
 import time
 import uuid
-from asyncio import AbstractEventLoop, sleep
+from asyncio import AbstractEventLoop
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Callable, Literal, Union
@@ -303,8 +303,10 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
     # now modify theonefile.csv
+    # git seems to keep track of commit datetimes only up to seconds, so we need to sleep here to prevent both commits
+    # having the same timestamp (FIXME)
     _run_cmd(
-        "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
+        "sleep 2 && echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
         cwd=local_path_var,
     )
     # we should have no change here
@@ -321,26 +323,17 @@ async def test_git_url_watcher_tags(
 
     NEW_VALID_TAG: Literal["teststaging_g2ndvalid"] = "teststaging_g2ndvalid"
     _run_cmd(
-        f"git tag {NEW_VALID_TAG} && sleep 1",
+        f"git tag {NEW_VALID_TAG}",
         cwd=local_path_var,
     )
     #
-    ##
-    # Wait for the tag to be present
-    await sleep(1)  # The following is flaky, this is to reduce flakyness
-    async for attempt in AsyncRetrying(
-        stop=stop_after_attempt(10), wait=wait_fixed(5), reraise=True
-    ):
-        with attempt:
-            change_results: dict = await git_watcher.check_for_changes()
-            # get new sha
-            git_sha = _run_cmd(
-                "sleep 1 && git rev-parse --short HEAD", cwd=local_path_var
-            )
-            # now there should be changes
-            assert change_results == {
-                repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
-            }
+    change_results: dict = await git_watcher.check_for_changes()
+    # get new sha
+    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    # now there should be changes
+    assert change_results == {
+        repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
+    }
     #
     #
 
