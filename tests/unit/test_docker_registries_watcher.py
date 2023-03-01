@@ -15,10 +15,13 @@ from simcore_service_deployment_agent import docker_registries_watcher
 from simcore_service_deployment_agent.docker_registries_watcher import (
     DockerRegistriesWatcher,
 )
+from simcore_service_deployment_agent.models import ComposeSpecsDict
 
 
 def _assert_docker_client_calls(
-    mocked_docker_client, registry_config: dict[str, Any], docker_stack: dict[str, Any]
+    mocked_docker_client,
+    registry_config: dict[str, Any],
+    docker_stack: ComposeSpecsDict,
 ):
     mocked_docker_client.assert_has_calls(
         [
@@ -64,7 +67,7 @@ def test_mock_docker_client(loop, mock_docker_client, valid_config: dict[str, An
 async def docker_watcher(
     mock_docker_client,
     valid_config: dict[str, Any],
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
 ) -> DockerRegistriesWatcher:
     docker_registries_watcher.NUMBER_OF_ATTEMPS = 1
     docker_registries_watcher.MAX_TIME_TO_WAIT_S = 1
@@ -85,7 +88,7 @@ async def docker_watcher(
 async def test_docker_registries_watcher(
     mock_docker_client,
     valid_config: dict[str, Any],
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
     docker_watcher: DockerRegistriesWatcher,
 ):
     # create a change
@@ -109,7 +112,7 @@ def registry_config(valid_config):
 async def test_docker_registries_watcher_when_registry_fetch_fails(
     mock_docker_client,
     registry_config: dict[str, Any],
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
     docker_watcher: DockerRegistriesWatcher,
 ):
     # Handle the failure of fetching an image

@@ -117,7 +117,7 @@ async def _git_fetch(directory: str):
 
 async def _git_get_latest_matching_tag_capture_groups(
     directory: str, regexp: str
-) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+) -> Optional[tuple[str]]:  # pylint: disable=unsubscriptable-object
     cmd = [
         "git",
         "tag",
@@ -134,7 +134,8 @@ async def _git_get_latest_matching_tag_capture_groups(
         return None
     if re.compile(regexp).groups == 0:
         return (list_tags[-1],)
-    return re.search(regexp, list_tags[-1]).groups()
+    reSearchResult = re.search(regexp, list_tags[-1])
+    return reSearchResult.groups() if reSearchResult else None
 
 
 async def _git_get_latest_matching_tag(
@@ -396,7 +397,9 @@ async def _update_repo_using_branch_head(
     return f"{repo.repo_id}:{repo.branch}:{sha}"
 
 
-async def _check_repositories(repos: [GitRepo], syncedViaTags: bool = False) -> dict:
+async def _check_repositories(
+    repos: list[GitRepo], syncedViaTags: bool = False
+) -> dict:
     changes = {}
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
@@ -447,7 +450,7 @@ async def _check_repositories(repos: [GitRepo], syncedViaTags: bool = False) -> 
                 latest_matching_tag,
             ):
                 continue
-        repo_changes = (
+        repo_changes: Optional[str] = (
             await _update_repo_using_tags(repo)
             if repo.tags
             else await _update_repo_using_branch_head(repo)
@@ -458,7 +461,7 @@ async def _check_repositories(repos: [GitRepo], syncedViaTags: bool = False) -> 
     return changes
 
 
-async def _delete_repositories(repos: list[GitRepo]):
+async def _delete_repositories(repos: list[GitRepo]) -> None:
     for repo in repos:
         shutil.rmtree(repo.directory, ignore_errors=True)
 
