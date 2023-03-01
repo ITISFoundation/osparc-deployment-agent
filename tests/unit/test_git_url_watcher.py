@@ -5,31 +5,19 @@
 
 import subprocess
 import time
-import uuid
 from asyncio import AbstractEventLoop
-from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Callable, Final, Literal, Union
+from typing import Any, Final, Literal
 
 import pytest
 from faker import Faker
-from pytest import TempPathFactory
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
+from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
 from simcore_service_deployment_agent.exceptions import ConfigurationError
-
-
-@pytest.fixture(scope="session")
-def git_repo_path(
-    tmp_path_factory: TempPathFactory,
-) -> Callable[[], Path]:
-    def create_folder() -> Path:
-        p: Path = tmp_path_factory.mktemp(str(uuid.uuid4()))
-        assert p.exists()
-        return p
-
-    return create_folder
+from simcore_service_deployment_agent.git_url_watcher import GitUrlWatcher
+from simcore_service_deployment_agent.models import WebserverExtraEnvirons
 
 
 @pytest.fixture
@@ -46,36 +34,28 @@ def _run_cmd(cmd: str, **kwargs) -> str:
 
 
 @pytest.fixture
-def git_repository(
-    branch_name: str,
-    git_repo_path: Callable[[], Path],
-    branch: Union[str, None] = None,
-) -> Iterator[Callable[[], str]]:
-    def create_git_repo() -> str:
-        cwd_: Path = git_repo_path()
-        _run_cmd(
-            "git init; git config user.name tester; git config user.email tester@test.com",
-            cwd=cwd_,
-        )
-        _run_cmd(
-            "git checkout -b "
-            + branch_name
-            + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
-            cwd=cwd_,
-        )
-        return f"file://localhost{cwd_}"
-
-    yield create_git_repo
+def git_repository_url(branch_name: str, tmp_path: Path) -> URL:
+    _run_cmd(
+        "git init; git config user.name tester; git config user.email tester@test.com",
+        cwd=tmp_path,
+    )
+    _run_cmd(
+        "git checkout -b "
+        + branch_name
+        + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
+        cwd=tmp_path,
+    )
+    return URL(f"file://localhost{tmp_path}")
 
 
 @pytest.fixture
-def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str, Any]:
-    cfg: dict = {
+def git_config(branch_name: str, git_repository_url: str) -> dict[str, Any]:
+    cfg = {
         "main": {
             "watched_git_repositories": [
                 {
                     "id": "test-repo-0",
-                    "url": f"{git_repository()}",
+                    "url": f"{git_repository_url}",
                     "branch": branch_name,
                     "tags": "",
                     "paths": [],
@@ -214,7 +194,9 @@ async def test_git_url_watcher_paths(
     local_path_var = git_config_paths["main"]["watched_git_repositories"][0][
         "url"
     ].replace("file://localhost", "")
+
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_paths)
+
     # the file does not exist yet
     with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
@@ -384,3 +366,27 @@ async def test_git_url_watcher_tags(
             assert latestTag == NEW_VALID_TAG_ON_NEW_SHA
     #
     await git_watcher.cleanup()
+
+
+@pytest.mark.skip(reason="DEV")
+def test_it(git_config: dict[str, Any]):
+    git_task = GitUrlWatcher(app_config=git_config)
+
+    target_repos = [
+        r
+        for r in git_task.watched_repos
+        if r.repo_url.path.endswith("osparc-simcore.git")
+    ]
+    assert len(target_repos) == 1
+
+    # osparc-simcore.git repo
+    repo = target_repos[0]
+    repo_status = git_task.repo_status[repo.repo_id]
+
+    # if it raises, we do not inject extra environs, otherwise we do
+    extra_environs = WebserverExtraEnvirons.parse_obj(
+        {
+            "SIMCORE_VCS_RELEASE_TAG": repo_status.tag_name,
+            "SIMCORE_VCS_RELEASE_DATE": repo_status.tag_created_at,
+        }
+    )
