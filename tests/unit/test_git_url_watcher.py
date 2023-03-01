@@ -5,6 +5,7 @@
 # pylint: disable=protected-access
 
 
+import re
 import subprocess
 import time
 from asyncio import AbstractEventLoop
@@ -58,7 +59,19 @@ def git_repository_url(tmp_path: Path, branch_name: str, tag_name: str) -> URL:
 
 
 @pytest.fixture
-def git_config(branch_name: str, git_repository_url: str) -> dict[str, Any]:
+def watch_tags() -> str:
+    return ""
+
+
+@pytest.fixture
+def watch_paths() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def git_config(
+    branch_name: str, git_repository_url: str, watch_tags: str, watch_paths: list[str]
+) -> dict[str, Any]:
     cfg = {
         "main": {
             "watched_git_repositories": [
@@ -66,8 +79,8 @@ def git_config(branch_name: str, git_repository_url: str) -> dict[str, Any]:
                     "id": "test-repo-0",
                     "url": f"{git_repository_url}",
                     "branch": branch_name,
-                    "tags": "",
-                    "paths": [],
+                    "tags": watch_tags,
+                    "paths": watch_paths,
                     "username": "",
                     "password": "",
                 }
@@ -377,11 +390,18 @@ async def test_git_url_watcher_tags(
     await git_watcher.cleanup()
 
 
+@pytest.mark.testit
+@pytest.mark.parametrize(
+    "watch_tags",
+    [
+        "^staging_SprintName",
+    ],
+)
 async def test_get_release_info_into_environs(
-    git_config: dict[str, Any], tag_name: str
+    git_config: dict[str, Any], tag_name: str, watch_tags: str
 ):
     # fakes tag filter
-    git_config["main"]["watched_git_repositories"][0]["tags"] = f"^{tag_name}$"
+    assert re.search(watch_tags, tag_name)
 
     # start task
     git_task = GitUrlWatcher(app_config=git_config)
