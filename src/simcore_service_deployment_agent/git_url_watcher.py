@@ -104,11 +104,6 @@ async def _git_checkout_files(directory: str, paths: list[Path], tag: Optional[s
     await run_cmd_line(cmd, f"{directory}")
 
 
-async def _git_pull_files(directory: str, paths: list[Path]):
-    cmd = ["git", "checkout", "FETCH_HEAD"] + [f"{path}" for path in paths]
-    await run_cmd_line(cmd, f"{directory}")
-
-
 async def _git_pull(directory: str):
     cmd = ["git", "pull"]
     await run_cmd_line(cmd, f"{directory}")

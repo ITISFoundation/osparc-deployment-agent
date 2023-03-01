@@ -281,7 +281,7 @@ async def test_git_url_watcher_tags(
     # add the file
     VALID_TAG = "teststaging_z1stvalid"
     _run_cmd(
-        f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
+        f"touch theonefile.csv; git add theonefile.csv; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
     # expect to work now
@@ -296,7 +296,7 @@ async def test_git_url_watcher_tags(
 
     # now add a file in the repo
     _run_cmd(
-        "touch my_file.txt; git add .; git commit -m 'I added a file'",
+        "touch my_file.txt; echo 'blahblah' >> my_file.txt; git add my_file.txt; git commit -m 'I added my_file.txt'",
         cwd=local_path_var,
     )
     # we should have no change here
