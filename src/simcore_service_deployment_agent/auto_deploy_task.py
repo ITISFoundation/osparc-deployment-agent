@@ -126,16 +126,18 @@ def add_prefix_to_services(
 async def generate_stack_file(
     app_config: dict[str, Any], git_task: GitUrlWatcher
 ) -> Path:
+    stack_recipe_cfg = app_config["main"]["docker_stack_recipe"]
+
     # collect repos informations
     git_repos: dict[RepoID, GitRepo] = {r.repo_id: r for r in git_task.watched_repos}
 
-    stack_recipe_cfg = app_config["main"]["docker_stack_recipe"]
     # collect files in one location
     dest_dir = stack_recipe_cfg["workdir"]
     if dest_dir == "temp":
         # create a temp folder
-        directoryName = tempfile.mkdtemp()
-        dest_dir = copy.deepcopy(directoryName)
+        directory_name = tempfile.mkdtemp()  # TODO: use asyncexitstack and aiofiles
+        dest_dir = copy.deepcopy(directory_name)
+
     elif dest_dir in git_repos:
         # we use one of the git repos
         dest_dir = git_repos[dest_dir].directory
@@ -167,6 +169,7 @@ async def generate_stack_file(
         # The command in the stack_recipe might contain shell natives like pipes and cd
         # Thus we run it in unsafe mode as a proper shell.
         await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
+
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
 
     # Filesize check via https://stackoverflow.com/a/55949699
@@ -255,11 +258,11 @@ async def create_stack(
     git_task: GitUrlWatcher, app_config: dict[str, Any]
 ) -> ComposeSpecsDict:
     # generate the stack file
-    stack_file = await generate_stack_file(app_config, git_task)
+    stack_file: Path = await generate_stack_file(app_config, git_task)
     log.debug("generated stack file in %s", stack_file.name)
 
     # filter the stack file if needed
-    stack_cfg = _filter_services(
+    stack_cfg: ComposeSpecsDict = _filter_services(
         excluded_services=app_config["main"]["docker_stack_recipe"][
             "excluded_services"
         ],

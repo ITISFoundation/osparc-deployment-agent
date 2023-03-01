@@ -509,6 +509,11 @@ async def _delete_repositories(repos: list[GitRepo]):
         await remove_directory(Path(repo.directory), ignore_errors=True)
 
 
+#
+# SubTask interface
+#
+
+
 class GitUrlWatcher(SubTask):
     def __init__(self, app_config: dict[str, Any]):
         super().__init__(name="git repo watcher")
