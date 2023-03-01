@@ -3,7 +3,7 @@ import logging
 import re
 import tempfile
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -70,7 +70,7 @@ class RepoStatus:
     commit_sha: str
     branch_name: str
     tag_name: Optional[str] = None
-    tag_date: Optional[date] = None
+    tag_created_at: Optional[datetime] = None
 
     def to_string(self) -> StatusStr:
         return (
@@ -84,9 +84,9 @@ class RepoStatus:
         # $ tag -a test -m "Tagging <tag-name>" && git for-each-ref --format='%(taggerdate)' refs/tags/test
         #  Tue Feb 28 20:34:50 2023 +0100
         # But for some reason, tags produced by github DO NOT HAVE taggerdate
-        if self.tag_date is None and self.tag_name:
+        if self.tag_created_at is None and self.tag_name:
             # SEE https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
-            object.__setattr__(self, "tag_date", datetime.today().date())
+            object.__setattr__(self, "tag_created_at", datetime.today().date())
 
 
 @retry(
@@ -548,6 +548,8 @@ class GitUrlWatcher(SubTask):
 
     async def cleanup(self):
         # SubTask Override
+        # TODO: use aiofiles.tempfile.AsyncTemporaryDirectory + stack=AsyncExitStack() to stack.enter_context() and stack.close() at the end
+        #
         await _delete_repositories(repos=self.watched_repos)
 
 

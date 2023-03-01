@@ -9,7 +9,7 @@ import uuid
 from asyncio import AbstractEventLoop
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Callable, Literal, Union
+from typing import Any, Callable, Final, Literal, Union
 
 import pytest
 from faker import Faker
@@ -312,7 +312,7 @@ async def test_git_url_watcher_tags(
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
-    INVALID_TAG: Literal["v3.4.5"] = "v3.4.5"
+    INVALID_TAG: Final[str] = "v3.4.5"
     _run_cmd(
         f"git tag {INVALID_TAG}",
         cwd=local_path_var,
@@ -321,7 +321,7 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
 
-    NEW_VALID_TAG: Literal["teststaging_g2ndvalid"] = "teststaging_g2ndvalid"
+    NEW_VALID_TAG: Final[str] = "teststaging_g2ndvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG}",
         cwd=local_path_var,
@@ -362,8 +362,8 @@ async def test_git_url_watcher_tags(
     #
     time.sleep(0.6)
     #
-    NEW_VALID_TAG_ON_NEW_SHA: Literal[
-        "teststaging_h5thvalid"
+    NEW_VALID_TAG_ON_NEW_SHA: Final[
+        str
     ] = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
