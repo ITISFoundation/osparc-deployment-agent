@@ -25,6 +25,7 @@ NUMBER_OF_ATTEMPS = 5
 MAX_TIME_TO_WAIT_S = 10
 
 RepoID = str
+StatusStr = str
 
 
 @dataclass(frozen=True)
@@ -59,9 +60,6 @@ class GitRepo(WatchedGitRepoConfig):
     directory: str = ""
 
 
-StatusStr = str
-
-
 @dataclass(frozen=True)
 class RepoStatus:
     """git status of current repo's checkout"""
@@ -87,6 +85,11 @@ class RepoStatus:
         if self.tag_created_at is None and self.tag_name:
             # SEE https://stackoverflow.com/questions/53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
             object.__setattr__(self, "tag_created_at", datetime.today().date())
+
+
+#
+# git CLI utils
+#
 
 
 @retry(
@@ -250,6 +253,11 @@ async def _git_get_logs_tags(
     ]
     logs = await run_cmd_line(cmd, f"{directory}")
     return logs
+
+
+#
+# repository utils
+#
 
 
 async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
