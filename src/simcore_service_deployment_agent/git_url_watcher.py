@@ -349,22 +349,24 @@ async def _clone_and_checkout_repositories(
         await _checkout_repository(repo, latest_tag)
 
         log.info("repository %s checked out on %s", repo, latest_tag)
-        #
-        #
+
         # If no tag: fetch head
         # if tag: sha of tag
+        created = None
         if repo.tags and latest_tag:
             sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
+            created = await _git_get_tag_created_dt(repo.directory, latest_tag)
         else:
             sha = await _git_get_FETCH_HEAD_sha(repo.directory)
 
-        log.debug("sha for %s is %s", repo.repo_id, sha)
+        log.debug("sha for %s is %s at %s", repo.repo_id, sha, created)
 
         repo_2_status[repo.repo_id] = RepoStatus(
             repo_id=repo.repo_id,
             branch_name=repo.branch,
             commit_sha=sha,
             tag_name=latest_tag,
+            tag_created=created,
         )
     return repo_2_status
 
