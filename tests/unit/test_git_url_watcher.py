@@ -14,7 +14,6 @@ from typing import Any, Final, Literal
 
 import pytest
 from faker import Faker
-from servicelib.json_serialization import json_dumps
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from yarl import URL
 
@@ -24,7 +23,6 @@ from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
     _git_get_tag_created_dt,
 )
-from simcore_service_deployment_agent.models import WebserverExtraEnvirons
 
 
 @pytest.fixture
@@ -393,36 +391,24 @@ async def test_git_url_watcher_tags(
     await git_watcher.cleanup()
 
 
-@pytest.mark.testit
 @pytest.mark.parametrize(
     "watch_tags",
     [
         "^staging_SprintName",
     ],
 )
-async def test_get_release_info_into_environs(
-    git_config: dict[str, Any], tag_name: str, watch_tags: str
-):
+async def test_repo_status(git_config: dict[str, Any], tag_name: str, watch_tags: str):
     # fakes tag filter
     assert re.search(watch_tags, tag_name)
 
-    # --
+    # evaluates status
     git_task = GitUrlWatcher(app_config=git_config)
-    status_labels = await git_task.init()
-    print(status_labels)
-    # ---
+    status_label: str = await git_task.init()
+    print(status_label)
 
-    # find target repo
-    target_repos = [
-        r
-        for r in git_task.watched_repos
-        if URL(r.repo_url).path.endswith("osparc-simcore.git")
-    ]
-    target_repos = git_task.watched_repos
-    assert len(target_repos) == 1
-
-    # osparc-simcore.git repo
-    repo = target_repos[0]
+    # repo
+    assert len(git_task.watched_repos) == 1
+    repo = git_task.watched_repos[0]
     repo_status = git_task.repo_status[repo.repo_id]
 
     assert repo_status.tag_name is not None
@@ -433,13 +419,3 @@ async def test_get_release_info_into_environs(
     tag_created = await _git_get_tag_created_dt(repo.directory, repo_status.tag_name)
     assert tag_created
     assert tag_created == repo_status.tag_created
-
-    # if it raises, we do not inject extra environs, otherwise we do
-    extra_environs = WebserverExtraEnvirons.parse_obj(
-        {
-            "SIMCORE_VCS_RELEASE_TAG": repo_status.tag_name,
-            "SIMCORE_VCS_RELEASE_DATE": repo_status.tag_created,
-        }
-    ).dict()
-
-    print(json_dumps(extra_environs, indent=1))
