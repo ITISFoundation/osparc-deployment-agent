@@ -1,12 +1,12 @@
-import copy
 import logging
 import re
-import tempfile
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from aiofiles.tempfile import TemporaryDirectory
 from servicelib.file_utils import remove_directory
 from tenacity import retry
 from tenacity.after import after_log
@@ -303,15 +303,14 @@ async def _pull_repository(repo: GitRepo):
 
 
 async def _clone_and_checkout_repositories(
-    repos: list[GitRepo],
+    repos: list[GitRepo], aio_stack: AsyncExitStack
 ) -> dict[RepoID, RepoStatus]:
     repo_2_status = {}
     for repo in repos:
-        directory_name = tempfile.mkdtemp()  # todo: pc->dk cleanup!
-        repo.directory = copy.deepcopy(
-            directory_name
-        )  # todo: pc->dk why deepcopy an unmutable?
-
+        tmpdir: str = await aio_stack.enter_async_context(
+            TemporaryDirectory(prefix=f"{repo.repo_id}_")
+        )
+        repo.directory = tmpdir
         log.debug("cloning %s to %s...", repo.repo_id, repo.directory)
 
         await _git_clone_repo(
@@ -557,11 +556,14 @@ class GitUrlWatcher(SubTask):
         ]
 
         self.repo_status: dict[RepoID, RepoStatus] = {}
+        self._aiostack = AsyncExitStack()
 
     async def init(self) -> dict[RepoID, StatusStr]:
         # SubTask Override
         log.info("initializing git repositories...")
-        self.repo_status = await _clone_and_checkout_repositories(self.watched_repos)
+        self.repo_status = await _clone_and_checkout_repositories(
+            self.watched_repos, self._aiostack
+        )
 
         return {
             repo_id: status.to_string() for repo_id, status in self.repo_status.items()
@@ -586,8 +588,7 @@ class GitUrlWatcher(SubTask):
 
     async def cleanup(self):
         # SubTask Override
-        # TODO: use aiofiles.tempfile.AsyncTemporaryDirectory + stack=AsyncExitStack() to stack.enter_context() and stack.close() at the end
-        #
+        await self._aiostack.aclose()
         await _delete_repositories(repos=self.watched_repos)
 
 
