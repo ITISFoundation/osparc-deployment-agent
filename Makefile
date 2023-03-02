@@ -225,7 +225,7 @@ define show-meta
 		docker image inspect $(iid) | jq '.[0] | .RepoTags, .ContainerConfig.Labels, .Config.Labels';)
 endef
 
-info-images:  ## lists tags and labels of built images. To display one: 'make target=webserver info-images'
+info-images:  ## lists tags and labels of built images
 	@$(call show-meta,$(APP_NAME))
 
 info-swarm: ## displays info about stacks and networks

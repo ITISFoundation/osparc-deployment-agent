@@ -271,8 +271,6 @@ async def create_stack(
     )
     log.debug("filtered stack configuration")
 
-    # TODO: inject SIMCORE_VCS_RELEASE_TAG, SIMCORE_VCS_RELEASE_DATE !!!!
-
     # add parameter to the stack file if needed
     stack_cfg = add_parameters(app_config, stack_cfg)
     log.debug("new stack config is\n%s", stack_file)
