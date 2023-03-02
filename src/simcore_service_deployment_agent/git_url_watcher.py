@@ -136,15 +136,15 @@ async def _git_clone_repo(
 async def _git_get_FETCH_HEAD_sha(directory: str) -> str:
     cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
     sha = await run_cmd_line(cmd, f"{directory}")
-    return sha.strip("\n")
+    return sha
 
 
 async def _git_get_sha_of_tag(directory: str, tag: str) -> str:
     cmd = ["git", "rev-list", "-1", "--sparse", tag]
     sha_long = await run_cmd_line(cmd, f"{directory}")
-    cmd = ["git", "rev-parse", "--short", sha_long.strip("\n")]
+    cmd = ["git", "rev-parse", "--short", sha_long]
     sha_short = await run_cmd_line(cmd, f"{directory}")
-    return sha_short.strip("\n")
+    return sha_short
 
 
 async def _git_get_tag_created_dt(directory: str, tag: str) -> Optional[datetime]:
@@ -203,7 +203,7 @@ async def _git_get_latest_matching_tag(
         "--list",
         "--sort=creatordate",  # Sorted ascending by date
     ]
-    # TODO: add date
+
     all_tags = await run_cmd_line(cmd, f"{directory}")
     if all_tags is None:
         return None
@@ -260,7 +260,7 @@ async def _git_get_logs(
         "--oneline",
         f"{branch1}..origin/{branch2}",
     ]
-    logs = await run_cmd_line(cmd, f"{directory}")
+    logs = await run_cmd_line(cmd, f"{directory}", strip_endline=False)
     return logs
 
 
