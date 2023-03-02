@@ -9,15 +9,18 @@ import re
 import subprocess
 import time
 from asyncio import AbstractEventLoop
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final, Literal
 
 import pytest
 from faker import Faker
+from pydantic import parse_obj_as
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
+from simcore_service_deployment_agent.cmd_utils import run_cmd_line
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
@@ -57,6 +60,12 @@ def git_repository_url(tmp_path: Path, branch_name: str, tag_name: str) -> URL:
     _run_cmd(f'git tag -a {tag_name} -m "Release tag at {branch_name}"', cwd=tmp_path)
 
     return URL(f"file://localhost{tmp_path}")
+
+
+@pytest.fixture
+def git_repository_folder(git_repository_url: URL) -> Path:
+    assert f"{git_repository_url}".startswith("file://localhost")
+    return Path(git_repository_url.path)
 
 
 @pytest.fixture
@@ -419,3 +428,24 @@ async def test_repo_status(git_config: dict[str, Any], tag_name: str, watch_tags
     tag_created = await _git_get_tag_created_dt(repo.directory, repo_status.tag_name)
     assert tag_created
     assert tag_created == repo_status.tag_created
+
+
+async def test_date_format_to_pydantic():
+    # Tests to ensure datetime formats conversions
+    #
+    # SIMCORE_VCS_RELEASE_TAG
+    # SIMCORE_VCS_RELEASE_DATE
+
+    # $ date --utc +"%Y-%m-%dT%H:%M:%SZ"
+    #  2023-03-02T16:27:35Z
+    timestamp_dt = parse_obj_as(datetime, "2023-03-02T16:27:35Z")
+
+    # execute
+    output = await run_cmd_line(["date", "--utc", '+"%Y-%m-%dT%H:%M:%SZ"'])
+    print(output)
+    SIMCORE_VCS_RELEASE_DATE = output.strip('"')
+
+    # Tests it can be parsed by pydantic as a datetime
+    release_dt = parse_obj_as(datetime, SIMCORE_VCS_RELEASE_DATE)
+    assert isinstance(release_dt, datetime)
+    assert release_dt.tzinfo == timezone.utc
