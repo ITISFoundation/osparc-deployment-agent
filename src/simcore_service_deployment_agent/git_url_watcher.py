@@ -197,18 +197,18 @@ async def _git_fetch(directory: str):
 async def _git_get_latest_matching_tag(
     directory: str, regexp: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    cmd = [
-        "git",
-        "tag",
-        "--list",
-        "--sort=creatordate",  # Sorted ascending by date
-    ]
-
-    all_tags = await run_cmd_line(cmd, f"{directory}")
-    if all_tags is None:
+    repo_tags_msg = await run_cmd_line(
+        [
+            "git",
+            "tag",
+            "--list",
+            "--sort=creatordate",  # Sorted ascending by date
+        ],
+        f"{directory}",
+    )
+    if repo_tags_msg is None:
         return None
-    all_tags = all_tags.split("\n")
-    all_tags = [tag for tag in all_tags if tag != ""]
+    all_tags = [tag for tag in repo_tags_msg.split("\n") if tag != ""]
     list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
     return list_tags[-1] if list_tags else None
 
@@ -218,14 +218,21 @@ async def _git_get_current_matching_tag(repo: GitRepo) -> list[str]:
     reg = repo.tags
     if repo.tags.startswith("^"):
         reg = repo.tags[1:]
-    cmd = [
-        "git",
-        "show-ref",
-        "--tags",
-        "--dereference",
-    ]
-    all_tags = await run_cmd_line(cmd, f"{repo.directory}")
-    all_tags = all_tags.split("\n")
+
+    all_tags_str = await run_cmd_line(
+        [
+            "git",
+            "show-ref",
+            "--tags",
+            "--dereference",
+        ],
+        f"{repo.directory}",
+    )
+
+    if all_tags_str is None:
+        return []
+
+    all_tags = all_tags_str.split("\n")
 
     cmd2 = ["git", "rev-parse", "HEAD"]
     sha_to_be_found = await run_cmd_line(cmd2, f"{repo.directory}")
@@ -459,17 +466,18 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[RepoStatus]:
     """
     returns RepoStatus if changes in repo detected otherwise None
     """
-    modified_files = await _git_diff_filenames(repo.directory)
-    if not modified_files:
+    modified_files_str = await _git_diff_filenames(repo.directory)
+    if not modified_files_str:
         # no modifications
-        return
+        return None
+    modified_files = modified_files_str.split()
+
     # get the logs
     logged_changes = await _git_get_logs(repo.directory, repo.branch, repo.branch)
     log.debug("Changelog:\n%s", logged_changes)
     await _pull_repository(repo)
 
     # check if a watched file has changed
-    modified_files = modified_files.split()
     common_files = (
         set(modified_files).intersection(set(repo.paths))
         if repo.paths
@@ -477,7 +485,7 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[RepoStatus]:
     )
     if not common_files:
         # no change affected the watched files
-        return
+        return None
 
     log.info("File %s changed!!", common_files)
     sha = await _git_get_FETCH_HEAD_sha(repo.directory)
