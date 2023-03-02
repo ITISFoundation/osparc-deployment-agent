@@ -162,7 +162,10 @@ async def _git_get_tag_created_dt(directory: str, tag: str) -> Optional[datetime
     #  $ git for-each-ref --format='%(taggerdate)' refs/tags/test
     #    Tue Feb 28 20:34:50 2023 +0100
     # Nonetheless, tags produced by Github DO NOT HAVE taggerdate so we add a default!!!
-    date_string = date_string.strip("'\n ")
+    if date_string := date_string.strip("'\n "):
+      # e.g. Tue Feb 28 20:34:50 2023 +0100
+      date_format = "%a %b %d %H:%M:%S %Y %z"
+      return datetime.strptime(date_string, date_format)
     if not date_string:
         return None
 
