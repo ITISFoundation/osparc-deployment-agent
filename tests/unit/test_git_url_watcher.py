@@ -34,7 +34,7 @@ def branch_name(faker: Faker) -> str:
 
 @pytest.fixture
 def tag_name(faker: Faker) -> str:
-    return f"staging_SprintName{faker.pyint()}"
+    return f"staging_SprintName{faker.pyint(min_value=0)}"
 
 
 def _run_cmd(cmd: str, **kwargs) -> str:
