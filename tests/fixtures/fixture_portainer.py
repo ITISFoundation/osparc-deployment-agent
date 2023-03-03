@@ -21,7 +21,7 @@ from simcore_service_deployment_agent.subprocess_utils import run_command
     ),
 )
 def _wait_for_instance(url: URL, code: int = 200):
-    r = requests.get(f"{url}")
+    r = requests.get(f"{url}", timeout=1)
     assert r.status_code == code
 
 
