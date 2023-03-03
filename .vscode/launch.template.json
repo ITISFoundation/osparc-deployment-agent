@@ -38,5 +38,24 @@
       "console": "integratedTerminal",
       "justMyCode": false
     },
+    {
+      "name": "Python: Testit",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "--ff",
+        "--log-cli-level=INFO",
+        "--pdb",
+        "--setup-show",
+        "-m testit",
+        "-sx",
+        "-vv",
+        "${file}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
   ]
 }

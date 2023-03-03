@@ -28,7 +28,7 @@ from .app_state import State
 from .cmd_utils import run_cmd_line_unsafe
 from .docker_registries_watcher import DockerRegistriesWatcher
 from .exceptions import ConfigurationError, DependencyNotReadyError
-from .git_url_watcher import GitUrlWatcher
+from .git_url_watcher import GitRepo, GitUrlWatcher, RepoID
 from .models import ComposeSpecsDict, ServiceName, VolumeName
 from .notifier import notify, notify_state
 from .subtask import SubTask
@@ -42,7 +42,7 @@ RETRY_WAIT_SECS = 2
 RETRY_COUNT = 10
 
 
-def filter_services(
+def _filter_services(
     excluded_services: list[ServiceName],
     excluded_volumes: list[VolumeName],
     stack_file: Path,
@@ -126,17 +126,18 @@ def add_prefix_to_services(
 async def generate_stack_file(
     app_config: dict[str, Any], git_task: GitUrlWatcher
 ) -> Path:
-    # collect repos informations
-    git_repos = {}
-    git_repos.update({x.repo_id: x for x in git_task.watched_repos})
-
     stack_recipe_cfg = app_config["main"]["docker_stack_recipe"]
+
+    # collect repos informations
+    git_repos: dict[RepoID, GitRepo] = {r.repo_id: r for r in git_task.watched_repos}
+
     # collect files in one location
     dest_dir = stack_recipe_cfg["workdir"]
     if dest_dir == "temp":
         # create a temp folder
-        directoryName = tempfile.mkdtemp()
-        dest_dir = copy.deepcopy(directoryName)
+        directory_name = tempfile.mkdtemp()  # TODO: use asyncexitstack and aiofiles
+        dest_dir = copy.deepcopy(directory_name)
+
     elif dest_dir in git_repos:
         # we use one of the git repos
         dest_dir = git_repos[dest_dir].directory
@@ -168,7 +169,9 @@ async def generate_stack_file(
         # The command in the stack_recipe might contain shell natives like pipes and cd
         # Thus we run it in unsafe mode as a proper shell.
         await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
+
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
+
     # Filesize check via https://stackoverflow.com/a/55949699
     if not stack_file.exists() or not stack_file.stat().st_size:
         raise ConfigurationError(
@@ -255,11 +258,11 @@ async def create_stack(
     git_task: GitUrlWatcher, app_config: dict[str, Any]
 ) -> ComposeSpecsDict:
     # generate the stack file
-    stack_file = await generate_stack_file(app_config, git_task)
+    stack_file: Path = await generate_stack_file(app_config, git_task)
     log.debug("generated stack file in %s", stack_file.name)
 
     # filter the stack file if needed
-    stack_cfg = filter_services(
+    stack_cfg: ComposeSpecsDict = _filter_services(
         excluded_services=app_config["main"]["docker_stack_recipe"][
             "excluded_services"
         ],
@@ -348,6 +351,7 @@ async def _init_deploy(
         )
         log.info("initialisation completed")
         return (git_task, docker_task)
+
     except asyncio.CancelledError:
         log.info("task cancelled")
         raise

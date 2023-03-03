@@ -141,3 +141,9 @@ deployment_config.*
 
 # snyk
 .dccache
+
+# key-words in filename to ignore them
+*secret*
+*ignore*
+!.dockerignore
+!.gitignore
