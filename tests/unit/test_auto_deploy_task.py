@@ -184,7 +184,7 @@ async def test_add_parameters(
 async def test_setup_task(
     mocked_docker_registries_watcher,
     mocked_git_url_watcher,
-    mocked_cmd_utils,
+    mocked_subprocess_utils,
     mocked_stack_file,
     portainer_service_mock: aioresponses,
     mattermost_service_mock: aioresponses,

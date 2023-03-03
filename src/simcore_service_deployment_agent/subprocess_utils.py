@@ -48,6 +48,7 @@ async def _wait_and_process_results(
 async def exec_command_async(
     program_and_args: list[str], cwd: str = ".", *, strip_endline: bool = True
 ) -> Optional[str]:
+    # NOTE: any change in the signature has to be applied as well in the associated test mock
     """Create a subprocess
 
     returns output.strip('\n') or None if no outputs
