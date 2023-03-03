@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Dict
 
 
 class SubTask(ABC):
@@ -12,7 +11,7 @@ class SubTask(ABC):
         pass
 
     @abstractmethod
-    async def check_for_changes(self) -> Dict:
+    async def check_for_changes(self) -> dict:
         pass
 
     @abstractmethod
