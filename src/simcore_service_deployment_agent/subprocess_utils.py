@@ -96,7 +96,13 @@ async def shell_command(
 #
 
 
-def run_command(cmd: Union[str, list[str]], shell=True, **kwargs) -> str:
+def run_command(
+    cmd: Union[str, list[str]],
+    *,
+    shell=True,
+    strip_endline: bool = True,
+    **kwargs,
+) -> str:
     """Thin wrapper for  subprocess.run
 
     If shell is True, the specified command will be executed through the shell.
@@ -107,10 +113,10 @@ def run_command(cmd: Union[str, list[str]], shell=True, **kwargs) -> str:
     implementations of many shell-like features (in particular, glob, fnmatch, os.walk(),
     os.path.expandvars(), os.path.expanduser(), and shutil).
 
-    returns command outputs
+    returns standard output
 
-    raises supbrocess.CalledProcessError
-    raises Timeout
+    raises CalledProcessError when a process returns a non-zero exit status
+    raises TimeoutExpired  when a timeout expires while waiting for a child process.
     """
 
     result = subprocess.run(
@@ -121,4 +127,8 @@ def run_command(cmd: Union[str, list[str]], shell=True, **kwargs) -> str:
         encoding="utf-8",
         **kwargs,
     )
-    return result.stdout.rstrip() if result.stdout else ""
+
+    output = result.stdout
+    if output and strip_endline:
+        output = output.rstrip()
+    return output
