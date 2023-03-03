@@ -6,21 +6,25 @@ set -o pipefail # don't hide errors within pipes
 IFS=$'\n\t'
 
 install() {
-    bash ci/helpers/ensure_python_pip.bash
-    make devenv
-    source .venv/bin/activate
-    make install-ci
-    pip list -v
+  bash ci/helpers/ensure_python_pip.bash
+  make devenv
+  source .venv/bin/activate
+  make install-ci
+  pip list -v
 }
 
 test() {
-    source .venv/bin/activate
-    make test-ci-unit
+  source .venv/bin/activate
+  make test-ci-unit
+}
+
+pylint() {
+  source .venv/bin/activate
+  make pylint
 }
 
 # Check if the function exists (bash specific)
-if declare -f "$1" > /dev/null
-then
+if declare -f "$1" >/dev/null; then
   # call arguments verbatim
   "$@"
 else
