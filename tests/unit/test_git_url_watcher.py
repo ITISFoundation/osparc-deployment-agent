@@ -24,7 +24,10 @@ from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
     _git_get_tag_created_dt,
 )
-from simcore_service_deployment_agent.subprocess_utils import exec_command, run_command
+from simcore_service_deployment_agent.subprocess_utils import (
+    exec_command_async,
+    run_command,
+)
 
 
 @pytest.fixture
@@ -434,7 +437,7 @@ async def test_date_format_to_pydantic():
     timestamp_dt = parse_obj_as(datetime, "2023-03-02T16:27:35Z")
 
     # execute
-    output = await exec_command(["date", "--utc", '+"%Y-%m-%dT%H:%M:%SZ"'])
+    output = await exec_command_async(["date", "--utc", '+"%Y-%m-%dT%H:%M:%SZ"'])
     print(output)
     SIMCORE_VCS_RELEASE_DATE = output.strip('"')
 

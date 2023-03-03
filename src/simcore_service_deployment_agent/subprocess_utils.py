@@ -45,7 +45,7 @@ async def _wait_and_process_results(
     return None
 
 
-async def exec_command(
+async def exec_command_async(
     program_and_args: list[str], cwd: str = ".", *, strip_endline: bool = True
 ) -> Optional[str]:
     """Create a subprocess
@@ -71,7 +71,7 @@ async def exec_command(
     )
 
 
-async def shell_command(
+async def shell_command_async(
     cmd: str, cwd: str = ".", *, strip_endline: bool = True
 ) -> Optional[str]:
     """Run the cmd shell command
