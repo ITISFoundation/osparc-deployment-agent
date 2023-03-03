@@ -39,35 +39,36 @@ async def _wait_and_process_results(
     return None
 
 
-async def run_cmd_line(
-    cmd: list[str], cwd_: str = ".", *, strip_endline: bool = True
+async def exec_command(
+    program_and_args: list[str], cwd: str = ".", *, strip_endline: bool = True
 ) -> Optional[str]:
-    """
+    """Create a subprocess
 
     returns output.strip('\n') or None if no outputs
     raises CmdLineError
     """
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
+            *program_and_args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=cwd_
+            cwd=cwd,
         )
     except FileNotFoundError as e:
         raise CmdLineError(
-            " ".join(cmd), "The command was invalid and the cmd call failed."
+            " ".join(program_and_args),
+            "The command was invalid and the cmd call failed.",
         ) from e
 
     return await _wait_and_process_results(
-        proc, command=cmd, strip_endline=strip_endline
+        proc, command=program_and_args, strip_endline=strip_endline
     )
 
 
-async def run_cmd_line_unsafe(
-    cmd: str, cwd_: str = ".", *, strip_endline: bool = True
+async def shell_command(
+    cmd: str, cwd: str = ".", *, strip_endline: bool = True
 ) -> Optional[str]:
-    """
+    """Run the cmd shell command
 
     returns output.strip('\n') or None if no outputs
     raises CmdLineError
@@ -76,7 +77,7 @@ async def run_cmd_line_unsafe(
         cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=cwd_,
+        cwd=cwd,
     )
 
     return await _wait_and_process_results(
