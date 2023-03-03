@@ -8,12 +8,18 @@ SEE https://docs.python.org/3/library/asyncio-subprocess.html
 
 import asyncio
 import logging
+import subprocess
 from asyncio.subprocess import Process
 from typing import Optional, Union
 
 from .exceptions import CmdLineError
 
 log = logging.getLogger(__name__)
+
+
+#
+# **ASYNCronous** helpers
+#
 
 
 async def _wait_and_process_results(
@@ -83,3 +89,36 @@ async def shell_command(
     return await _wait_and_process_results(
         proc, command=cmd, strip_endline=strip_endline
     )
+
+
+#
+# **syncronous** helpers
+#
+
+
+def run_command(cmd: Union[str, list[str]], shell=True, **kwargs) -> str:
+    """Thin wrapper for  subprocess.run
+
+    If shell is True, the specified command will be executed through the shell.
+    This can be useful if you are using Python primarily for the enhanced control
+    flow it offers over most system shells and still want convenient access to other
+    shell features such as shell pipes, filename wildcards, environment variable expansion,
+    and expansion of ~ to a user's home directory. However, note that Python itself offers
+    implementations of many shell-like features (in particular, glob, fnmatch, os.walk(),
+    os.path.expandvars(), os.path.expanduser(), and shutil).
+
+    returns command outputs
+
+    raises supbrocess.CalledProcessError
+    raises Timeout
+    """
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        check=True,
+        shell=shell,
+        encoding="utf-8",
+        **kwargs,
+    )
+    return result.stdout.rstrip() if result.stdout else ""
