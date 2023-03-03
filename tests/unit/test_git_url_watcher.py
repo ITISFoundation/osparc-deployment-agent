@@ -20,12 +20,12 @@ from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
-from simcore_service_deployment_agent.cmd_utils import run_cmd_line
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
     _git_get_tag_created_dt,
 )
+from simcore_service_deployment_agent.subprocess_utils import run_cmd_line
 
 
 @pytest.fixture

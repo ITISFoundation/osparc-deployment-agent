@@ -15,8 +15,8 @@ from tenacity.stop import stop_after_attempt
 from tenacity.wait import wait_fixed, wait_random
 from yarl import URL
 
-from .cmd_utils import run_cmd_line
 from .exceptions import CmdLineError, ConfigurationError
+from .subprocess_utils import run_cmd_line
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)

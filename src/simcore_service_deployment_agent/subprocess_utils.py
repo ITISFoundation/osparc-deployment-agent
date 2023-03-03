@@ -1,3 +1,11 @@
+""" Utils and extensions to 'subprocess' standard library
+
+
+SEE https://docs.python.org/3/library/subprocess.html
+SEE https://docs.python.org/3/library/asyncio-subprocess.html
+"""
+
+
 import asyncio
 import logging
 from asyncio.subprocess import Process

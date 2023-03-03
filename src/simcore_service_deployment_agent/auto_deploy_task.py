@@ -25,12 +25,12 @@ from yarl import URL
 
 from . import portainer
 from .app_state import State
-from .cmd_utils import run_cmd_line_unsafe
 from .docker_registries_watcher import DockerRegistriesWatcher
 from .exceptions import ConfigurationError, DependencyNotReadyError
 from .git_url_watcher import GitRepo, GitUrlWatcher, RepoID
 from .models import ComposeSpecsDict, ServiceName, VolumeName
 from .notifier import notify, notify_state
+from .subprocess_utils import run_cmd_line_unsafe
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
