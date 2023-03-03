@@ -6,8 +6,7 @@
 import re
 from collections.abc import Iterator
 from random import randint
-from typing import Any, NamedTuple
-from unittest.mock import MagicMock
+from typing import Any
 
 import pytest
 from aioresponses import aioresponses
@@ -172,14 +171,8 @@ def portainer_service_mock(
     yield aioresponse_mocker
 
 
-class SubprocessUtilsMocks(NamedTuple):
-    exec_command_async: MagicMock
-
-
 @pytest.fixture
-def mocked_subprocess_utils(mocker: MockerFixture) -> SubprocessUtilsMocks:
-    mocks = {}
-    mocks["exec_command_async"] = mocker.patch.object(
-        auto_deploy_task, "exec_command_async", return_value="", autospec=True
+def mocked_subprocess_utils(mocker: MockerFixture) -> None:
+    mocker.patch.object(
+        auto_deploy_task, "shell_command_async", return_value="", autospec=True
     )
-    return SubprocessUtilsMocks(**mocks)
