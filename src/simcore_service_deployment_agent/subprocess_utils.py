@@ -99,19 +99,10 @@ async def shell_command(
 def run_command(
     cmd: Union[str, list[str]],
     *,
-    shell=True,
     strip_endline: bool = True,
     **kwargs,
 ) -> str:
-    """Thin wrapper for  subprocess.run
-
-    If shell is True, the specified command will be executed through the shell.
-    This can be useful if you are using Python primarily for the enhanced control
-    flow it offers over most system shells and still want convenient access to other
-    shell features such as shell pipes, filename wildcards, environment variable expansion,
-    and expansion of ~ to a user's home directory. However, note that Python itself offers
-    implementations of many shell-like features (in particular, glob, fnmatch, os.walk(),
-    os.path.expandvars(), os.path.expanduser(), and shutil).
+    """Thin wrapper for subprocess.run(...)
 
     returns standard output
 
@@ -119,11 +110,23 @@ def run_command(
     raises TimeoutExpired  when a timeout expires while waiting for a child process.
     """
 
+    if isinstance(cmd, str):
+        kwargs.setdefault("shell", True)
+        # If shell is True, the specified command will be executed through the shell.
+        # This can be useful if you are using Python primarily for the enhanced control
+        # flow it offers over most system shells and still want convenient access to other
+        # shell features such as shell pipes, filename wildcards, environment variable expansion,
+        # and expansion of ~ to a user's home directory. However, note that Python itself offers
+        # implementations of many shell-like features (in particular, glob, fnmatch, os.walk(),
+        # os.path.expandvars(), os.path.expanduser(), and shutil).
+    else:
+        assert isinstance(cmd, list)  # nosec
+        kwargs.setdefault("shell", False)
+
     result = subprocess.run(
         cmd,
         capture_output=True,
         check=True,
-        shell=shell,
         encoding="utf-8",
         **kwargs,
     )
@@ -131,4 +134,9 @@ def run_command(
     output = result.stdout
     if output and strip_endline:
         output = output.rstrip()
+
+    log.debug("ran: %s", cmd)
+    log.debug("got: %s", output)
+    log.debug("err: %s", result.stderr.rstrip())
+
     return output
