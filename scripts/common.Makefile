@@ -96,11 +96,6 @@ codeformat: ## runs all code formatters. Use AFTER make install-*
 	@pre-commit run black --files $(PYFILES)
 
 
-.PHONY: pyupgrade
-pyupgrade: ## upgrades python syntax for newer versions of the language (SEE https://github.com/asottile/pyupgrade)
-	@pre-commit run pyupgrade --files $(shell find $(CURDIR) -type f -name '*.py')
-
-
 .PHONY: pylint
 pylint: $(REPO_BASE_DIR)/.pylintrc ## runs pylint (python linter) on src and tests folders
 	@pylint --rcfile="$(REPO_BASE_DIR)/.pylintrc" -v $(CURDIR)/src $(CURDIR)/tests
