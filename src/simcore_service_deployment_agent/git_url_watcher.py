@@ -208,13 +208,14 @@ async def _git_get_latest_matching_tag_capture_groups(
         return None
     all_tags = all_tags.split("\n")
     all_tags = [tag for tag in all_tags if tag != ""]
-    list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
+    regexp_compiled = re.compile(regexp)
+    list_tags = re.findall(regexp, "  ".join(all_tags))
     if not list_tags:
         return None
-    if re.compile(regexp).groups == 0:
+    if regexp_compiled.groups == 0:
         return (list_tags[-1],)
-    reSearchResult = re.search(regexp, list_tags[-1])
-    return reSearchResult.groups() if reSearchResult else None
+    re_search_result = re.search(regexp, list_tags[-1])
+    return re_search_result.groups() if re_search_result else None
 
 
 async def _git_get_latest_matching_tag(
@@ -528,7 +529,7 @@ async def _check_for_changes_in_repositories(
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
-    latestTags = [
+    latest_tags = [
         {
             repo.repo_id: await _git_get_latest_matching_tag_capture_groups(
                 repo.directory, repo.tags
@@ -538,9 +539,9 @@ async def _check_for_changes_in_repositories(
     ]
     uniqueLatestTags = list(
         {
-            list(i.values())[0][0] if list(i.values())[0] else None
-            for i in latestTags
-            if i.values()
+            list(single_tag.values())[0][0] if list(single_tag.values())[0] else None
+            for single_tag in latest_tags
+            if single_tag.values()
         }
     )
     if syncedViaTags:
@@ -549,15 +550,14 @@ async def _check_for_changes_in_repositories(
             log.info(
                 "Latest (matching) tags per repo, displaying first regex capture group:"
             )
-            for repo in latestTags:
+            for repo in latest_tags:
                 log.info("%s: %s", list(repo.keys())[0], list(repo.values())[0][0])
             log.info("Will only update those repos that have no tag-regex specified!")
         elif len(uniqueLatestTags) == 1:
             log.info("All synced repos have the same latest tag! Deploying....")
     for repo in repos:
-        if syncedViaTags and len(uniqueLatestTags) > 1:
-            if repo.tags:
-                continue
+        if syncedViaTags and len(uniqueLatestTags) > 1 and repo.tags:
+            continue
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
 

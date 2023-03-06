@@ -4,7 +4,6 @@
 # pylint: disable=too-many-arguments
 # pylint: disable=protected-access
 
-import asyncio
 import re
 import subprocess
 import time
@@ -26,6 +25,12 @@ from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
     _git_get_tag_created_dt,
 )
+
+
+def sleep_1_sec_to_make_commit_timestamp_unique():
+    # git seems to keep track of commit datetimes only up to seconds, so we need to sleep here to prevent both commits
+    # having the same timestamp (FIXME)
+    time.sleep(1.1)
 
 
 @pytest.fixture
@@ -103,7 +108,7 @@ def git_config(
 
 @pytest.fixture()
 def git_config_two_repos_synced_same_tag_regex(
-    branch_name: str, git_repository: Callable[[], str]
+    branch_name: str, git_repository_url: str, watch_tags: str, watch_paths: list[str]
 ) -> dict[str, Any]:
     cfg = {
         "main": {
@@ -111,9 +116,9 @@ def git_config_two_repos_synced_same_tag_regex(
             "watched_git_repositories": [
                 {
                     "id": "test-repo-" + str(i),
-                    "url": str(git_repository()),
+                    "url": watch_paths,
                     "branch": branch_name,
-                    "tags": "^staging_.+",
+                    "tags": watch_tags,
                     "paths": [],
                     "username": "",
                     "password": "",
@@ -169,7 +174,7 @@ async def test_git_url_watcher_tag_sync(
         )
     init_result = await git_watcher.init()
     assert not await git_watcher.check_for_changes()
-    time.sleep(1.1)
+    sleep_1_sec_to_make_commit_timestamp_unique()
     # Add change and tag in only one repo
     VALID_TAG_2: Literal["staging_a2ndvalid"] = "staging_a2ndvalid"
     _run_cmd(
@@ -179,7 +184,7 @@ async def test_git_url_watcher_tag_sync(
     # we should have no change here, since the repos are synced.
     change_results = await git_watcher.check_for_changes()
     assert not change_results
-    time.sleep(1.1)
+    sleep_1_sec_to_make_commit_timestamp_unique()
     # Now change both repos
     VALID_TAG_3: Literal["staging_g2ndvalid"] = "staging_g2ndvalid"
     for repo in [
@@ -423,10 +428,10 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
     # now modify theonefile.csv
-    # git seems to keep track of commit datetimes only up to seconds, so we need to sleep here to prevent both commits
-    # having the same timestamp (FIXME)
+
+    sleep_1_sec_to_make_commit_timestamp_unique()
     _run_cmd(
-        "sleep 2 && echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
+        "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
         cwd=local_path_var,
     )
     # we should have no change here
@@ -474,13 +479,10 @@ async def test_git_url_watcher_tags(
         "teststaging_z4thvalid"
     ] = "teststaging_z4thvalid"
     _run_cmd(
-        f"git tag {NEW_VALID_TAG_ON_SAME_SHA} && sleep 1;",
+        f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
     )
-    # re: sleep
-    # reason: make sure the tag's creator data is proeprly different for NEW_VALID_TAG_ON_SAME_SHA and NEW_VALID_TAG_ON_NEW_SHA, otherwise sorting might fail
-    #
-    time.sleep(0.6)
+    sleep_1_sec_to_make_commit_timestamp_unique()
     #
     NEW_VALID_TAG_ON_NEW_SHA: Final[
         str
@@ -528,7 +530,6 @@ async def test_git_url_watcher_tags_capture_group_replacement(
         f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
-    await asyncio.sleep(0.5)
     # expected to work now
     init_result = await git_watcher.init()
     git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
@@ -542,11 +543,12 @@ async def test_git_url_watcher_tags_capture_group_replacement(
     NEW_VALID_TAG_ON_SAME_SHA: Literal[
         "teststaging_z4thvalid"
     ] = "teststaging_z4thvalid"
+    sleep_1_sec_to_make_commit_timestamp_unique()
     _run_cmd(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
     )
-    await asyncio.sleep(0.5)
+    sleep_1_sec_to_make_commit_timestamp_unique()
     NEW_VALID_TAG_ON_NEW_SHA: Literal[
         "teststaging_h5thvalid"
     ] = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
@@ -554,8 +556,6 @@ async def test_git_url_watcher_tags_capture_group_replacement(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=local_path_var,
     )
-    await asyncio.sleep(1.5)
-    time.sleep(1.1)
     # we should have a change here
 
     change_results = await git_watcher.check_for_changes()
