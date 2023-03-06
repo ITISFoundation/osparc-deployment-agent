@@ -1,0 +1,7 @@
+mypy==0.971
+pydantic # plugin pydantic.mypy
+types-aiofiles
+types-attrs
+types-PyYAML==6.0.11
+types-setuptools
+types-ujson

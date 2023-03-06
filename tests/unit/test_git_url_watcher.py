@@ -2,40 +2,40 @@
 # pylint: disable=unused-argument
 # pylint: disable=unused-variable
 # pylint: disable=too-many-arguments
+# pylint: disable=protected-access
 
 import asyncio
+import re
 import subprocess
 import time
-import uuid
 from asyncio import AbstractEventLoop
-from collections.abc import Iterator
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Literal, Union
+from typing import Any, Final, Literal
 
 import pytest
 from faker import Faker
-from pytest import TempPathFactory
+from pydantic import parse_obj_as
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
+from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
+from simcore_service_deployment_agent.cmd_utils import run_cmd_line
 from simcore_service_deployment_agent.exceptions import ConfigurationError
-
-
-@pytest.fixture(scope="session")
-def git_repo_path(
-    tmp_path_factory: TempPathFactory,
-) -> Callable[[], Path]:
-    def create_folder() -> Path:
-        p: Path = tmp_path_factory.mktemp(str(uuid.uuid4()))
-        assert p.exists()
-        return p
-
-    return create_folder
+from simcore_service_deployment_agent.git_url_watcher import (
+    GitUrlWatcher,
+    _git_get_tag_created_dt,
+)
 
 
 @pytest.fixture
 def branch_name(faker: Faker) -> str:
     return "pytestMockBranch_" + faker.word()
+
+
+@pytest.fixture
+def tag_name(faker: Faker) -> str:
+    return f"staging_SprintName{faker.pyint(min_value=0)}"
 
 
 def _run_cmd(cmd: str, **kwargs) -> str:
@@ -47,40 +47,51 @@ def _run_cmd(cmd: str, **kwargs) -> str:
 
 
 @pytest.fixture
-def git_repository(
-    branch_name: str,
-    git_repo_path: Callable[[], Path],
-    branch: Union[str, None] = None,
-) -> Iterator[Callable[[], str]]:
-    def create_git_repo() -> str:
-        cwd_: Path = git_repo_path()
-        _run_cmd(
-            "git init; git config user.name tester; git config user.email tester@test.com",
-            cwd=cwd_,
-        )
-        _run_cmd(
-            "git checkout -b "
-            + branch_name
-            + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
-            cwd=cwd_,
-        )
-        return f"file://localhost{cwd_}"
+def git_repository_url(tmp_path: Path, branch_name: str, tag_name: str) -> URL:
+    _run_cmd(
+        "git init; git config user.name tester; git config user.email tester@test.com",
+        cwd=tmp_path,
+    )
+    _run_cmd(
+        f"git checkout -b {branch_name}"
+        + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
+        cwd=tmp_path,
+    )
+    _run_cmd(f'git tag -a {tag_name} -m "Release tag at {branch_name}"', cwd=tmp_path)
 
-    yield create_git_repo
+    return URL(f"file://localhost{tmp_path}")
 
 
 @pytest.fixture
-def git_config(branch_name: str, git_repository: Callable[[], str]) -> dict[str, Any]:
-    cfg: dict = {
+def git_repository_folder(git_repository_url: URL) -> Path:
+    assert f"{git_repository_url}".startswith("file://localhost")
+    return Path(git_repository_url.path)
+
+
+@pytest.fixture
+def watch_tags() -> str:
+    return ""
+
+
+@pytest.fixture
+def watch_paths() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def git_config(
+    branch_name: str, git_repository_url: str, watch_tags: str, watch_paths: list[str]
+) -> dict[str, Any]:
+    cfg = {
         "main": {
             "synced_via_tags": False,
             "watched_git_repositories": [
                 {
                     "id": "test-repo-0",
-                    "url": f"{git_repository()}",
+                    "url": f"{git_repository_url}",
                     "branch": branch_name,
-                    "tags": "",
-                    "paths": [],
+                    "tags": watch_tags,
+                    "paths": watch_paths,
                     "username": "",
                     "password": "",
                 }
@@ -321,7 +332,9 @@ async def test_git_url_watcher_paths(
     local_path_var: str = git_config_paths["main"]["watched_git_repositories"][0][
         "url"
     ].replace("file://localhost", "")
+
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_paths)
+
     # the file does not exist yet
     with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
@@ -419,7 +432,7 @@ async def test_git_url_watcher_tags(
     # we should have no change here
     change_results = await git_watcher.check_for_changes()
     assert not change_results
-    INVALID_TAG: Literal["v3.4.5"] = "v3.4.5"
+    INVALID_TAG: Final[str] = "v3.4.5"
     _run_cmd(
         f"git tag {INVALID_TAG}",
         cwd=local_path_var,
@@ -428,7 +441,7 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
 
-    NEW_VALID_TAG: Literal["teststaging_g2ndvalid"] = "teststaging_g2ndvalid"
+    NEW_VALID_TAG: Final[str] = "teststaging_g2ndvalid"
     _run_cmd(
         f"git tag {NEW_VALID_TAG}",
         cwd=local_path_var,
@@ -469,8 +482,8 @@ async def test_git_url_watcher_tags(
     #
     time.sleep(0.6)
     #
-    NEW_VALID_TAG_ON_NEW_SHA: Literal[
-        "teststaging_h5thvalid"
+    NEW_VALID_TAG_ON_NEW_SHA: Final[
+        str
     ] = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
     _run_cmd(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
@@ -553,3 +566,54 @@ async def test_git_url_watcher_tags_capture_group_replacement(
     assert latestTag[0] == NEW_VALID_TAG_ON_NEW_SHA.replace("test", "")
     #
     await git_watcher.cleanup()
+
+
+@pytest.mark.parametrize(
+    "watch_tags",
+    [
+        "^staging_SprintName",
+    ],
+)
+async def test_repo_status(git_config: dict[str, Any], tag_name: str, watch_tags: str):
+    # fakes tag filter
+    assert re.search(watch_tags, tag_name)
+
+    # evaluates status
+    git_task = GitUrlWatcher(app_config=git_config)
+    status_label: str = await git_task.init()
+    print(status_label)
+
+    # repo
+    assert len(git_task.watched_repos) == 1
+    repo = git_task.watched_repos[0]
+    repo_status = git_task.repo_status[repo.repo_id]
+
+    assert repo_status.tag_name is not None
+    assert repo_status.tag_name == tag_name
+    assert repo_status.tag_created
+
+    # tests _git_get_tag_created_dt
+    tag_created = await _git_get_tag_created_dt(repo.directory, repo_status.tag_name)
+    assert tag_created
+    assert tag_created == repo_status.tag_created
+
+
+async def test_date_format_to_pydantic():
+    # Tests to ensure datetime formats conversions
+    #
+    # SIMCORE_VCS_RELEASE_TAG
+    # SIMCORE_VCS_RELEASE_DATE
+
+    # $ date --utc +"%Y-%m-%dT%H:%M:%SZ"
+    #  2023-03-02T16:27:35Z
+    timestamp_dt = parse_obj_as(datetime, "2023-03-02T16:27:35Z")
+
+    # execute
+    output = await run_cmd_line(["date", "--utc", '+"%Y-%m-%dT%H:%M:%SZ"'])
+    print(output)
+    SIMCORE_VCS_RELEASE_DATE = output.strip('"')
+
+    # Tests it can be parsed by pydantic as a datetime
+    release_dt = parse_obj_as(datetime, SIMCORE_VCS_RELEASE_DATE)
+    assert isinstance(release_dt, datetime)
+    assert release_dt.tzinfo == timezone.utc

@@ -12,7 +12,18 @@ from simcore_service_deployment_agent import cmd_utils, exceptions
 
 
 async def test_valid_cmd(event_loop: AbstractEventLoop):
-    await cmd_utils.run_cmd_line(["whoami"])
+    output = await cmd_utils.run_cmd_line(["whoami"], strip_endline=False)
+    assert output.endswith("\n")
+    print(output)
+
+    # default is strip_endline=True
+    output_wo_endline = await cmd_utils.run_cmd_line(["whoami"])
+    assert output_wo_endline == output.strip("\n")
+
+
+async def test_valid_cmd_returns_None(event_loop: AbstractEventLoop):
+    output = await cmd_utils.run_cmd_line(["echo"])
+    assert not output
 
 
 async def test_invalid_cmd(event_loop: AbstractEventLoop):
