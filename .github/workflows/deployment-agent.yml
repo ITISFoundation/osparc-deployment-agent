@@ -59,6 +59,8 @@ jobs:
         run: ./ci/github/unit-testing/deployment-agent.bash install
       - name: test
         run: ./ci/github/unit-testing/deployment-agent.bash test
+      - name: pylint
+        run: ./ci/github/unit-testing/deployment-agent.bash pylint
       - uses: codecov/codecov-action@v3.1.1
         with:
           flags: unittests #optional

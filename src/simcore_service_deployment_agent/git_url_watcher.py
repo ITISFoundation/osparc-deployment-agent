@@ -15,8 +15,8 @@ from tenacity.stop import stop_after_attempt
 from tenacity.wait import wait_fixed, wait_random
 from yarl import URL
 
-from .cmd_utils import run_cmd_line
 from .exceptions import CmdLineError, ConfigurationError
+from .subprocess_utils import exec_command_async
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
@@ -130,20 +130,20 @@ async def _git_clone_repo(
             "--branch",
             branch,
         ]
-    await run_cmd_line(cmd)
+    await exec_command_async(cmd)
 
 
 async def _git_get_FETCH_HEAD_sha(directory: str) -> str:
     cmd = ["git", "rev-parse", "--short", "FETCH_HEAD"]
-    sha = await run_cmd_line(cmd, f"{directory}")
+    sha = await exec_command_async(cmd, f"{directory}")
     return sha
 
 
 async def _git_get_sha_of_tag(directory: str, tag: str) -> str:
     cmd = ["git", "rev-list", "-1", "--sparse", tag]
-    sha_long = await run_cmd_line(cmd, f"{directory}")
+    sha_long = await exec_command_async(cmd, f"{directory}")
     cmd = ["git", "rev-parse", "--short", sha_long]
-    sha_short = await run_cmd_line(cmd, f"{directory}")
+    sha_short = await exec_command_async(cmd, f"{directory}")
     return sha_short
 
 
@@ -153,7 +153,7 @@ async def _git_get_tag_created_dt(directory: str, tag: str) -> Optional[datetime
 
     raises ValueError if invalid datetime format
     """
-    date_string = await run_cmd_line(
+    date_string = await exec_command_async(
         ["git", "for-each-ref", "--format='%(taggerdate)'", f"refs/tags/{tag}"],
         f"{directory}",
     )
@@ -173,31 +173,31 @@ async def _git_get_tag_created_dt(directory: str, tag: str) -> Optional[datetime
 
 async def _git_clean_repo(directory: str):
     cmd = ["git", "clean", "-dxf"]
-    await run_cmd_line(cmd, f"{directory}")
+    await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_checkout_files(directory: str, paths: list[Path], tag: Optional[str]):
     if not tag:
         tag = "HEAD"
     cmd = ["git", "checkout", tag] + [f"{path}" for path in paths]
-    await run_cmd_line(cmd, f"{directory}")
+    await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_pull(directory: str):
     cmd = ["git", "pull"]
-    await run_cmd_line(cmd, f"{directory}")
+    await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_fetch(directory: str):
     log.debug("Fetching git repo in %s", f"{directory=}")
     cmd = ["git", "fetch", "--prune", "--tags"]
-    await run_cmd_line(cmd, f"{directory}")
+    await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_get_latest_matching_tag(
     directory: str, regexp: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
-    repo_tags_msg = await run_cmd_line(
+    repo_tags_msg = await exec_command_async(
         [
             "git",
             "tag",
@@ -219,7 +219,7 @@ async def _git_get_current_matching_tag(repo: GitRepo) -> list[str]:
     if repo.tags.startswith("^"):
         reg = repo.tags[1:]
 
-    all_tags_str = await run_cmd_line(
+    all_tags_str = await exec_command_async(
         [
             "git",
             "show-ref",
@@ -235,7 +235,7 @@ async def _git_get_current_matching_tag(repo: GitRepo) -> list[str]:
     all_tags = all_tags_str.split("\n")
 
     cmd2 = ["git", "rev-parse", "HEAD"]
-    sha_to_be_found = await run_cmd_line(cmd2, f"{repo.directory}")
+    sha_to_be_found = await exec_command_async(cmd2, f"{repo.directory}")
     sha_to_be_found = sha_to_be_found.split("\n")[0]
 
     associated_tags_found = []
@@ -253,7 +253,7 @@ async def _git_diff_filenames(
     directory: str,
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     cmd = ["git", "--no-pager", "diff", "--name-only", "FETCH_HEAD"]
-    modified_files = await run_cmd_line(cmd, f"{directory}")
+    modified_files = await exec_command_async(cmd, f"{directory}")
     return modified_files
 
 
@@ -267,7 +267,7 @@ async def _git_get_logs(
         "--oneline",
         f"{branch1}..origin/{branch2}",
     ]
-    logs = await run_cmd_line(cmd, f"{directory}", strip_endline=False)
+    logs = await exec_command_async(cmd, f"{directory}", strip_endline=False)
     return logs
 
 
@@ -281,7 +281,7 @@ async def _git_get_logs_tags(
         "--oneline",
         f"{tag1}..{tag2 if tag1 else tag2}",
     ]
-    logs = await run_cmd_line(cmd, f"{directory}")
+    logs = await exec_command_async(cmd, f"{directory}")
     return logs
 
 
@@ -296,7 +296,7 @@ async def _checkout_repository(repo: GitRepo, tag: Optional[str] = None):
     """
     await _git_checkout_files(repo.directory, [], tag)
     cmd = ["find", "."]
-    files_in_repo = (await run_cmd_line(cmd, f"{repo.directory}")).split("\n")
+    files_in_repo = (await exec_command_async(cmd, f"{repo.directory}")).split("\n")
     are_all_files_present = sum(
         1 for i in repo.paths if i in [i.replace("./", "") for i in files_in_repo]
     ) == len(repo.paths)
@@ -386,7 +386,7 @@ async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool
         '--pretty="format:%ai %d"',
     ]
     try:
-        data = await run_cmd_line(cmd, repo_path)
+        data = await exec_command_async(cmd, repo_path)
     except CmdLineError as e:
         raise RuntimeError(
             " ".join(cmd), "The command was invalid and the cmd call failed."

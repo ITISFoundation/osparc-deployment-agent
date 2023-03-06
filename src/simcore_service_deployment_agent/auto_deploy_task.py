@@ -25,12 +25,12 @@ from yarl import URL
 
 from . import portainer
 from .app_state import State
-from .cmd_utils import run_cmd_line_unsafe
 from .docker_registries_watcher import DockerRegistriesWatcher
 from .exceptions import ConfigurationError, DependencyNotReadyError
 from .git_url_watcher import GitRepo, GitUrlWatcher, RepoID
 from .models import ComposeSpecsDict, ServiceName, VolumeName
 from .notifier import notify, notify_state
+from .subprocess_utils import shell_command_async
 from .subtask import SubTask
 
 log = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ async def generate_stack_file(
     if stack_recipe_cfg["command"]:
         # The command in the stack_recipe might contain shell natives like pipes and cd
         # Thus we run it in unsafe mode as a proper shell.
-        await run_cmd_line_unsafe(stack_recipe_cfg["command"], cwd_=dest_dir)
+        await shell_command_async(stack_recipe_cfg["command"], cwd=dest_dir)
 
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
 

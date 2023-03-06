@@ -1,4 +1,3 @@
-import subprocess
 from collections.abc import Iterator
 from contextlib import suppress
 
@@ -10,21 +9,7 @@ from tenacity.stop import stop_after_attempt
 from tenacity.wait import wait_random
 from yarl import URL
 
-
-def _run_cmd(cmd: list[str], **kwargs) -> str:
-    result = subprocess.run(
-        cmd, capture_output=True, check=True, shell=False, encoding="utf-8", **kwargs
-    )
-    print("ran:")
-    print(cmd)
-    print("got:")
-    print(result.stdout.rstrip())
-    print("err:")
-    print(result.stderr.rstrip())
-    #
-    print(result.stderr.rstrip())
-    assert result.returncode == 0
-    return result.stdout.rstrip() if result.stdout else ""
+from simcore_service_deployment_agent.subprocess_utils import run_command
 
 
 @retry(
@@ -36,7 +21,7 @@ def _run_cmd(cmd: list[str], **kwargs) -> str:
     ),
 )
 def _wait_for_instance(url: URL, code: int = 200):
-    r = requests.get(f"{url}")
+    r = requests.get(f"{url}", timeout=1)
     assert r.status_code == code
 
 
@@ -56,7 +41,7 @@ def portainer_container(request) -> Iterator[tuple[URL, str]]:
 
     # create a password (https://documentation.portainer.io/v2.0/deploy/cli/)
     password = "adminadmin"
-    encrypted_password = _run_cmd(
+    encrypted_password = run_command(
         [
             "docker",
             "run",
@@ -70,9 +55,9 @@ def portainer_container(request) -> Iterator[tuple[URL, str]]:
     ).split(":")[-1]
 
     with suppress(Exception):
-        _run_cmd(["docker", "rm", "--force", "portainer"])
+        run_command(["docker", "rm", "--force", "portainer"])
 
-    _run_cmd(
+    run_command(
         [
             "docker",
             "run",
@@ -97,4 +82,4 @@ def portainer_container(request) -> Iterator[tuple[URL, str]]:
 
     yield (url, password)
 
-    _run_cmd(["docker", "rm", "--force", "portainer"])
+    run_command(["docker", "rm", "--force", "portainer"])
