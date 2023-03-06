@@ -424,9 +424,9 @@ async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool
     found_tag_in_data = sum(1 for i in data.split("\n") if tag in i) > 0
 
     if not found_branch_in_data:
-        raise RuntimeError("Branch does not exist. Aborting!")
+        raise RuntimeError("Branch", branch, "does not exist. Aborting!")
     if not found_tag_in_data:
-        raise RuntimeError("Tag does not exist. Aborting!")
+        raise RuntimeError("Tag", tag, " does not exist. Aborting!")
     return False
 
 
@@ -520,7 +520,7 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[RepoStatus]:
 
 async def _check_for_changes_in_repositories(
     repos: list[GitRepo],
-    syncedViaTags: bool = False,
+    synced_via_tags: bool = False,
 ) -> dict[RepoID, RepoStatus]:
     """
     raises ConfigurationError
@@ -537,15 +537,15 @@ async def _check_for_changes_in_repositories(
         }
         for repo in repos
     ]
-    uniqueLatestTags = list(
+    unique_latest_tags = list(
         {
             list(single_tag.values())[0][0] if list(single_tag.values())[0] else None
             for single_tag in latest_tags
             if single_tag.values()
         }
     )
-    if syncedViaTags:
-        if len(uniqueLatestTags) > 1:
+    if synced_via_tags:
+        if len(unique_latest_tags) > 1:
             log.info("Repos did not match in their latest tag's first capture group!")
             log.info(
                 "Latest (matching) tags per repo, displaying first regex capture group:"
@@ -553,10 +553,10 @@ async def _check_for_changes_in_repositories(
             for repo in latest_tags:
                 log.info("%s: %s", list(repo.keys())[0], list(repo.values())[0][0])
             log.info("Will only update those repos that have no tag-regex specified!")
-        elif len(uniqueLatestTags) == 1:
+        elif len(unique_latest_tags) == 1:
             log.info("All synced repos have the same latest tag! Deploying....")
     for repo in repos:
-        if syncedViaTags and len(uniqueLatestTags) > 1 and repo.tags:
+        if synced_via_tags and len(unique_latest_tags) > 1 and repo.tags:
             continue
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
@@ -638,7 +638,7 @@ class GitUrlWatcher(SubTask):
     async def check_for_changes(self) -> dict[RepoID, StatusStr]:
         # SubTask Override
         repos_changes = await _check_for_changes_in_repositories(
-            repos=self.watched_repos
+            repos=self.watched_repos, synced_via_tags=self.synced_via_tags
         )
         changes = {
             repo_id: repo_status.to_string()

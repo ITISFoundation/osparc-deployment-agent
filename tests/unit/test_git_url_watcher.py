@@ -7,10 +7,11 @@
 import re
 import subprocess
 import time
+import uuid
 from asyncio import AbstractEventLoop
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Any, Callable, Final, Literal
 
 import pytest
 from faker import Faker
@@ -45,32 +46,44 @@ def tag_name(faker: Faker) -> str:
 
 def _run_cmd(cmd: str, **kwargs) -> str:
     result: subprocess.CompletedProcess[str] = subprocess.run(
-        cmd, capture_output=True, check=True, shell=True, encoding="utf-8", **kwargs
+        cmd, capture_output=True, check=False, shell=True, encoding="utf-8", **kwargs
     )
     assert result.returncode == 0
     return result.stdout.rstrip() if result.stdout else ""
 
 
 @pytest.fixture
-def git_repository_url(tmp_path: Path, branch_name: str, tag_name: str) -> URL:
-    _run_cmd(
-        "git init; git config user.name tester; git config user.email tester@test.com",
-        cwd=tmp_path,
-    )
-    _run_cmd(
-        f"git checkout -b {branch_name}"
-        + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
-        cwd=tmp_path,
-    )
-    _run_cmd(f'git tag -a {tag_name} -m "Release tag at {branch_name}"', cwd=tmp_path)
+def git_repository_url(
+    tmp_path: Path, branch_name: str, tag_name: str
+) -> Callable[[], URL]:
+    def _git_repository_url() -> URL:
+        subpath = tmp_path / str(uuid.uuid4())
+        subpath.mkdir()
+        _run_cmd(
+            "git init; git config user.name tester; git config user.email tester@test.com",
+            cwd=subpath,
+        )
+        _run_cmd(
+            f"git checkout -b {branch_name}"
+            + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
+            cwd=subpath,
+        )
+        _run_cmd(
+            f'git tag -a {tag_name} -m "Release tag at {branch_name}"', cwd=subpath
+        )
+        return URL(f"file://localhost{subpath}")
 
-    return URL(f"file://localhost{tmp_path}")
+    return _git_repository_url
 
 
 @pytest.fixture
-def git_repository_folder(git_repository_url: URL) -> Path:
-    assert f"{git_repository_url}".startswith("file://localhost")
-    return Path(git_repository_url.path)
+def git_repository_folder(git_repository_url: URL) -> Callable[[], Path]:
+    def _git_repository_folder() -> Path:
+        current_url = git_repository_url()
+        assert f"{current_url}".startswith("file://localhost")
+        return Path(current_url.path)
+
+    return _git_repository_folder
 
 
 @pytest.fixture
@@ -85,7 +98,10 @@ def watch_paths() -> list[str]:
 
 @pytest.fixture
 def git_config(
-    branch_name: str, git_repository_url: str, watch_tags: str, watch_paths: list[str]
+    branch_name: str,
+    git_repository_url: Callable[[], str],
+    watch_tags: str,
+    watch_paths: list[str],
 ) -> dict[str, Any]:
     cfg = {
         "main": {
@@ -93,7 +109,7 @@ def git_config(
             "watched_git_repositories": [
                 {
                     "id": "test-repo-0",
-                    "url": f"{git_repository_url}",
+                    "url": f"{git_repository_url()}",
                     "branch": branch_name,
                     "tags": watch_tags,
                     "paths": watch_paths,
@@ -108,7 +124,7 @@ def git_config(
 
 @pytest.fixture()
 def git_config_two_repos_synced_same_tag_regex(
-    branch_name: str, git_repository_url: str, watch_tags: str, watch_paths: list[str]
+    branch_name: str, git_repository_url: Callable[[], str]
 ) -> dict[str, Any]:
     cfg = {
         "main": {
@@ -116,10 +132,10 @@ def git_config_two_repos_synced_same_tag_regex(
             "watched_git_repositories": [
                 {
                     "id": "test-repo-" + str(i),
-                    "url": watch_paths,
+                    "url": f"{git_repository_url()}",
                     "branch": branch_name,
-                    "tags": watch_tags,
-                    "paths": [],
+                    "tags": "^staging_.*$",
+                    "paths": ["testfile.csv"],
                     "username": "",
                     "password": "",
                 }
@@ -133,9 +149,6 @@ def git_config_two_repos_synced_same_tag_regex(
 async def test_git_url_watcher_tag_sync(
     event_loop, git_config_two_repos_synced_same_tag_regex: dict[str, Any]
 ):
-    repo_id_var: str = git_config_two_repos_synced_same_tag_regex["main"][
-        "watched_git_repositories"
-    ][0]["id"]
     branch_var: str = git_config_two_repos_synced_same_tag_regex["main"][
         "watched_git_repositories"
     ][0]["branch"]
@@ -153,6 +166,7 @@ async def test_git_url_watcher_tag_sync(
     # add a file, commit, and tag
     VALID_TAG: Literal["staging_z1stvalid"] = "staging_z1stvalid"
     TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
+    sleep_1_sec_to_make_commit_timestamp_unique()
     for repo in [
         git_config_two_repos_synced_same_tag_regex["main"]["watched_git_repositories"][
             i
