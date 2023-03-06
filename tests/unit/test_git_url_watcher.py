@@ -5,7 +5,6 @@
 # pylint: disable=protected-access
 
 import re
-import subprocess
 import time
 import uuid
 from asyncio import AbstractEventLoop
@@ -20,11 +19,14 @@ from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
-from simcore_service_deployment_agent.cmd_utils import run_cmd_line
 from simcore_service_deployment_agent.exceptions import ConfigurationError
 from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
     _git_get_tag_created_dt,
+)
+from simcore_service_deployment_agent.subprocess_utils import (
+    exec_command_async,
+    run_command,
 )
 
 
@@ -44,14 +46,6 @@ def tag_name(faker: Faker) -> str:
     return f"staging_SprintName{faker.pyint(min_value=0)}"
 
 
-def _run_cmd(cmd: str, **kwargs) -> str:
-    result: subprocess.CompletedProcess[str] = subprocess.run(
-        cmd, capture_output=True, check=False, shell=True, encoding="utf-8", **kwargs
-    )
-    assert result.returncode == 0
-    return result.stdout.rstrip() if result.stdout else ""
-
-
 @pytest.fixture
 def git_repository_url(
     tmp_path: Path, branch_name: str, tag_name: str
@@ -59,16 +53,16 @@ def git_repository_url(
     def _git_repository_url() -> URL:
         subpath = tmp_path / str(uuid.uuid4())
         subpath.mkdir()
-        _run_cmd(
+        run_command(
             "git init; git config user.name tester; git config user.email tester@test.com",
             cwd=subpath,
         )
-        _run_cmd(
+        run_command(
             f"git checkout -b {branch_name}"
             + "; touch initial_file.txt; git add .; git commit -m 'initial commit';",
             cwd=subpath,
         )
-        _run_cmd(
+        run_command(
             f'git tag -a {tag_name} -m "Release tag at {branch_name}"', cwd=subpath
         )
         return URL(f"file://localhost{subpath}")
@@ -179,7 +173,7 @@ async def test_git_url_watcher_tag_sync(
             )
         )
     ]:
-        _run_cmd(
+        run_command(
             f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
             cwd=repo["url"].replace("file://localhost", ""),
         )
@@ -191,7 +185,7 @@ async def test_git_url_watcher_tag_sync(
     sleep_1_sec_to_make_commit_timestamp_unique()
     # Add change and tag in only one repo
     VALID_TAG_2: Literal["staging_a2ndvalid"] = "staging_a2ndvalid"
-    _run_cmd(
+    run_command(
         f"touch {TESTFILE_NAME}_2; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}_2'; git tag {VALID_TAG_2}",
         cwd=local_path_var,
     )
@@ -213,7 +207,7 @@ async def test_git_url_watcher_tag_sync(
             )
         )
     ]:
-        _run_cmd(
+        run_command(
             f"touch {TESTFILE_NAME}_3; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG_3};",
             cwd=repo["url"].replace("file://localhost", ""),
         )
@@ -238,21 +232,21 @@ async def test_git_url_watcher_find_new_file(
     )
     init_result = await git_watcher.init()
 
-    git_sha: str = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha: str = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
 
     # now add a file in the repo
-    _run_cmd(
+    run_command(
         "touch my_file.txt; git add .; git commit -m 'I added a file';",
         cwd=local_path_var,
     )
     # we should have some changes here now
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert change_results == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     await git_watcher.cleanup()
@@ -272,7 +266,7 @@ async def test_git_url_watcher_find_tag_on_branch_fails_if_tag_not_found(
     # add the a file, commit, and tag
     VALID_TAG: Literal["staging_z1stvalid"] = "staging_z1stvalid"
     TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
-    _run_cmd(
+    run_command(
         f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
@@ -297,7 +291,7 @@ async def test_git_url_watcher_find_tag_on_branch_succeeds(
     # add the a file, commit, and tag
     VALID_TAG: Literal["staging_z1stvalid"] = "staging_z1stvalid"
     TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
-    _run_cmd(
+    run_command(
         f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
@@ -324,7 +318,7 @@ async def test_git_url_watcher_find_tag_on_branch_raises_if_branch_doesnt_exist(
     # add the a file, commit, and tag
     VALID_TAG = "staging_z1stvalid"
     TESTFILE_NAME = "testfile.csv"
-    _run_cmd(
+    run_command(
         f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest - I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
@@ -359,20 +353,20 @@ async def test_git_url_watcher_paths(
         init_result = await git_watcher.init()
 
     # add the file
-    _run_cmd(
+    run_command(
         "touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv';",
         cwd=local_path_var,
     )
     # expect to work now
     init_result = await git_watcher.init()
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
 
     # now add a file in the repo
-    _run_cmd(
+    run_command(
         "touch my_file.txt; git add .; git commit -m 'I added a file';",
         cwd=local_path_var,
     )
@@ -381,14 +375,14 @@ async def test_git_url_watcher_paths(
     assert not change_results
 
     # now modify theonefile.csv
-    _run_cmd(
+    run_command(
         "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv';",
         cwd=local_path_var,
     )
     # now there should be changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert change_results == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
 
     await git_watcher.cleanup()
@@ -419,13 +413,13 @@ async def test_git_url_watcher_tags(
 
     # add the file
     VALID_TAG = "teststaging_z1stvalid"
-    _run_cmd(
+    run_command(
         f"touch theonefile.csv; git add theonefile.csv; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
     # expect to work now
     init_result = await git_watcher.init()
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert init_result == {
         repo_id_var: f"{repo_id_var}:{branch_var}:{VALID_TAG}:{git_sha}"
     }
@@ -434,7 +428,7 @@ async def test_git_url_watcher_tags(
     assert not await git_watcher.check_for_changes()
 
     # now add a file in the repo
-    _run_cmd(
+    run_command(
         "touch my_file.txt; echo 'blahblah' >> my_file.txt; git add my_file.txt; git commit -m 'I added my_file.txt'",
         cwd=local_path_var,
     )
@@ -442,9 +436,8 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
     # now modify theonefile.csv
-
     sleep_1_sec_to_make_commit_timestamp_unique()
-    _run_cmd(
+    run_command(
         "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
         cwd=local_path_var,
     )
@@ -452,7 +445,7 @@ async def test_git_url_watcher_tags(
     change_results = await git_watcher.check_for_changes()
     assert not change_results
     INVALID_TAG: Final[str] = "v3.4.5"
-    _run_cmd(
+    run_command(
         f"git tag {INVALID_TAG}",
         cwd=local_path_var,
     )
@@ -461,14 +454,14 @@ async def test_git_url_watcher_tags(
     assert not change_results
 
     NEW_VALID_TAG: Final[str] = "teststaging_g2ndvalid"
-    _run_cmd(
+    run_command(
         f"git tag {NEW_VALID_TAG}",
         cwd=local_path_var,
     )
     #
     change_results: dict = await git_watcher.check_for_changes()
     # get new sha
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     # now there should be changes
     assert change_results == {
         repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
@@ -477,14 +470,14 @@ async def test_git_url_watcher_tags(
     #
 
     NEW_VALID_TAG_ON_SAME_SHA = "teststaging_a3rdvalid"  # type: ignore
-    _run_cmd(
+    run_command(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
     )
     # now there should be NO changes
     change_results = await git_watcher.check_for_changes()
     # get new sha
-    git_sha: str = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha: str = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert not change_results
 
     # Check that tags are sorted in correct order, by tag time, not alphabetically
@@ -492,7 +485,7 @@ async def test_git_url_watcher_tags(
     NEW_VALID_TAG_ON_SAME_SHA: Literal[
         "teststaging_z4thvalid"
     ] = "teststaging_z4thvalid"
-    _run_cmd(
+    run_command(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
     )
@@ -501,7 +494,7 @@ async def test_git_url_watcher_tags(
     NEW_VALID_TAG_ON_NEW_SHA: Final[
         str
     ] = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
-    _run_cmd(
+    run_command(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=local_path_var,
     )
@@ -540,13 +533,13 @@ async def test_git_url_watcher_tags_capture_group_replacement(
 
     # add the file
     VALID_TAG = "teststaging_z1stvalid"
-    _run_cmd(
+    run_command(
         f"touch theonefile.csv; git add .; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
         cwd=local_path_var,
     )
     # expected to work now
     init_result = await git_watcher.init()
-    git_sha = _run_cmd("git rev-parse --short HEAD", cwd=local_path_var)
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
     assert init_result == {
         repo_id_var: f"{repo_id_var}:{branch_var}:{VALID_TAG}:{git_sha}"
     }
@@ -558,7 +551,7 @@ async def test_git_url_watcher_tags_capture_group_replacement(
         "teststaging_z4thvalid"
     ] = "teststaging_z4thvalid"
     sleep_1_sec_to_make_commit_timestamp_unique()
-    _run_cmd(
+    run_command(
         f"git tag {NEW_VALID_TAG_ON_SAME_SHA};",
         cwd=local_path_var,
     )
@@ -566,7 +559,7 @@ async def test_git_url_watcher_tags_capture_group_replacement(
     NEW_VALID_TAG_ON_NEW_SHA: Literal[
         "teststaging_h5thvalid"
     ] = "teststaging_h5thvalid"  # This name is intentionally "in between" the previous tags when alphabetically sorted
-    _run_cmd(
+    run_command(
         f"echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'; git tag {NEW_VALID_TAG_ON_NEW_SHA}",
         cwd=local_path_var,
     )
@@ -623,7 +616,7 @@ async def test_date_format_to_pydantic():
     timestamp_dt = parse_obj_as(datetime, "2023-03-02T16:27:35Z")
 
     # execute
-    output = await run_cmd_line(["date", "--utc", '+"%Y-%m-%dT%H:%M:%SZ"'])
+    output = await exec_command_async(["date", "--utc", '+"%Y-%m-%dT%H:%M:%SZ"'])
     print(output)
     SIMCORE_VCS_RELEASE_DATE = output.strip('"')
 
