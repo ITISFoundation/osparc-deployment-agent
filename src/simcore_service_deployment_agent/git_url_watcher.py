@@ -402,6 +402,12 @@ async def _clone_and_checkout_repositories(
 
 
 async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool:
+    # assert the branch exists:
+    cmd = ["git", "rev-parse", "--verify", branch]
+    try:
+        data = await exec_command_async(cmd, repo_path)
+    except CmdLineError as e:
+        raise RuntimeError("Branch", branch, " does not exist. Aborting!") from e
     cmd = [
         "git",
         "log",
