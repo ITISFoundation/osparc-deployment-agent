@@ -338,7 +338,8 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     )
     # Note:
     # Alternatively, we could also check the sha of the contianer and assess the container is re-deployed
-    # But this takes time ti take affect and would require sleeps or retr ying polycies. So we dont do it for now. The following call can be used for this purpose:
+    # But this takes time to take affect and would require sleeps or retrying policies. So we dont do it for now. The following call can be used for this purpose in the future:
+
     # rawContainerImageAfter = run_command("docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'")
 
     containerImageSHAAfter = rawContainerImageAfter.split("@")[1]
