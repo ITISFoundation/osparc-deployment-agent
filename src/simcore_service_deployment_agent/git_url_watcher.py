@@ -209,7 +209,7 @@ async def _git_get_latest_matching_tag_capture_groups(
     all_tags = all_tags.split("\n")
     all_tags = [tag for tag in all_tags if tag != ""]
     regexp_compiled = re.compile(regexp)
-    list_tags = re.findall(regexp, "  ".join(all_tags))
+    list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
     if not list_tags:
         return None
     if regexp_compiled.groups == 0:
