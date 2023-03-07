@@ -29,6 +29,11 @@ from simcore_service_deployment_agent.subprocess_utils import (
     run_command,
 )
 
+RETRYING_PARAMETERS: dict[str, Any] = {
+    "stop": stop_after_attempt(10),
+    "wait": wait_fixed(3),
+}
+
 
 def sleep_1_sec_to_make_commit_timestamp_unique():
     # git seems to keep track of commit datetimes only up to seconds, so we need to sleep here to prevent both commits
@@ -624,3 +629,211 @@ async def test_date_format_to_pydantic():
     release_dt = parse_obj_as(datetime, SIMCORE_VCS_RELEASE_DATE)
     assert isinstance(release_dt, datetime)
     assert release_dt.tzinfo == timezone.utc
+
+
+async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes(
+    event_loop: AbstractEventLoop,
+    git_config_tags: dict[str, Any],
+):
+    local_path_var = git_config_tags["main"]["watched_git_repositories"][0][
+        "url"
+    ].replace("file://localhost", "")
+    repo_id_var = git_config_tags["main"]["watched_git_repositories"][0]["id"]
+    branch_var = git_config_tags["main"]["watched_git_repositories"][0]["branch"]
+
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
+
+    # the file does not exist yet
+    with pytest.raises(ConfigurationError):
+        init_result = await git_watcher.init()
+
+    # add the file
+    VALID_TAG = "teststaging_z1stvalid"
+    run_command(
+        f"touch theonefile.csv; git add theonefile.csv; git commit -m 'I added theonefile.csv'; git tag {VALID_TAG};",
+        cwd=local_path_var,
+    )
+    # expect to work now
+    init_result = await git_watcher.init()
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
+    assert init_result == {
+        repo_id_var: f"{repo_id_var}:{branch_var}:{VALID_TAG}:{git_sha}"
+    }
+
+    # there was no changes
+    assert not await git_watcher.check_for_changes()
+
+    # now modify theonefile.csv
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    run_command(
+        "echo 'blahblah' >> theonefile.csv; git add .; git commit -m 'I modified theonefile.csv'",
+        cwd=local_path_var,
+    )
+    # we should have no change here
+    change_results = await git_watcher.check_for_changes()
+    assert not change_results
+    #
+    NEW_VALID_TAG: Final[str] = "teststaging_g2ndvalid"
+    run_command(
+        f"git tag {NEW_VALID_TAG}",
+        cwd=local_path_var,
+    )
+    #
+    change_results: dict = await git_watcher.check_for_changes()
+    # get new sha
+    git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
+    # now there should be changes
+    assert change_results == {
+        repo_id_var: f"{repo_id_var}:{branch_var}:{NEW_VALID_TAG}:{git_sha}"
+    }
+    #
+    #
+    #
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    run_command(
+        f"git tag -d {NEW_VALID_TAG}",
+        cwd=local_path_var,
+    )
+    #
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            change_results: dict = await git_watcher.check_for_changes()
+            assert change_results
+    # get new sha
+    # assert {{VALID_TAG}} of local and remote are identical
+    watched_repo_git_sha = run_command(
+        f"git rev-parse --short {VALID_TAG}", cwd=git_watcher.watched_repos[0].directory
+    )
+    assert watched_repo_git_sha == run_command(
+        f"git rev-parse --short {VALID_TAG}", cwd=local_path_var
+    )
+    # now there should be changes
+    assert change_results == {
+        repo_id_var: f"{repo_id_var}:{branch_var}:{VALID_TAG}:{watched_repo_git_sha}"
+    }
+    #
+    #
+
+    await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes_tag_sync(
+    event_loop: AbstractEventLoop,
+    git_config_two_repos_synced_same_tag_regex: dict[str, Any],
+):
+    branch_var: str = git_config_two_repos_synced_same_tag_regex["main"][
+        "watched_git_repositories"
+    ][0]["branch"]
+    local_path_var: str = git_config_two_repos_synced_same_tag_regex["main"][
+        "watched_git_repositories"
+    ][0]["url"].replace("file://localhost", "")
+
+    assert git_config_two_repos_synced_same_tag_regex["main"]["synced_via_tags"]
+    git_watcher = git_url_watcher.GitUrlWatcher(
+        git_config_two_repos_synced_same_tag_regex
+    )
+    with pytest.raises(ConfigurationError):
+        init_result = await git_watcher.init()
+
+    # add a file, commit, and tag
+    VALID_TAG: Literal["staging_z1stvalid"] = "staging_z1stvalid"
+    TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    _helper_list_watched_repos = [
+        git_config_two_repos_synced_same_tag_regex["main"]["watched_git_repositories"][
+            i
+        ]
+        for i in range(
+            len(
+                git_config_two_repos_synced_same_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]
+    for repo in _helper_list_watched_repos:
+        run_command(
+            f"touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+        assert await git_url_watcher._check_if_tag_on_branch(
+            repo["url"].replace("file://localhost", ""), branch_var, VALID_TAG
+        )
+    init_result = await git_watcher.init()
+    git_shas_upon_init = [
+        run_command(
+            f"git rev-parse --short {VALID_TAG}",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+        for repo in _helper_list_watched_repos
+    ]
+    assert len(git_shas_upon_init) == len(_helper_list_watched_repos)
+    assert not await git_watcher.check_for_changes()
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    # Add change and tag in all repos
+    NEW_VALID_TAG: Literal["staging_a2ndvalid"] = "staging_a2ndvalid"
+    TESTFILE_NAME_2: Literal["testfile2.csv"] = "testfile2.csv"
+    for repo in [
+        git_config_two_repos_synced_same_tag_regex["main"]["watched_git_repositories"][
+            i
+        ]
+        for i in range(
+            len(
+                git_config_two_repos_synced_same_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]:
+        run_command(
+            f"touch {TESTFILE_NAME_2}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME_2}'; git tag {NEW_VALID_TAG};",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+        assert await git_url_watcher._check_if_tag_on_branch(
+            repo["url"].replace("file://localhost", ""), branch_var, NEW_VALID_TAG
+        )
+    change_results = await git_watcher.check_for_changes()
+    assert change_results
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    # Remove tag from one repo
+    run_command(
+        f"git tag -d {NEW_VALID_TAG}",
+        cwd=local_path_var,
+    )
+    # There should be no changes / no deployment as tags dont match
+
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            change_results: dict = await git_watcher.check_for_changes()
+            assert not change_results
+
+    # Remove tag everywhere
+    for repo in [
+        git_config_two_repos_synced_same_tag_regex["main"]["watched_git_repositories"][
+            i
+        ]
+        for i in range(
+            len(
+                git_config_two_repos_synced_same_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]:
+        run_command(
+            f"git tag -d {NEW_VALID_TAG} | true;",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+    # We should have changes and effectively roll back
+    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+        with attempt:
+            change_results: dict = await git_watcher.check_for_changes()
+            assert change_results
+    # assert that we checked out the right code
+    for i in range(len(git_shas_upon_init)):
+        current_sha = git_shas_upon_init[i]
+        assert current_sha == run_command(
+            f"git rev-parse --short HEAD", cwd=git_watcher.watched_repos[i].directory
+        )
+
+    await git_watcher.cleanup()
