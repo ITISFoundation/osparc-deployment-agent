@@ -833,7 +833,7 @@ async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes_tag_sync(
     for i in range(len(git_shas_upon_init)):
         current_sha = git_shas_upon_init[i]
         assert current_sha == run_command(
-            f"git rev-parse --short HEAD", cwd=git_watcher.watched_repos[i].directory
+            "git rev-parse --short HEAD", cwd=git_watcher.watched_repos[i].directory
         )
 
     await git_watcher.cleanup()
