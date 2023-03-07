@@ -296,14 +296,14 @@ async def _git_get_logs(
 
 
 async def _git_get_logs_tags(
-    directory: str, tag1: str, tag2: str
+    directory: str, tag1: Optional[str], tag2: str
 ) -> Optional[str]:  # pylint: disable=unsubscriptable-object
     cmd = [
         "git",
         "--no-pager",
         "log",
         "--oneline",
-        f"{tag1}..{tag2 if tag1 else tag2}",
+        f"{tag1 if tag1 else tag2}..{tag2}",
     ]
     logs = await exec_command_async(cmd, f"{directory}")
     return logs
@@ -465,7 +465,9 @@ async def _update_repo_using_tags(repo: GitRepo) -> Optional[RepoStatus]:
 
     # get modifications
     logged_changes = await _git_get_logs_tags(
-        repo.directory, list_current_tags[0], latest_tag
+        repo.directory,
+        list_current_tags[0] if len(list_current_tags) > 0 else None,
+        latest_tag,
     )
     log.debug("%s tag changes: %s", latest_tag, logged_changes)
 
