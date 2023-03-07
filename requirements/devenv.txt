@@ -15,7 +15,6 @@ pre-commit
 
 # formatter
 # NOTE: pre-commit installs also these in a different virtualenv. SEE .pre-commit-config.yaml
-# NOTE: currently cannot hard-code versions since isort's versions has uncompromising constraints in webserver
 black
 isort
 

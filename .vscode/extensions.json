@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "eamodio.gitlens",
+    "exiasr.hadolint",
+    "ms-python.python",
+    "samuelcolvin.jinjahtml",
+    "timonwong.shellcheck",
+    "usernamehw.errorlens"
+  ]
+}

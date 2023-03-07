@@ -1,9 +1,8 @@
-# pylint: disable=bare-except
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
-# pylint: disable=unused-import
 # pylint: disable=unused-variable
-# pylint: disable=wildcard-import
+# pylint: disable=too-many-arguments
+# pylint: disable=protected-access
 
 import asyncio
 from collections.abc import Awaitable, Iterator
@@ -130,7 +129,7 @@ async def test_wait_for_dependencies_no_portainer_up(client: TestClient):
 async def test_filter_services(
     valid_config: dict[str, Any], valid_docker_stack_file: Path
 ):
-    stack_cfg = auto_deploy_task.filter_services(
+    stack_cfg = auto_deploy_task._filter_services(
         excluded_services=valid_config["main"]["docker_stack_recipe"][
             "excluded_services"
         ],
@@ -185,7 +184,7 @@ async def test_add_parameters(
 async def test_setup_task(
     mocked_docker_registries_watcher,
     mocked_git_url_watcher,
-    mocked_cmd_utils,
+    mocked_subprocess_utils,
     mocked_stack_file,
     portainer_service_mock: aioresponses,
     mattermost_service_mock: aioresponses,
