@@ -188,10 +188,12 @@ async def _git_pull(directory: str):
     await exec_command_async(cmd, f"{directory}")
 
 
-async def _git_fetch(directory: str):
+async def _git_fetch(directory: str) -> Optional[str]:
     log.debug("Fetching git repo in %s", f"{directory=}")
-    cmd = ["git", "fetch", "--prune", "--tags"]
+    cmd = ["git", "fetch", "--prune", "--tags", "--prune-tags"]
     await exec_command_async(cmd, f"{directory}")
+    # via https://stackoverflow.com/questions/1841341/remove-local-git-tags-that-are-no-longer-on-the-remote-repository/16311126#comment91809130_16311126
+    return await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_get_latest_matching_tag_capture_groups(
