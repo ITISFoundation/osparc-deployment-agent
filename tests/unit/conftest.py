@@ -7,7 +7,6 @@ import re
 from collections.abc import Iterator
 from random import randint
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from aioresponses import aioresponses
@@ -173,8 +172,7 @@ def portainer_service_mock(
 
 
 @pytest.fixture
-def mocked_cmd_utils(mocker: MockerFixture) -> MagicMock:
-    mock_run_cmd_line = mocker.patch.object(
-        auto_deploy_task, "run_cmd_line_unsafe", return_value="", autospec=True
+def mocked_subprocess_utils(mocker: MockerFixture) -> None:
+    mocker.patch.object(
+        auto_deploy_task, "shell_command_async", return_value="", autospec=True
     )
-    return mock_run_cmd_line

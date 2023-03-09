@@ -17,6 +17,7 @@ from yarl import URL
 
 from simcore_service_deployment_agent import portainer
 from simcore_service_deployment_agent.exceptions import ConfigurationError
+from simcore_service_deployment_agent.models import ComposeSpecsDict
 
 
 @pytest.fixture
@@ -84,7 +85,7 @@ async def test_stacks(
 ):
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
-        stacks_list = await portainer.get_stacks_list(
+        stacks_list: list[dict] = await portainer.get_stacks_list(
             origin, aiohttp_client_session, bearer_code=bearer_code
         )
         assert len(stacks_list) == len(portainer_stacks)
@@ -117,11 +118,11 @@ async def test_create_stack(
     aiohttp_client_session: ClientSession,
     bearer_code: str,
     portainer_stacks: dict[str, Any],
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
     faked_stack_name: str,
     faker: Faker,
 ):
-    swarm_id = 1
+    swarm_id = f"{faker.pyint(min_value=1)}"
     stack_name = faked_stack_name
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
@@ -141,7 +142,7 @@ async def test_create_stack(
             origin,
             aiohttp_client_session,
             bearer_code=bearer_code,
-            stack_id=f"{faker.pyint(min_value=1)}",
+            stack_id=faker.pyint(min_value=1),
             endpoint_id=endpoint,
             stack_cfg=valid_docker_stack,
         )
@@ -154,10 +155,11 @@ async def test_create_stack_fails_when_name_contains_uppercase_chars(
     aiohttp_client_session: ClientSession,
     bearer_code: str,
     portainer_stacks: dict[str, Any],
-    valid_docker_stack: dict[str, Any],
+    valid_docker_stack: ComposeSpecsDict,
+    faker: Faker,
 ):
-    swarm_id = 1
-    stack_name = "myAmazingstackname"
+    swarm_id = f"{faker.pyint(min_value=1)}"
+    stack_name = faker.name() + "A"
     for portainer_cfg in valid_config["main"]["portainer"]:
         origin = URL(portainer_cfg["url"])
         endpoint = 1

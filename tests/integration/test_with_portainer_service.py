@@ -1,9 +1,11 @@
 # pylint: disable=redefined-outer-name
 # pylint: disable=unused-argument
+# pylint: disable=unused-variable
+# pylint: disable=too-many-arguments
+
 
 import asyncio
 import os
-import subprocess
 from collections.abc import AsyncIterator, Generator
 from pathlib import Path
 from typing import Any, Callable
@@ -17,6 +19,7 @@ from yarl import URL
 import docker
 from simcore_service_deployment_agent import exceptions, portainer
 from simcore_service_deployment_agent.models import ComposeSpecsDict
+from simcore_service_deployment_agent.subprocess_utils import run_command
 
 pytest_plugins: list[str] = [
     "pytest_simcore.docker_registry",
@@ -26,7 +29,7 @@ pytest_plugins: list[str] = [
     "fixtures.fixture_portainer",
 ]
 
-RETRYING_PARAMETERS: dict[str, Any] = {
+_RETRYING_PARAMETERS: dict[str, Any] = {
     "stop": stop_after_attempt(10),
     "wait": wait_fixed(3),
 }
@@ -57,14 +60,6 @@ def clean_stack(stack_name: str) -> Generator[None, None, None]:
     os.system(
         "docker stack rm " + stack_name
     )  # Assuring a clean state by deleting any remnants
-
-
-def _run_cmd(cmd: str, **kwargs) -> str:
-    result = subprocess.run(
-        cmd, capture_output=True, check=True, shell=True, encoding="utf-8", **kwargs
-    )
-    assert result.returncode == 0
-    return result.stdout.rstrip() if result.stdout else ""
 
 
 @pytest.fixture
@@ -140,7 +135,7 @@ async def test_portainer_delete_works(
     )
 
     # Wait for the stack to be present
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.post_new_stack(
                 base_url=portainer_url,
@@ -160,9 +155,11 @@ async def test_portainer_delete_works(
     )
     assert stack_id
     #
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
-            returnOfCmdCommand = _run_cmd(f"docker stack ls | grep {stack_name} | cat")
+            returnOfCmdCommand = run_command(
+                f"docker stack ls | grep {stack_name} | cat"
+            )
             assert returnOfCmdCommand != ""
     await portainer.delete_stack(
         base_url=portainer_url,
@@ -173,9 +170,9 @@ async def test_portainer_delete_works(
     )
     # Check that the swarm is actually gone
     # Wait for the stack to be present
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
-            assert _run_cmd(f"docker stack ls | grep {stack_name} | cat") == ""
+            assert run_command(f"docker stack ls | grep {stack_name} | cat") == ""
     # Check that deleting a non-existant stack fails
     with pytest.raises(exceptions.AutoDeployAgentException):
         await portainer.delete_stack(
@@ -219,7 +216,7 @@ async def test_portainer_test_create_stack(
         stack_cfg=valid_docker_stack,
     )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -281,7 +278,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         portainer_endpoint_id,
     )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.post_new_stack(
                 base_url=portainer_url,
@@ -293,7 +290,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
                 stack_cfg=valid_docker_stack_with_local_registry,
             )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -321,7 +318,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
     )
     assert stack_id
     # Get sha of currently running container image
-    rawContainerImageBefore = _run_cmd(
+    rawContainerImageBefore = run_command(
         "docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'"
     )
     # The result of the above command looks like this: "itisfoundation/webserver:master-github-latest@sha256:ef0a6808167b502ad09ffab707c0fe45923a3f6053159060ddc82415dc207dfa"
@@ -336,13 +333,14 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         stack_cfg=valid_docker_stack_with_local_registry,
     )
     # Assert that the container image sha changed, via docker service labels
-    rawContainerImageAfter = _run_cmd(
+    rawContainerImageAfter = run_command(
         'docker inspect $(docker service ls | grep sleeper | cut -d " " -f1) | jq ".[0].Spec.TaskTemplate.ContainerSpec.Image"'
     )
     # Note:
     # Alternatively, we could also check the sha of the contianer and assess the container is re-deployed
-    # But this takes time ti take affect and would require sleeps or retr ying polycies. So we dont do it for now. The following call can be used for this purpose:
-    # rawContainerImageAfter = _run_cmd("docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'")
+    # But this takes time to take affect and would require sleeps or retrying policies. So we dont do it for now. The following call can be used for this purpose in the future:
+
+    # rawContainerImageAfter = run_command("docker inspect $(docker service ps $(docker service ls | grep sleeper | cut -d ' ' -f1) | grep Running | cut -d ' ' -f1) | jq '.[0].Spec.ContainerSpec.Image'")
 
     containerImageSHAAfter = rawContainerImageAfter.split("@")[1]
     assert containerImageSHABefore != containerImageSHAAfter
@@ -389,7 +387,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         stack_cfg=valid_docker_stack,
     )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
