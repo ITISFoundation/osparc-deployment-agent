@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 @pytest.fixture(scope="session")
 def openapi_path(api_specs_dir: Path) -> Path:
     specs_path = api_specs_dir / "oas3/v0/openapi.yaml"
-    assert specs_path.exits()
+    assert specs_path.exists()
     return specs_path
 
 
