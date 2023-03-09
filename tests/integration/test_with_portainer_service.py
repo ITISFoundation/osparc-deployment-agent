@@ -29,7 +29,7 @@ pytest_plugins: list[str] = [
     "fixtures.fixture_portainer",
 ]
 
-RETRYING_PARAMETERS: dict[str, Any] = {
+_RETRYING_PARAMETERS: dict[str, Any] = {
     "stop": stop_after_attempt(10),
     "wait": wait_fixed(3),
 }
@@ -135,7 +135,7 @@ async def test_portainer_delete_works(
     )
 
     # Wait for the stack to be present
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.post_new_stack(
                 base_url=portainer_url,
@@ -155,7 +155,7 @@ async def test_portainer_delete_works(
     )
     assert stack_id
     #
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             returnOfCmdCommand = run_command(
                 f"docker stack ls | grep {stack_name} | cat"
@@ -170,7 +170,7 @@ async def test_portainer_delete_works(
     )
     # Check that the swarm is actually gone
     # Wait for the stack to be present
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             assert run_command(f"docker stack ls | grep {stack_name} | cat") == ""
     # Check that deleting a non-existant stack fails
@@ -216,7 +216,7 @@ async def test_portainer_test_create_stack(
         stack_cfg=valid_docker_stack,
     )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -278,7 +278,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
         portainer_endpoint_id,
     )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.post_new_stack(
                 base_url=portainer_url,
@@ -290,7 +290,7 @@ async def test_portainer_redeploys_when_sha_of_tag_in_docker_registry_changed(
                 stack_cfg=valid_docker_stack_with_local_registry,
             )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,
@@ -387,7 +387,7 @@ async def test_portainer_raises_when_stack_already_present_and_can_delete(
         stack_cfg=valid_docker_stack,
     )
 
-    async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
+    async for attempt in AsyncRetrying(**_RETRYING_PARAMETERS):
         with attempt:
             await portainer.get_current_stack_id(
                 base_url=portainer_url,

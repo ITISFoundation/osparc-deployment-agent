@@ -9,6 +9,7 @@ app_schema = T.Dict(
         "log_level": T.Enum(
             "DEBUG", "WARNING", "INFO", "ERROR", "CRITICAL", "FATAL", "NOTSET"
         ),
+        "synced_via_tags": T.ToBool(),
         "watched_git_repositories": T.List(
             T.Dict(
                 {
