@@ -145,6 +145,38 @@ def git_config_two_repos_synced_same_tag_regex(
     return cfg
 
 
+@pytest.fixture()
+def git_config_two_repos_synced_capture_group_tag_regex(
+    branch_name: str, git_repository_url: Callable[[], str]
+) -> dict[str, Any]:
+    cfg = {
+        "main": {
+            "synced_via_tags": True,
+            "watched_git_repositories": [
+                {
+                    "id": "test-repo-" + str(0),
+                    "url": f"{git_repository_url()}",
+                    "branch": branch_name,
+                    "tags": "^staging_.*$",
+                    "paths": ["testfile.csv"],
+                    "username": "",
+                    "password": "",
+                },
+                {
+                    "id": "test-repo-" + str(1),
+                    "url": f"{git_repository_url()}",
+                    "branch": branch_name,
+                    "tags": "^test(staging_.*)$",
+                    "paths": ["testfile.csv"],
+                    "username": "",
+                    "password": "",
+                },
+            ],
+        }
+    }
+    return cfg
+
+
 async def test_git_url_watcher_tag_sync(
     event_loop, git_config_two_repos_synced_same_tag_regex: dict[str, Any]
 ):
@@ -837,9 +869,157 @@ async def test_git_url_watcher_cannot_init_when_no_commit_on_remote(
     event_loop: AbstractEventLoop,
     git_config_tags: dict[str, Any],
 ):
-    git_watcher = git_url_watcher.GitUrlWatcher(
-        git_config_tags
-    )
+    git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
     # Cannot init if no file present on remote
     with pytest.raises(ConfigurationError):
         init_result = await git_watcher.init()
+
+
+async def test_git_url_watcher_tag_sync_with_multiple_tags_per_commit(
+    event_loop: AbstractEventLoop,
+    git_config_two_repos_synced_same_tag_regex: dict[str, Any],
+):
+    assert git_config_two_repos_synced_same_tag_regex["main"]["synced_via_tags"]
+    git_watcher = git_url_watcher.GitUrlWatcher(
+        git_config_two_repos_synced_same_tag_regex
+    )
+
+    # add a file, commit, and tag
+    VALID_TAG: Literal["staging_z1stvalid"] = "staging_m1stvalid"
+    TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    _helper_list_watched_repos = [
+        git_config_two_repos_synced_same_tag_regex["main"]["watched_git_repositories"][
+            i
+        ]
+        for i in range(
+            len(
+                git_config_two_repos_synced_same_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]
+    for repo in _helper_list_watched_repos:
+        run_command(
+            f"touch initfile; git add .; git commit -m 'init'; touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+    init_result = await git_watcher.init()
+    git_shas_upon_init = [
+        run_command(
+            f"git rev-parse --short {VALID_TAG}",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+        for repo in _helper_list_watched_repos
+    ]
+    assert len(git_shas_upon_init) == len(_helper_list_watched_repos)
+    assert not await git_watcher.check_for_changes()
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    # Add more commits / tags
+    for repo in _helper_list_watched_repos:
+        run_command(
+            f" touch {TESTFILE_NAME}_2; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG}_2;",
+            cwd=repo["url"].replace("file://localhost", ""),
+        )
+    # If we were to check for changes here, there would be some. Now we add more tags to the same commits on one repo.
+    # Add 2 tags, alphabetical before and after the first one, without change to only one repo
+    NEW_VALID_TAG: Literal[
+        "staging_a2ndvalid"
+    ] = "staging_a2ndvalid"  # alphabetically before already present tag
+    repo1 = git_config_two_repos_synced_same_tag_regex["main"][
+        "watched_git_repositories"
+    ][0]
+    run_command(
+        f"git tag {NEW_VALID_TAG};",
+        cwd=repo1["url"].replace("file://localhost", ""),
+    )
+    NEW_VALID_TAG_2: Literal[
+        "staging_z3rdvalid"
+    ] = "staging_z3rdvalid"  # alphabetically after already present tag
+    run_command(
+        f"git tag {NEW_VALID_TAG_2};",
+        cwd=repo1["url"].replace("file://localhost", ""),
+    )
+
+    change_results = await git_watcher.check_for_changes()
+    assert change_results  # We should see changes here.
+
+    await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_tag_sync_with_multiple_tags_per_commit_with_capture_group(
+    event_loop: AbstractEventLoop,
+    git_config_two_repos_synced_capture_group_tag_regex: dict[str, Any],
+):
+    assert git_config_two_repos_synced_capture_group_tag_regex["main"][
+        "synced_via_tags"
+    ]
+    git_watcher = git_url_watcher.GitUrlWatcher(
+        git_config_two_repos_synced_capture_group_tag_regex
+    )
+
+    # add a file, commit, and tag
+    VALID_TAG: Literal["staging_z1stvalid"] = "staging_m1stvalid"
+    TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    _helper_list_watched_repos = [
+        git_config_two_repos_synced_capture_group_tag_regex["main"][
+            "watched_git_repositories"
+        ][i]
+        for i in range(
+            len(
+                git_config_two_repos_synced_capture_group_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]
+    repo = _helper_list_watched_repos[0]
+    run_command(
+        f"touch initfile; git add .; git commit -m 'init'; touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    repo = _helper_list_watched_repos[1]
+    run_command(
+        f"touch initfile; git add .; git commit -m 'init'; touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag test{VALID_TAG};",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    init_result = await git_watcher.init()
+    assert not await git_watcher.check_for_changes()
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    # Add more commits / tags
+    repo = _helper_list_watched_repos[0]
+    run_command(
+        f" touch {TESTFILE_NAME}_2; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG}_2;",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    repo = _helper_list_watched_repos[1]
+    run_command(
+        f" touch {TESTFILE_NAME}_2; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag test{VALID_TAG}_2;",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    # If we were to check for changes here, there would be some. Now we add more tags to the same commits on one repo.
+    # Add 2 tags, alphabetical before and after the first one, without change to only one repo
+    NEW_VALID_TAG: Literal[
+        "staging_a2ndvalid"
+    ] = "staging_a2ndvalid"  # alphabetically before already present tag
+    repo1 = git_config_two_repos_synced_capture_group_tag_regex["main"][
+        "watched_git_repositories"
+    ][0]
+    run_command(
+        f"git tag {NEW_VALID_TAG};",
+        cwd=repo1["url"].replace("file://localhost", ""),
+    )
+    NEW_VALID_TAG_2: Literal[
+        "staging_z3rdvalid"
+    ] = "staging_z3rdvalid"  # alphabetically after already present tag
+    run_command(
+        f"git tag {NEW_VALID_TAG_2};",
+        cwd=repo1["url"].replace("file://localhost", ""),
+    )
+
+    change_results = await git_watcher.check_for_changes()
+    assert change_results  # We should see changes here.
+
+    await git_watcher.cleanup()
