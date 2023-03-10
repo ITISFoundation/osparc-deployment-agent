@@ -159,8 +159,7 @@ async def test_git_url_watcher_tag_sync(
     git_watcher = git_url_watcher.GitUrlWatcher(
         git_config_two_repos_synced_same_tag_regex
     )
-    with pytest.raises(ConfigurationError):
-        init_result = await git_watcher.init()
+    #
 
     # add a file, commit, and tag
     VALID_TAG: Literal["staging_z1stvalid"] = "staging_z1stvalid"
@@ -354,8 +353,7 @@ async def test_git_url_watcher_paths(
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_paths)
 
     # the file does not exist yet
-    with pytest.raises(ConfigurationError):
-        init_result = await git_watcher.init()
+    #
 
     # add the file
     run_command(
@@ -413,8 +411,7 @@ async def test_git_url_watcher_tags(
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
 
     # the file does not exist yet
-    with pytest.raises(ConfigurationError):
-        init_result = await git_watcher.init()
+    #
 
     # add the file
     VALID_TAG = "teststaging_z1stvalid"
@@ -533,8 +530,7 @@ async def test_git_url_watcher_tags_capture_group_replacement(
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
 
     # the file does not exist yet
-    with pytest.raises(ConfigurationError):
-        init_result = await git_watcher.init()
+    #
 
     # add the file
     VALID_TAG = "teststaging_z1stvalid"
@@ -644,8 +640,7 @@ async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes(
     git_watcher = git_url_watcher.GitUrlWatcher(git_config_tags)
 
     # the file does not exist yet
-    with pytest.raises(ConfigurationError):
-        init_result = await git_watcher.init()
+    #
 
     # add the file
     VALID_TAG = "teststaging_z1stvalid"
@@ -732,8 +727,7 @@ async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes_tag_sync(
     git_watcher = git_url_watcher.GitUrlWatcher(
         git_config_two_repos_synced_same_tag_regex
     )
-    with pytest.raises(ConfigurationError):
-        init_result = await git_watcher.init()
+    #
 
     # add a file, commit, and tag
     VALID_TAG: Literal["staging_z1stvalid"] = "staging_z1stvalid"
@@ -837,3 +831,15 @@ async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes_tag_sync(
         )
 
     await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_cannot_init_when_no_commit_on_remote(
+    event_loop: AbstractEventLoop,
+    git_config_tags: dict[str, Any],
+):
+    git_watcher = git_url_watcher.GitUrlWatcher(
+        git_config_tags
+    )
+    # Cannot init if no file present on remote
+    with pytest.raises(ConfigurationError):
+        init_result = await git_watcher.init()
