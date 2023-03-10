@@ -528,6 +528,34 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[RepoStatus]:
     )
 
 
+async def _git_sha_of_tag(repo_path: str, tag: str) -> str:
+    cmd = ["git", "rev-list", "-n", "1", tag]
+    try:
+        data = await exec_command_async(cmd, repo_path)
+    except CmdLineError as e:
+        raise RuntimeError(
+            " ".join(cmd), "The command was invalid and the cmd call failed."
+        ) from e
+    if not data:
+        raise RuntimeError(
+            "Tag", tag, " does not exist on repo", repo_path, ". Aborting!"
+        )
+    return data.strip()
+
+
+async def _get_tags_associated_to_sha(repo_path: str, sha: str) -> list[str]:
+    cmd = ["git", "tag", "--points-at", sha]
+    try:
+        data = await exec_command_async(cmd, repo_path)
+    except CmdLineError as e:
+        raise RuntimeError(
+            " ".join(cmd), "The command was invalid and the cmd call failed."
+        ) from e
+    if not data:
+        return []
+    return data.split()
+
+
 async def _check_for_changes_in_repositories(
     repos: list[GitRepo],
     synced_via_tags: bool = False,
@@ -539,34 +567,48 @@ async def _check_for_changes_in_repositories(
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
-    latest_tags = [
-        {
-            repo.repo_id: await _git_get_latest_matching_tag_capture_groups(
+    each_repo_latest_tags: List(
+        Tuple(str, str)
+    ) = []  # A list of tuples of (repo_id, list_of_all_tags_of_latest_tagged_commit)
+    for repo in repos:
+        any_matching_tag = (
+            await _git_get_latest_matching_tag(  # This returns only one tag
                 repo.directory, repo.tags
             )
-        }
-        for repo in repos
-    ]
-    unique_latest_tags = list(
-        {
-            list(single_tag.values())[0][0] if list(single_tag.values())[0] else None
-            for single_tag in latest_tags
-            if single_tag.values()
-        }
-    )
+        )
+        if any_matching_tag:
+            sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
+            all_tags_of_sha = await _get_tags_associated_to_sha(
+                repo.directory, sha_of_tag
+            )
+            each_repo_latest_tags.append((repo.repo_id, all_tags_of_sha))
+    #
+    all_unique_latest_tags_of_all_repos_combined = {
+        j for i in each_repo_latest_tags for j in i[1]
+    }
+    tag_present_in_all_repos = False
+    for tag in all_unique_latest_tags_of_all_repos_combined:
+        this_tag_present_in_all_repos = (
+            sum(1 for i in each_repo_latest_tags if tag in ",".join(i[1]))
+            - sum(1 for i in each_repo_latest_tags)
+            == 0
+        )
+        if this_tag_present_in_all_repos:
+            tag_present_in_all_repos = True
+            break
     if synced_via_tags:
-        if len(unique_latest_tags) > 1:
+        if not tag_present_in_all_repos:
             log.info("Repos did not match in their latest tag's first capture group!")
             log.info(
                 "Latest (matching) tags per repo, displaying first regex capture group:"
             )
-            for repo in latest_tags:
-                log.info("%s: %s", list(repo.keys())[0], list(repo.values())[0][0])
+            for repo in each_repo_latest_tags:
+                log.info("%s: %s", repo[0], repo[1])
             log.info("Will only update those repos that have no tag-regex specified!")
-        elif len(unique_latest_tags) == 1:
+        else:
             log.info("All synced repos have the same latest tag! Deploying....")
     for repo in repos:
-        if synced_via_tags and len(unique_latest_tags) > 1 and repo.tags:
+        if synced_via_tags and not tag_present_in_all_repos and repo.tags:
             continue
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
