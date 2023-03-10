@@ -33,6 +33,7 @@ main:
     workdir: simcore-github-repo # defines where the files above shall be copied. Can be defined as temp also to copy them in a temporary directory
     command: cp .env-devel .env && docker-compose --file services/docker-compose.yml config > stack.yml
     stack_file: stack.yml # the output file of the command above, or just the file to use
+    files: []
     excluded_services: [app]
     excluded_volumes: [some_volume]
     additional_parameters:
