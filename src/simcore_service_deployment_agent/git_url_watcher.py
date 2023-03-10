@@ -188,10 +188,35 @@ async def _git_pull(directory: str):
     await exec_command_async(cmd, f"{directory}")
 
 
-async def _git_fetch(directory: str):
+async def _git_fetch(directory: str) -> Optional[str]:
     log.debug("Fetching git repo in %s", f"{directory=}")
-    cmd = ["git", "fetch", "--prune", "--tags"]
-    await exec_command_async(cmd, f"{directory}")
+    cmd = ["git", "fetch", "--prune", "--tags", "--prune-tags"]
+    # via https://stackoverflow.com/questions/1841341/remove-local-git-tags-that-are-no-longer-on-the-remote-repository/16311126#comment91809130_16311126
+    return await exec_command_async(cmd, f"{directory}")
+
+
+async def _git_get_latest_matching_tag_capture_groups(
+    directory: str, regexp: str
+) -> Optional[tuple[str]]:
+    cmd = [
+        "git",
+        "tag",
+        "--list",
+        "--sort=creatordate",  # Sorted ascending by date
+    ]
+    all_tags = await exec_command_async(cmd, f"{directory}")
+    if all_tags == None:
+        return None
+    all_tags = all_tags.split("\n")
+    all_tags = [tag for tag in all_tags if tag != ""]
+    regexp_compiled = re.compile(regexp)
+    list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
+    if not list_tags:
+        return None
+    if regexp_compiled.groups == 0:
+        return (list_tags[-1],)
+    re_search_result = re.search(regexp, list_tags[-1])
+    return re_search_result.groups() if re_search_result else None
 
 
 async def _git_get_latest_matching_tag(
@@ -272,14 +297,14 @@ async def _git_get_logs(
 
 
 async def _git_get_logs_tags(
-    directory: str, tag1: str, tag2: str
-) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+    directory: str, tag1: Optional[str], tag2: str
+) -> Optional[str]:
     cmd = [
         "git",
         "--no-pager",
         "log",
         "--oneline",
-        f"{tag1}..{tag2 if tag1 else tag2}",
+        f"{tag1 if tag1 else tag2}..{tag2}",
     ]
     logs = await exec_command_async(cmd, f"{directory}")
     return logs
@@ -378,6 +403,12 @@ async def _clone_and_checkout_repositories(
 
 
 async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool:
+    # assert the branch exists:
+    cmd = ["git", "rev-parse", "--verify", branch]
+    try:
+        data = await exec_command_async(cmd, repo_path)
+    except CmdLineError as e:
+        raise RuntimeError("Branch", branch, " does not exist. Aborting!") from e
     cmd = [
         "git",
         "log",
@@ -396,13 +427,10 @@ async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool
     for line in data.split("\n"):
         if branch in line and tag in line:
             return True
-    found_branch_in_data = sum(1 for i in data.split("\n") if branch in i) > 0
     found_tag_in_data = sum(1 for i in data.split("\n") if tag in i) > 0
 
-    if not found_branch_in_data:
-        raise RuntimeError("Branch does not exist. Aborting!")
     if not found_tag_in_data:
-        raise RuntimeError("Tag does not exist. Aborting!")
+        raise RuntimeError("Tag", tag, " does not exist. Aborting!")
     return False
 
 
@@ -438,7 +466,9 @@ async def _update_repo_using_tags(repo: GitRepo) -> Optional[RepoStatus]:
 
     # get modifications
     logged_changes = await _git_get_logs_tags(
-        repo.directory, list_current_tags[0], latest_tag
+        repo.directory,
+        list_current_tags[0] if len(list_current_tags) > 0 else None,
+        latest_tag,
     )
     log.debug("%s tag changes: %s", latest_tag, logged_changes)
 
@@ -496,6 +526,7 @@ async def _update_repo_using_branch_head(repo: GitRepo) -> Optional[RepoStatus]:
 
 async def _check_for_changes_in_repositories(
     repos: list[GitRepo],
+    synced_via_tags: bool = False,
 ) -> dict[RepoID, RepoStatus]:
     """
     raises ConfigurationError
@@ -504,7 +535,35 @@ async def _check_for_changes_in_repositories(
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
-
+    latest_tags = [
+        {
+            repo.repo_id: await _git_get_latest_matching_tag_capture_groups(
+                repo.directory, repo.tags
+            )
+        }
+        for repo in repos
+    ]
+    unique_latest_tags = list(
+        {
+            list(single_tag.values())[0][0] if list(single_tag.values())[0] else None
+            for single_tag in latest_tags
+            if single_tag.values()
+        }
+    )
+    if synced_via_tags:
+        if len(unique_latest_tags) > 1:
+            log.info("Repos did not match in their latest tag's first capture group!")
+            log.info(
+                "Latest (matching) tags per repo, displaying first regex capture group:"
+            )
+            for repo in latest_tags:
+                log.info("%s: %s", list(repo.keys())[0], list(repo.values())[0][0])
+            log.info("Will only update those repos that have no tag-regex specified!")
+        elif len(unique_latest_tags) == 1:
+            log.info("All synced repos have the same latest tag! Deploying....")
+    for repo in repos:
+        if synced_via_tags and len(unique_latest_tags) > 1 and repo.tags:
+            continue
         log.debug("checking repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
 
@@ -523,7 +582,6 @@ async def _check_for_changes_in_repositories(
                 latest_matching_tag,
             ):
                 continue
-
         # changes in repo
         repo_changes: Optional[RepoStatus] = (
             await _update_repo_using_tags(repo)
@@ -536,7 +594,7 @@ async def _check_for_changes_in_repositories(
     return changes
 
 
-async def _delete_repositories(repos: list[GitRepo]):
+async def _delete_repositories(repos: list[GitRepo]) -> None:
     for repo in repos:
         await remove_directory(Path(repo.directory), ignore_errors=True)
 
@@ -549,7 +607,7 @@ async def _delete_repositories(repos: list[GitRepo]):
 class GitUrlWatcher(SubTask):
     def __init__(self, app_config: dict[str, Any]):
         super().__init__(name="git repo watcher")
-
+        self.synced_via_tags = app_config["main"]["synced_via_tags"]
         self.watched_repos: list[GitRepo] = [
             GitRepo(
                 repo_id=config["id"],
@@ -586,7 +644,7 @@ class GitUrlWatcher(SubTask):
     async def check_for_changes(self) -> dict[RepoID, StatusStr]:
         # SubTask Override
         repos_changes = await _check_for_changes_in_repositories(
-            repos=self.watched_repos
+            repos=self.watched_repos, synced_via_tags=self.synced_via_tags
         )
         changes = {
             repo_id: repo_status.to_string()
