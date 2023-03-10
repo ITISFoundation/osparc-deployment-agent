@@ -379,7 +379,11 @@ async def _clone_and_checkout_repositories(
         # This subsequent call will checkout the files at the given revision
         await _checkout_repository(repo, latest_tag)
 
-        log.info("repository %s checked out on %s", repo, latest_tag)
+        log.info(
+            "repository %s checked out on %s",
+            repo,
+            latest_tag if latest_tag else "HEAD",
+        )
 
         # If no tag: fetch head
         # if tag: sha of tag
