@@ -369,13 +369,7 @@ async def _clone_and_checkout_repositories(
             raise ConfigurationError(
                 msg=f"no tags found in {repo.repo_url}:{repo.branch} that follows defined tags pattern {repo.tags}: {latest_tag}"
             )
-        # This next call was introcued to fix a bug. It is necessary since calls to *_checkout_repository*
-        # may only check out files at certain tags while HEAD stays at origin/master.
-        # If HEAD!=latest_tag, subsequent calls to *_git_get_current_matching_tag*
-        # will return an empty list since HEAD==origin/master is not tagged. This will make the deployment agent fail.
-        # I'd call this a workaround and a design deficiency (DK Nov2022)
-        # See github.com/ITISFoundation/osparc-deployment-agent/issues/118
-        await _git_checkout_files(repo.directory, [], latest_tag)
+
         # This subsequent call will checkout the files at the given revision
         await _checkout_repository(repo, latest_tag)
 
