@@ -366,7 +366,7 @@ async def _clone_and_checkout_repositories(
         #
         each_repo_latest_tags: Optional[
             list(tuple(str, str))
-        ] = _latest_matching_tag_capture_group_identical_for_repos(repos)
+        ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
 
         if not each_repo_latest_tags:
             log.error("Repos did not match in their latest tag's first capture group!")
@@ -576,9 +576,9 @@ async def _get_tags_associated_to_sha(repo_path: str, sha: str) -> list[str]:
 
 async def _latest_matching_tag_capture_group_identical_for_repos(
     repos: list[GitRepo],
-) -> Optional[list(tuple(str, str))]:
+) -> list[Any]:
     each_repo_latest_tags: list(
-        tuple(str, str)
+        tuple(str)
     ) = []  # A list of tuples of (repo_id, list_of_all_tags_of_latest_tagged_commit)
     for repo in repos:
         if not repo.tags:
@@ -603,7 +603,7 @@ async def _latest_matching_tag_capture_group_identical_for_repos(
             first_capture_group_all_matching_tags = all_matching_tags_of_sha
             if current_regexp_compiled.groups > 0:
                 first_capture_group_all_matching_tags = [
-                    re.search(current_regexp, tag).groups[0]
+                    re.search(current_regexp, tag).groups()[0]
                     for tag in all_matching_tags_of_sha
                 ]
             each_repo_latest_tags.append(
@@ -626,7 +626,7 @@ async def _latest_matching_tag_capture_group_identical_for_repos(
     if tag_present_in_all_repos:
         return each_repo_latest_tags
     else:
-        return None
+        return []
 
 
 async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branches
@@ -642,7 +642,7 @@ async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branch
         await _git_fetch(repo.directory)
     each_repo_latest_tags: Optional[
         list(tuple(str, str))
-    ] = _latest_matching_tag_capture_group_identical_for_repos(repos)
+    ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
     if synced_via_tags:
         if not each_repo_latest_tags:
             log.info("Repos did not match in their latest tag's first capture group!")
