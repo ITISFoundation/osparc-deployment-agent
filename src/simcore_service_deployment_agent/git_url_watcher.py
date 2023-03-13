@@ -556,7 +556,7 @@ async def _get_tags_associated_to_sha(repo_path: str, sha: str) -> list[str]:
     return data.split()
 
 
-async def _check_for_changes_in_repositories(
+async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branches
     repos: list[GitRepo],
     synced_via_tags: bool = False,
 ) -> dict[RepoID, RepoStatus]:
@@ -567,8 +567,8 @@ async def _check_for_changes_in_repositories(
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
-    each_repo_latest_tags: List(
-        Tuple(str, str)
+    each_repo_latest_tags: list(
+        tuple(str, str)
     ) = []  # A list of tuples of (repo_id, list_of_all_tags_of_latest_tagged_commit)
     for repo in repos:
         any_matching_tag = (
