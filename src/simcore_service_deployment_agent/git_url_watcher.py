@@ -625,8 +625,7 @@ async def _latest_matching_tag_capture_group_identical_for_repos(
             break
     if tag_present_in_all_repos:
         return each_repo_latest_tags
-    else:
-        return []
+    return []
 
 
 async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branches
