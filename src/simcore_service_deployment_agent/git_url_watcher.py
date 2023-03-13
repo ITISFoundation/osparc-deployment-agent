@@ -364,8 +364,8 @@ async def _clone_and_checkout_repositories(
                 "At least one repo must have a tag-regex specified with tag-sync!"
             )
         #
-        each_repo_latest_tags: Optional[
-            list(tuple(str, str))
+        each_repo_latest_tags: list[
+            Any
         ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
 
         if not each_repo_latest_tags:
@@ -373,9 +373,12 @@ async def _clone_and_checkout_repositories(
             log.info(
                 "Latest (matching) tags per repo, displaying first regex capture group:"
             )
-            for repo in each_repo_latest_tags:
-                log.info("%s: %s", repo[0], repo[1])
+            for repo_tag_info in await _get_repos_latest_tags(repos):
+                log.info("%s: %s", repo_tag_info[0], repo_tag_info[1])
             log.error("Aborting deployment-agent init!")
+            raise ConfigurationError(
+                "Repos did not match in their latest tag's first capture group, but synced_via_tags is activated!"
+            )
 
     for repo in repos:
         latest_tag: Optional[str] = (
@@ -574,6 +577,33 @@ async def _get_tags_associated_to_sha(repo_path: str, sha: str) -> list[str]:
     return data.split()
 
 
+async def _get_repos_latest_tags(
+    repos: list[GitRepo],
+) -> list[Any]:
+    each_repo_latest_tags = []
+    for repo in repos:
+        if not repo.tags:
+            continue
+        current_regexp = repo.tags
+        current_regexp_compiled = re.compile(current_regexp)
+        any_matching_tag = (
+            await _git_get_latest_matching_tag(  # This returns only one tag
+                repo.directory, repo.tags
+            )
+        )
+        if any_matching_tag:
+            sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
+            all_tags_of_sha = await _get_tags_associated_to_sha(
+                repo.directory, sha_of_tag
+            )
+            # Retain only regexp-matching tags
+            all_matching_tags_of_sha = [
+                tag for tag in all_tags_of_sha if re.search(current_regexp, tag) != None
+            ]
+            each_repo_latest_tags.append((repo.repo_id, all_matching_tags_of_sha))
+    return each_repo_latest_tags
+
+
 async def _latest_matching_tag_capture_group_identical_for_repos(
     repos: list[GitRepo],
 ) -> list[Any]:
@@ -648,8 +678,8 @@ async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branch
             log.info(
                 "Latest (matching) tags per repo, displaying first regex capture group:"
             )
-            for repo in each_repo_latest_tags:
-                log.info("%s: %s", repo[0], repo[1])
+            for repo_tag_info in await _get_repos_latest_tags(repos):
+                log.info("%s: %s", repo_tag_info[0], repo_tag_info[1])
             log.info("Will only update those repos that have no tag-regex specified!")
         else:
             log.info("All synced repos have the same latest tag! Deploying....")
