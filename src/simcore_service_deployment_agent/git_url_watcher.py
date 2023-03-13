@@ -585,7 +585,6 @@ async def _get_repos_latest_tags(
         if not repo.tags:
             continue
         current_regexp = repo.tags
-        current_regexp_compiled = re.compile(current_regexp)
         any_matching_tag = (
             await _git_get_latest_matching_tag(  # This returns only one tag
                 repo.directory, repo.tags
