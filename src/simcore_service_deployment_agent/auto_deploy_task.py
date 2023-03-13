@@ -26,7 +26,11 @@ from yarl import URL
 from . import portainer
 from .app_state import State
 from .docker_registries_watcher import DockerRegistriesWatcher
-from .exceptions import ConfigurationError, DependencyNotReadyError
+from .exceptions import (
+    ConfigurationError,
+    DependencyNotReadyError,
+    TagSyncErrorException,
+)
 from .git_url_watcher import GitRepo, GitUrlWatcher, RepoID
 from .models import ComposeSpecsDict, ServiceName, VolumeName
 from .notifier import notify, notify_state
@@ -194,6 +198,10 @@ async def deploy_stacks(
             url, app_session, bearer_code, config["stack_name"]
         )
         if not current_stack_id:
+            log.warning(
+                "During polling: Stack does not exist, did it vanish or not initialize correctly? Will create new stack."
+            )
+            log.info("Deploying new stack...")
             # stack does not exist
             swarm_id = await portainer.get_swarm_id(
                 url, app_session, bearer_code, config["endpoint_id"]
@@ -208,7 +216,7 @@ async def deploy_stacks(
                 stack_cfg,
             )
         else:
-            log.debug("updating the configuration of the stack...")
+            log.info("updating the configuration of the stack...")
             await portainer.update_stack(
                 url,
                 app_session,
@@ -421,6 +429,11 @@ async def auto_deploy(app: web.Application):
     except CancelledError:
         app["state"][TASK_NAME] = State.STOPPED
         return
+    except TagSyncErrorException as exc:
+        log.exception(
+            "Error while initializing deployment. tag Sync specified but latest tags did not match. Continuing polling..."
+        )
+        pass
     except Exception:  # pylint: disable=broad-except
         log.exception("Error while initializing deployment: ")
         # this will trigger a restart from the docker swarm engine
@@ -433,12 +446,10 @@ async def auto_deploy(app: web.Application):
             app["state"][TASK_NAME] = State.RUNNING
             docker_task = await _deploy(app, git_task, docker_task)
             await asyncio.sleep(app_config["main"]["polling_interval"])
-
         except asyncio.CancelledError:
             log.info("cancelling task...")
             app["state"][TASK_NAME] = State.STOPPED
             break
-
         except Exception as exc:  # pylint: disable=broad-except
             # some unknown error happened, let's wait 5 min and restart
             log.exception("Task error:")

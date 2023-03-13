@@ -19,7 +19,10 @@ from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from yarl import URL
 
 from simcore_service_deployment_agent import git_url_watcher
-from simcore_service_deployment_agent.exceptions import ConfigurationError
+from simcore_service_deployment_agent.exceptions import (
+    ConfigurationError,
+    TagSyncErrorException,
+)
 from simcore_service_deployment_agent.git_url_watcher import (
     GitUrlWatcher,
     _git_get_tag_created_dt,
@@ -1019,6 +1022,67 @@ async def test_git_url_watcher_tag_sync_with_multiple_tags_per_commit_with_captu
         cwd=repo1["url"].replace("file://localhost", ""),
     )
 
+    change_results = await git_watcher.check_for_changes()
+    assert change_results  # We should see changes here.
+
+    await git_watcher.cleanup()
+
+
+async def test_git_url_watcher_tag_sync_works_even_if_raise_upon_init(
+    event_loop: AbstractEventLoop,
+    git_config_two_repos_synced_capture_group_tag_regex: dict[str, Any],
+):
+    assert git_config_two_repos_synced_capture_group_tag_regex["main"][
+        "synced_via_tags"
+    ]
+    git_watcher = git_url_watcher.GitUrlWatcher(
+        git_config_two_repos_synced_capture_group_tag_regex
+    )
+
+    # add a file, commit, and tag
+
+    TESTFILE_NAME: Literal["testfile.csv"] = "testfile.csv"
+    sleep_1_sec_to_make_commit_timestamp_unique()
+    _helper_list_watched_repos = [
+        git_config_two_repos_synced_capture_group_tag_regex["main"][
+            "watched_git_repositories"
+        ][i]
+        for i in range(
+            len(
+                git_config_two_repos_synced_capture_group_tag_regex["main"][
+                    "watched_git_repositories"
+                ]
+            )
+        )
+    ]
+    repo = _helper_list_watched_repos[0]
+    VALID_TAG: str = "staging_m1stvalid"
+    run_command(
+        f"touch initfile; git add .; git commit -m 'init'; touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag {VALID_TAG};",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    repo = _helper_list_watched_repos[1]
+    VALID_TAG_2: str = "staging_a1stvalid"
+    run_command(
+        f"touch initfile; git add .; git commit -m 'init'; touch {TESTFILE_NAME}; git add .; git commit -m 'pytest: I added {TESTFILE_NAME}'; git tag test{VALID_TAG_2};",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    with pytest.raises(TagSyncErrorException):  # Will raise
+        init_result = await git_watcher.init()
+    #
+    assert not await git_watcher.check_for_changes()  # no synced tags
+    repo = _helper_list_watched_repos[0]
+    VALID_TAG_3: str = "staging_z1stvalid"
+    run_command(
+        f"touch secondfile; git add .; git commit -m 'secondfile'; git tag {VALID_TAG_3};",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    repo = _helper_list_watched_repos[1]
+    run_command(
+        f"touch secondfile; git add .; git commit -m 'secondfile'; git tag test{VALID_TAG_3};",
+        cwd=repo["url"].replace("file://localhost", ""),
+    )
+    # Now we have matching tags, now there are changes.
     change_results = await git_watcher.check_for_changes()
     assert change_results  # We should see changes here.
 

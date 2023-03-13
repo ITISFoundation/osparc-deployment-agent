@@ -15,7 +15,7 @@ from tenacity.stop import stop_after_attempt
 from tenacity.wait import wait_fixed, wait_random
 from yarl import URL
 
-from .exceptions import CmdLineError, ConfigurationError
+from .exceptions import CmdLineError, ConfigurationError, TagSyncErrorException
 from .subprocess_utils import exec_command_async
 from .subtask import SubTask
 
@@ -376,7 +376,7 @@ async def _clone_and_checkout_repositories(
             for repo_tag_info in await _get_repos_latest_tags(repos):
                 log.info("%s: %s", repo_tag_info[0], repo_tag_info[1])
             log.error("Aborting deployment-agent init!")
-            raise ConfigurationError(
+            raise TagSyncErrorException(
                 "Repos did not match in their latest tag's first capture group, but synced_via_tags is activated!"
             )
 
