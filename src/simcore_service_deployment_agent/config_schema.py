@@ -47,7 +47,7 @@ app_schema = T.Dict(
         ),
         "docker_stack_recipe": T.Dict(
             {
-                "files": T.List(
+                T.Key("files"): T.List(
                     T.Dict(
                         {
                             "id": T.String(),
