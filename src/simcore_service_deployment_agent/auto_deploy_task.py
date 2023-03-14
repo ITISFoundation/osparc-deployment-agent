@@ -433,9 +433,11 @@ async def auto_deploy(app: web.Application):
         app["state"][TASK_NAME] = State.STOPPED
         return
     except TagSyncErrorException:
-        log.warning(
-            "Problem  while initializing deployment: Tag-Sync specified but latest tags did not match. Continuing polling..."
+        log.error(
+            "Problem while initializing deployment: Tag-Sync specified but latest tags did not match. Continuing polling..."
         )
+        app["state"][TASK_NAME] = State.FAILED
+        return
     except Exception:  # pylint: disable=broad-except
         log.exception("Error while initializing deployment: ")
         # this will trigger a restart from the docker swarm engine
