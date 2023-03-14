@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from aiofiles.tempfile import TemporaryDirectory
 from servicelib.file_utils import remove_directory
@@ -178,19 +178,19 @@ async def _git_clean_repo(directory: str):
 
 async def _git_checkout_files(directory: str, paths: list[Path], tag: Optional[str]):
     if not tag:
-        tag = "HEAD"
-    cmd = ["git", "checkout", tag] + [f"{path}" for path in paths]
+        tag: Literal["HEAD"] = "HEAD"
+    cmd: list[str] = ["git", "checkout", tag] + [f"{path}" for path in paths]
     await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_pull(directory: str):
-    cmd = ["git", "pull"]
+    cmd: list[str] = ["git", "pull"]
     await exec_command_async(cmd, f"{directory}")
 
 
 async def _git_fetch(directory: str) -> Optional[str]:
     log.debug("Fetching git repo in %s", f"{directory=}")
-    cmd = ["git", "fetch", "--prune", "--tags", "--prune-tags"]
+    cmd: list[str] = ["git", "fetch", "--prune", "--tags", "--prune-tags", "--force"]
     # via https://stackoverflow.com/questions/1841341/remove-local-git-tags-that-are-no-longer-on-the-remote-repository/16311126#comment91809130_16311126
     return await exec_command_async(cmd, f"{directory}")
 
