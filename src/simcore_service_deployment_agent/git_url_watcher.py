@@ -604,9 +604,9 @@ async def _get_repos_latest_tags(
 async def _latest_matching_tag_capture_group_identical_for_repos(
     repos: list[GitRepo],
 ) -> list[Any]:
-    each_repo_latest_tags: list(
+    each_repo_latest_tags: list[
         tuple(str)
-    ) = []  # A list of tuples of (repo_id, list_of_all_tags_of_latest_tagged_commit)
+    ] = []  # A list of tuples of (repo_id, list_of_all_tags_of_latest_tagged_commit)
     for repo in repos:
         if not repo.tags:
             continue
@@ -667,7 +667,7 @@ async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branch
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
     each_repo_latest_tags: Optional[
-        list(tuple(str, str))
+        list[tuple(str, str)]
     ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
     if synced_via_tags:
         if not each_repo_latest_tags:

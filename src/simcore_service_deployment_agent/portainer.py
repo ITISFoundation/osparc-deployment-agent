@@ -62,13 +62,13 @@ async def authenticate(
     base_url: URL, app_session: ClientSession, username: str, password: str
 ) -> str:
     log.debug("authenticating with portainer %s", base_url)
-    data = await _portainer_request(
+    data: dict[any, any] = await _portainer_request(
         base_url.with_path("api/auth"),
         app_session,
         "POST",
         json={"Username": username, "Password": password},
     )
-    bearer_code = data["jwt"]
+    bearer_code: str = str(data["jwt"])
     log.debug("authenticated with portainer in %s", base_url)
     return bearer_code
 
@@ -78,12 +78,12 @@ async def get_first_endpoint_id(
 ) -> int:
     log.debug("getting first endpoint id %s", base_url)
     headers = {"Authorization": f"Bearer {bearer_code}"}
-    url = base_url.with_path("api/endpoints")
+    url: URL = base_url.with_path("api/endpoints")
     data = await _portainer_request(url, app_session, "GET", headers=headers)
     log.debug("received list of endpoints: %s", data)
     if not data:
         raise ConfigurationError("portainer does not provide any endpoint")
-    return data[0]["Id"]
+    return int(data[0]["Id"])
 
 
 async def get_swarm_id(
