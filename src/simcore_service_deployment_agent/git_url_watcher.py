@@ -335,7 +335,7 @@ async def _pull_repository(repo: GitRepo):
 
 
 async def _clone_and_checkout_repositories(
-    repos: list[GitRepo], aio_stack: AsyncExitStack, synced_via_tags=bool
+    repos: list[GitRepo], aio_stack: AsyncExitStack, synced_via_tags: bool
 ) -> dict[RepoID, RepoStatus]:
     repo_2_status = {}
     # Initializing repos
@@ -369,13 +369,12 @@ async def _clone_and_checkout_repositories(
         ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
 
         if not each_repo_latest_tags:
-            log.error("Repos did not match in their latest tag's first capture group!")
+            log.info("Repos did not match in their latest tag's first capture group!")
             log.info(
                 "Latest (matching) tags per repo, displaying first regex capture group:"
             )
             for repo_tag_info in await _get_repos_latest_tags(repos):
                 log.info("%s: %s", repo_tag_info[0], repo_tag_info[1])
-            log.error("Aborting deployment-agent init!")
             raise TagSyncErrorException(
                 "Repos did not match in their latest tag's first capture group, but synced_via_tags is activated!"
             )
@@ -590,16 +589,15 @@ async def _get_repos_latest_tags(
                 repo.directory, repo.tags
             )
         )
-        if any_matching_tag:
-            sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
-            all_tags_of_sha = await _get_tags_associated_to_sha(
-                repo.directory, sha_of_tag
-            )
-            # Retain only regexp-matching tags
-            all_matching_tags_of_sha = [
-                tag for tag in all_tags_of_sha if re.search(current_regexp, tag) != None
-            ]
-            each_repo_latest_tags.append((repo.repo_id, all_matching_tags_of_sha))
+        if not any_matching_tag:
+            continue
+        sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
+        all_tags_of_sha = await _get_tags_associated_to_sha(repo.directory, sha_of_tag)
+        # Retain only regexp-matching tags
+        all_matching_tags_of_sha = [
+            tag for tag in all_tags_of_sha if re.search(current_regexp, tag) != None
+        ]
+        each_repo_latest_tags.append((repo.repo_id, all_matching_tags_of_sha))
     return each_repo_latest_tags
 
 
@@ -619,25 +617,25 @@ async def _latest_matching_tag_capture_group_identical_for_repos(
                 repo.directory, repo.tags
             )
         )
-        if any_matching_tag:
-            sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
-            all_tags_of_sha = await _get_tags_associated_to_sha(
-                repo.directory, sha_of_tag
-            )
-            # Retain only regexp-matching tags
-            all_matching_tags_of_sha = [
-                tag for tag in all_tags_of_sha if re.search(current_regexp, tag) != None
+        if not any_matching_tag:
+            continue
+        sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
+        all_tags_of_sha = await _get_tags_associated_to_sha(repo.directory, sha_of_tag)
+        # Retain only regexp-matching tags
+        all_matching_tags_of_sha = [
+            tag for tag in all_tags_of_sha if re.search(current_regexp, tag) != None
+        ]
+        # If the regexp has capture groups, return the 1st capture group
+        first_capture_group_all_matching_tags = all_matching_tags_of_sha
+        if current_regexp_compiled.groups > 0:
+            first_capture_group_all_matching_tags = [
+                re.search(current_regexp, tag).groups()[0]
+                for tag in all_matching_tags_of_sha
+                if re.search(current_regexp, tag)
             ]
-            # If the regexp has capture groups, return the 1st capture group
-            first_capture_group_all_matching_tags = all_matching_tags_of_sha
-            if current_regexp_compiled.groups > 0:
-                first_capture_group_all_matching_tags = [
-                    re.search(current_regexp, tag).groups()[0]
-                    for tag in all_matching_tags_of_sha
-                ]
-            each_repo_latest_tags.append(
-                (repo.repo_id, first_capture_group_all_matching_tags)
-            )
+        each_repo_latest_tags.append(
+            (repo.repo_id, first_capture_group_all_matching_tags)
+        )
     #
     all_unique_latest_tags_of_all_repos_combined = {
         j for i in each_repo_latest_tags for j in i[1]

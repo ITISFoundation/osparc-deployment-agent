@@ -199,9 +199,9 @@ async def deploy_stacks(
         )
         if not current_stack_id:
             log.warning(
-                "During polling: Stack does not exist, did it vanish or not initialize correctly? Will create new stack."
+                "Portainer stack does not exist, did it vanish or not initialize correctly? Will create new stack."
             )
-            log.info("Deploying new stack...")
+            log.info("Deploying new stack:" + str(config["stack_name"]) + " ...")
             # stack does not exist
             swarm_id = await portainer.get_swarm_id(
                 url, app_session, bearer_code, config["endpoint_id"]
@@ -216,7 +216,11 @@ async def deploy_stacks(
                 stack_cfg,
             )
         else:
-            log.info("updating the configuration of the stack...")
+            log.info(
+                "Updating the configuration of existing stack:"
+                + str(config["stack_name"])
+                + " ..."
+            )
             await portainer.update_stack(
                 url,
                 app_session,
@@ -228,7 +232,7 @@ async def deploy_stacks(
 
 
 async def stacks_exist(app_config: dict[str, Any], app_session: ClientSession) -> bool:
-    log.debug("checking if portainer stacks exist...")
+    log.debug("Checking if portainer stacks exist...")
     portainer_cfg = app_config["main"]["portainer"]
     for config in portainer_cfg:
         url = URL(config["url"])
@@ -373,7 +377,7 @@ async def _deploy(
 
     log.info("check if stacks exist...")
     if not await stacks_exist(app_config, app_session):
-        log.warning("stacks do not exist, initialising...")
+        log.warning("Stacks do not exist, initialising...")
         # notifications
         stack_cfg = await create_stack(git_task, app_config)
         await deploy_stacks(app_config, app_session, stack_cfg)
@@ -430,8 +434,8 @@ async def auto_deploy(app: web.Application):
         app["state"][TASK_NAME] = State.STOPPED
         return
     except TagSyncErrorException:
-        log.exception(
-            "Error while initializing deployment. tag Sync specified but latest tags did not match. Continuing polling..."
+        log.warning(
+            "Problem  while initializing deployment: Tag-Sync specified but latest tags did not match. Continuing polling..."
         )
     except Exception:  # pylint: disable=broad-except
         log.exception("Error while initializing deployment: ")
