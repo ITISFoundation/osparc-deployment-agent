@@ -131,8 +131,6 @@ test-ci-system: ## Run integration tests.
 
 test-dev: test-dev-unit test-dev-integration ## runs unit and integration tests for development (e.g. w/ pdb)
 
-test-pylint: _check_venv_active
-	@pytest --cov=$(APP_PACKAGE_NAME) --color=yes $(CURDIR)/tests/unit -k test_run_pylint
 ## PYTHON -------------------------------
 
 .PHONY: devenv devenv-all

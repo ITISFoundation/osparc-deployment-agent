@@ -26,7 +26,11 @@ from yarl import URL
 from . import portainer
 from .app_state import State
 from .docker_registries_watcher import DockerRegistriesWatcher
-from .exceptions import ConfigurationError, DependencyNotReadyError
+from .exceptions import (
+    ConfigurationError,
+    DependencyNotReadyError,
+    TagSyncErrorException,
+)
 from .git_url_watcher import GitRepo, GitUrlWatcher, RepoID
 from .models import ComposeSpecsDict, ServiceName, VolumeName
 from .notifier import notify, notify_state
@@ -194,6 +198,10 @@ async def deploy_stacks(
             url, app_session, bearer_code, config["stack_name"]
         )
         if not current_stack_id:
+            log.warning(
+                "Portainer stack does not exist, did it vanish or not initialize correctly? Will create new stack."
+            )
+            log.info("Deploying new stack: %s ...", str(config["stack_name"]))
             # stack does not exist
             swarm_id = await portainer.get_swarm_id(
                 url, app_session, bearer_code, config["endpoint_id"]
@@ -208,7 +216,10 @@ async def deploy_stacks(
                 stack_cfg,
             )
         else:
-            log.debug("updating the configuration of the stack...")
+            log.info(
+                "Updating the configuration of existing stack: %s ...",
+                str(config["stack_name"]),
+            )
             await portainer.update_stack(
                 url,
                 app_session,
@@ -220,7 +231,7 @@ async def deploy_stacks(
 
 
 async def stacks_exist(app_config: dict[str, Any], app_session: ClientSession) -> bool:
-    log.debug("checking if portainer stacks exist...")
+    log.debug("Checking if portainer stacks exist...")
     portainer_cfg = app_config["main"]["portainer"]
     for config in portainer_cfg:
         url = URL(config["url"])
@@ -365,7 +376,7 @@ async def _deploy(
 
     log.info("check if stacks exist...")
     if not await stacks_exist(app_config, app_session):
-        log.warning("stacks do not exist, initialising...")
+        log.warning("Stacks do not exist, initialising...")
         # notifications
         stack_cfg = await create_stack(git_task, app_config)
         await deploy_stacks(app_config, app_session, stack_cfg)
@@ -421,6 +432,10 @@ async def auto_deploy(app: web.Application):
     except CancelledError:
         app["state"][TASK_NAME] = State.STOPPED
         return
+    except TagSyncErrorException:
+        log.warning(
+            "Problem  while initializing deployment: Tag-Sync specified but latest tags did not match. Continuing polling..."
+        )
     except Exception:  # pylint: disable=broad-except
         log.exception("Error while initializing deployment: ")
         # this will trigger a restart from the docker swarm engine
@@ -433,12 +448,10 @@ async def auto_deploy(app: web.Application):
             app["state"][TASK_NAME] = State.RUNNING
             docker_task = await _deploy(app, git_task, docker_task)
             await asyncio.sleep(app_config["main"]["polling_interval"])
-
         except asyncio.CancelledError:
             log.info("cancelling task...")
             app["state"][TASK_NAME] = State.STOPPED
             break
-
         except Exception as exc:  # pylint: disable=broad-except
             # some unknown error happened, let's wait 5 min and restart
             log.exception("Task error:")
