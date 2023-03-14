@@ -15,6 +15,13 @@ class NoErrorException(AutoDeployAgentException):
         super().__init__(msg)
 
 
+class TagSyncErrorException(AutoDeployAgentException):
+    """Tag sync activated but latest tags dont match"""
+
+    def __init__(self, msg):
+        super().__init__(msg)
+
+
 class CmdLineError(AutoDeployAgentException):
     """Error while executing command line"""
 

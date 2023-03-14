@@ -58,6 +58,7 @@ def mocks_dir() -> Path:
     scope="session",
     params=[
         "valid_config.yaml",
+        "valid_config_variation.yaml",
         "valid_config_no_notification.yaml",
     ],
 )

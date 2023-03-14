@@ -132,7 +132,7 @@ def run_command(
         **kwargs,
     )
 
-    output = result.stdout
+    output: str = result.stdout
     if output and strip_endline:
         output = output.rstrip()
 
