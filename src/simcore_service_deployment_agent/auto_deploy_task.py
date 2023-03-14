@@ -201,7 +201,7 @@ async def deploy_stacks(
             log.warning(
                 "Portainer stack does not exist, did it vanish or not initialize correctly? Will create new stack."
             )
-            log.info("Deploying new stack:" + str(config["stack_name"]) + " ...")
+            log.info("Deploying new stack: %s ...", str(config["stack_name"]))
             # stack does not exist
             swarm_id = await portainer.get_swarm_id(
                 url, app_session, bearer_code, config["endpoint_id"]
@@ -217,9 +217,8 @@ async def deploy_stacks(
             )
         else:
             log.info(
-                "Updating the configuration of existing stack:"
-                + str(config["stack_name"])
-                + " ..."
+                "Updating the configuration of existing stack: %s ...",
+                str(config["stack_name"]),
             )
             await portainer.update_stack(
                 url,
