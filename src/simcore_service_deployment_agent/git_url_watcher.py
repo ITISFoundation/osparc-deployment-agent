@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 from aiofiles.tempfile import TemporaryDirectory
 from servicelib.file_utils import remove_directory
@@ -178,7 +178,7 @@ async def _git_clean_repo(directory: str):
 
 async def _git_checkout_files(directory: str, paths: list[Path], tag: Optional[str]):
     if not tag:
-        tag: Literal["HEAD"] = "HEAD"
+        tag = "HEAD"
     cmd: list[str] = ["git", "checkout", tag] + [f"{path}" for path in paths]
     await exec_command_async(cmd, f"{directory}")
 
