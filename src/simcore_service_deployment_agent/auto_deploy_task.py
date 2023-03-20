@@ -434,7 +434,7 @@ async def auto_deploy(app: web.Application):
         return
     except TagSyncErrorException:
         log.error(
-            "Problem while initializing deployment: Tag-Sync specified but latest tags did not match. Continuing polling..."
+            "Problem while initializing deployment: Tag-Sync specified but latest tags did not match. The deployment agent will exit now..."
         )
         app["state"][TASK_NAME] = State.FAILED
         return
