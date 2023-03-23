@@ -168,6 +168,16 @@ async def _git_get_tag_created_dt(directory: str, tag: str) -> Optional[datetime
         # e.g. Tue Feb 28 20:34:50 2023 +0100
         date_format = "%a %b %d %H:%M:%S %Y %z"
         return datetime.strptime(date_string, date_format)
+    if (
+        not date_string
+    ):  # Likely not an annoted tag, no taggerdate. We check the commit date.
+        # via https://stackoverflow.com/users/2496266/chaim-eliyah
+        date_string = await exec_command_async(
+            ["git", "log", "-1", "--format=%aI,", tag],
+            f"{directory}",
+        )
+        if date_string := date_string.strip("'\n ").strip(","):
+            return datetime.fromisoformat(date_string)
     return None
 
 
@@ -219,9 +229,9 @@ async def _git_get_latest_matching_tag_capture_groups(
     return re_search_result.groups() if re_search_result else None
 
 
-async def _git_get_latest_matching_tag(
-    directory: str, regexp: str
-) -> Optional[str]:  # pylint: disable=unsubscriptable-object
+async def _git_get_matching_tags_on_branch(
+    directory: str, regexp: str, branch: Optional[str] = None
+) -> Optional[list[str]]:  # pylint: disable=unsubscriptable-object
     repo_tags_msg = await exec_command_async(
         [
             "git",
@@ -234,7 +244,21 @@ async def _git_get_latest_matching_tag(
     if repo_tags_msg is None:
         return None
     all_tags = [tag for tag in repo_tags_msg.split("\n") if tag != ""]
-    list_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
+    regex_matching_tags = [tag for tag in all_tags if re.search(regexp, tag) != None]
+    if branch is not None:
+        regex_matching_tags_on_branch = [
+            tag
+            for tag in regex_matching_tags
+            if await _check_if_tag_on_branch(directory, tag, branch)
+        ]
+        return regex_matching_tags_on_branch
+    return regex_matching_tags
+
+
+async def _git_get_latest_matching_tag_on_branch(
+    directory: str, regexp: str, branch: Optional[str] = None
+) -> Optional[str]:
+    list_tags = await _git_get_matching_tags_on_branch(directory, regexp, branch)
     return list_tags[-1] if list_tags else None
 
 
@@ -356,6 +380,7 @@ async def _clone_and_checkout_repositories(
         await _git_fetch(repo.directory)
 
     # Checking tags
+
     if synced_via_tags:
         # Sanity check
         at_least_one_repo_has_tag_regex = any(repo.tags for repo in repos)
@@ -364,53 +389,64 @@ async def _clone_and_checkout_repositories(
                 "At least one repo must have a tag-regex specified with tag-sync!"
             )
         #
-        each_repo_latest_tags: list[
-            Any
-        ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
+        tags_to_checkout = await _find_matching_tag_to_checkout_tag_sync(repos)
 
-        if not each_repo_latest_tags:
-            log.info("Repos did not match in their latest tag's first capture group!")
+        if not tags_to_checkout:
+            log.info("Repos did not match in their git tags.")
             log.info(
-                "Latest (matching) tags per repo, displaying first regex capture group:"
+                "Hint: We determined the following latest (matching) tags per repo:"
             )
             for repo_tag_info in await _get_repos_latest_tags(repos):
                 log.info("%s: %s", repo_tag_info[0], repo_tag_info[1])
             raise TagSyncErrorException(
-                "Repos did not match in their latest tag's first capture group, but synced_via_tags is activated!"
+                "Repos did not match in their latest tag (or, if a tag-regex contains capture groups, their first capture group), but synced_via_tags is activated!"
             )
-
+    else:
+        tags_to_checkout = {repo.repo_id: {"repo_id": repo.repo_id} for repo in repos}
     for repo in repos:
-        latest_tag: Optional[str] = (
-            await _git_get_latest_matching_tag(repo.directory, repo.tags)
-            if repo.tags
-            else None
-        )
-
-        log.debug(
-            "latest tag found for %s is %s, now checking out...",
-            repo.repo_id,
-            latest_tag,
-        )
-        if not latest_tag and repo.tags:
-            raise ConfigurationError(
-                msg=f"no tags found in {repo.repo_url}:{repo.branch} that follows defined tags pattern {repo.tags}: {latest_tag}"
+        if not "tag_to_checkout" in tags_to_checkout[repo.repo_id].keys():
+            if repo.tags:
+                latest_tag: Optional[str] = (
+                    await _git_get_latest_matching_tag_on_branch(
+                        repo.directory, repo.tags, repo.branch
+                    )
+                    if repo.tags
+                    else None
+                )
+                if not latest_tag:
+                    raise ConfigurationError(
+                        msg=f"no tags found in {repo.repo_url}:{repo.branch} that matches the given tags regex pattern {repo.tags}."
+                    )
+                tags_to_checkout[repo.repo_id]["tag_to_checkout"] = latest_tag
+            else:
+                tags_to_checkout[repo.repo_id]["tag_to_checkout"] = "HEAD"
+            log.debug(
+                "tag found for %s is %s, now checking out...",
+                repo.repo_id,
+                tags_to_checkout[repo.repo_id]["tag_to_checkout"],
             )
 
         # This subsequent call will checkout the files at the given revision
-        await _checkout_repository(repo, latest_tag)
+        await _checkout_repository(
+            repo, tags_to_checkout[repo.repo_id]["tag_to_checkout"]
+        )
 
         log.info(
             "repository %s checked out on %s",
             repo,
-            latest_tag if latest_tag else "HEAD",
+            tags_to_checkout[repo.repo_id]["tag_to_checkout"],
         )
 
         # If no tag: fetch head
         # if tag: sha of tag
         created = None
-        if repo.tags and latest_tag:
-            sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
-            created = await _git_get_tag_created_dt(repo.directory, latest_tag)
+        if repo.tags:
+            sha = await _git_get_sha_of_tag(
+                repo.directory, tags_to_checkout[repo.repo_id]["tag_to_checkout"]
+            )
+            created = await _git_get_tag_created_dt(
+                repo.directory, tags_to_checkout[repo.repo_id]["tag_to_checkout"]
+            )
         else:
             sha = await _git_get_FETCH_HEAD_sha(repo.directory)
 
@@ -420,7 +456,7 @@ async def _clone_and_checkout_repositories(
             repo_id=repo.repo_id,
             branch_name=repo.branch,
             commit_sha=sha,
-            tag_name=latest_tag,
+            tag_name=tags_to_checkout[repo.repo_id]["tag_to_checkout"],
             tag_created=created,
         )
     return repo_2_status
@@ -458,7 +494,9 @@ async def _check_if_tag_on_branch(repo_path: str, branch: str, tag: str) -> bool
     return False
 
 
-async def _update_repo_using_tags(repo: GitRepo) -> Optional[RepoStatus]:
+async def _update_repo_using_tags(
+    repo: GitRepo, tag_to_checkout: str
+) -> Optional[RepoStatus]:
     """
 
     returns RepoStatus if changes in repo detected otherwise None
@@ -469,48 +507,43 @@ async def _update_repo_using_tags(repo: GitRepo) -> Optional[RepoStatus]:
     log.debug("checking %s using tags", repo.repo_id)
     # check if current tag is the latest and greatest
     list_current_tags = await _git_get_current_matching_tag(repo)
-    latest_tag = await _git_get_latest_matching_tag(repo.directory, repo.tags)
-
-    # there should always be a tag
-    if not latest_tag:
-        raise ConfigurationError(
-            msg=f"no tags found in {repo.repo_id} that follows defined tags pattern {repo.tags}"
-        )
 
     log.debug(
-        "following tags found for %s, current: %s, latest: %s",
+        "following tags found for %s, current: %s, desired: %s",
         repo.repo_id,
         list_current_tags,
-        latest_tag,
+        tag_to_checkout,
     )
-    if latest_tag in list_current_tags:
-        log.debug("no change detected")
+    if tag_to_checkout in list_current_tags:
+        log.debug("No change detected")
     else:
-        log.info("New tag detected: %s on repo %s", latest_tag, repo.repo_id)
+        log.info(
+            "New desired tag detected: %s on repo %s", tag_to_checkout, repo.repo_id
+        )
 
     # get modifications
     logged_changes = await _git_get_logs_tags(
         repo.directory,
-        list_current_tags[0] if len(list_current_tags) > 0 else None,
-        latest_tag,
+        list_current_tags[0]
+        if len(list_current_tags) > 0
+        else await _git_get_FETCH_HEAD_sha(repo.directory),
+        tag_to_checkout,
     )
-    log.debug("%s tag changes: %s", latest_tag, logged_changes)
+    log.debug("%s tag changes: %s", tag_to_checkout, logged_changes)
 
-    # checkout no matter if there are changes, to put HEAD of git repo at desired latest matching tag
-    await _checkout_repository(repo, latest_tag)
+    # checkout no matter if there are changes, to put HEAD of git repo at desired matching tag
+    await _checkout_repository(repo, tag_to_checkout)
 
     # Report if code changed only
-    if latest_tag not in list_current_tags:
-        log.info("New tag %s checked out on repo %s", latest_tag, repo.repo_id)
-
+    if tag_to_checkout not in list_current_tags:
         # if the tag changed, an update is needed even if no files were changed
-        sha = await _git_get_sha_of_tag(repo.directory, latest_tag)
+        sha = await _git_get_sha_of_tag(repo.directory, tag_to_checkout)
 
         return RepoStatus(
             repo_id=repo.repo_id,
             commit_sha=sha,
             branch_name=repo.branch,
-            tag_name=latest_tag,
+            tag_name=tag_to_checkout,
         )
 
     return None
@@ -585,7 +618,7 @@ async def _get_repos_latest_tags(
             continue
         current_regexp = repo.tags
         any_matching_tag = (
-            await _git_get_latest_matching_tag(  # This returns only one tag
+            await _git_get_latest_matching_tag_on_branch(  # This returns only one tag
                 repo.directory, repo.tags
             )
         )
@@ -601,58 +634,131 @@ async def _get_repos_latest_tags(
     return each_repo_latest_tags
 
 
-async def _latest_matching_tag_capture_group_identical_for_repos(
+async def _find_matching_tag_to_checkout_tag_sync(
     repos: list[GitRepo],
-) -> list[Any]:
-    each_repo_latest_tags: list[
-        tuple(str)
+) -> Optional[str]:
+    each_repo_matching_tags: list[
+        dict[Any]
     ] = []  # A list of tuples of (repo_id, list_of_all_tags_of_latest_tagged_commit)
     for repo in repos:
         if not repo.tags:
             continue
         current_regexp = repo.tags
         current_regexp_compiled = re.compile(current_regexp)
-        any_matching_tag = (
-            await _git_get_latest_matching_tag(  # This returns only one tag
-                repo.directory, repo.tags
+        all_matching_tags = (
+            await _git_get_matching_tags_on_branch(  # This returns only one tag
+                repo.directory, repo.tags, repo.branch
             )
         )
-        if not any_matching_tag:
+        if not all_matching_tags:
             continue
-        sha_of_tag = await _git_sha_of_tag(repo.directory, any_matching_tag)
-        all_tags_of_sha = await _get_tags_associated_to_sha(repo.directory, sha_of_tag)
-        # Retain only regexp-matching tags
-        all_matching_tags_of_sha = [
-            tag for tag in all_tags_of_sha if re.search(current_regexp, tag) != None
-        ]
-        # If the regexp has capture groups, return the 1st capture group
-        first_capture_group_all_matching_tags = all_matching_tags_of_sha
+        all_matching_tags_first_capture_group = [None for i in all_matching_tags]
         if current_regexp_compiled.groups > 0:
-            first_capture_group_all_matching_tags = [
+            all_matching_tags_first_capture_group = [
                 re.search(current_regexp, tag).groups()[0]
-                for tag in all_matching_tags_of_sha
-                if re.search(current_regexp, tag)
+                if len(re.search(current_regexp, tag).groups()) > 0
+                else None
+                for tag in all_matching_tags
             ]
-        each_repo_latest_tags.append(
-            (repo.repo_id, first_capture_group_all_matching_tags)
+        each_repo_matching_tags.append(
+            {
+                "repo_id": repo.repo_id,
+                "all_matching_tags": all_matching_tags,
+                "all_matching_tags_first_capture_group": all_matching_tags_first_capture_group,
+            }
         )
+    if not each_repo_matching_tags:
+        return None
     #
-    all_unique_latest_tags_of_all_repos_combined = {
-        j for i in each_repo_latest_tags for j in i[1]
-    }
-    tag_present_in_all_repos = False
-    for tag in all_unique_latest_tags_of_all_repos_combined:
-        this_tag_present_in_all_repos = (
-            sum(1 for i in each_repo_latest_tags if tag in ",".join(i[1]))
-            - sum(1 for i in each_repo_latest_tags)
-            == 0
+    matchers = []
+    for repo in each_repo_matching_tags:
+        matchers.append(
+            [
+                repo["all_matching_tags"][i]
+                if not repo["all_matching_tags_first_capture_group"][i]
+                else repo["all_matching_tags_first_capture_group"][i]
+                for i in range(len(repo["all_matching_tags"]))
+            ]
         )
-        if this_tag_present_in_all_repos:
-            tag_present_in_all_repos = True
-            break
-    if tag_present_in_all_repos:
-        return each_repo_latest_tags
-    return []
+    common_matchers = set.intersection(*map(set, matchers))
+
+    each_repo_synced_tags = []
+    for repo in each_repo_matching_tags:
+        all_matching_tags_pruned = []
+        all_matching_tags_first_capture_group_pruned = []
+        for i in range(len(repo["all_matching_tags"])):
+            tag_to_check = (
+                repo["all_matching_tags"][i]
+                if not repo["all_matching_tags_first_capture_group"][i]
+                else repo["all_matching_tags_first_capture_group"][i]
+            )
+            if not tag_to_check in common_matchers:
+                continue
+            all_matching_tags_pruned.append(repo["all_matching_tags"][i])
+            all_matching_tags_first_capture_group_pruned.append(
+                repo["all_matching_tags_first_capture_group"][i]
+            )
+        if (
+            not all_matching_tags_pruned
+            or not all_matching_tags_first_capture_group_pruned
+        ):
+            return None
+        each_repo_synced_tags.append(
+            {
+                "repo_id": repo["repo_id"],
+                "all_matching_tags": all_matching_tags_pruned,
+                "all_matching_tags_first_capture_group": all_matching_tags_first_capture_group_pruned,
+            }
+        )
+    if not each_repo_synced_tags:
+        return None
+
+    # Sort all commit's of remaining tags in all repos by commit date
+    # Across all repos, check latest correctly tagged commit first, descend list
+    timestamped_list_of_all_matching_commits = []
+    for repo in each_repo_synced_tags:
+        for i in range(len(repo["all_matching_tags"])):
+            tag = repo["all_matching_tags"][i]
+            git_url_watcher_repo = [
+                repos for repos in repos if repos.repo_id == repo["repo_id"]
+            ][0]
+            timestamp_of_tagged_commit = await _git_get_tag_created_dt(
+                git_url_watcher_repo.directory, tag
+            )
+            sha_of_tag = await _git_sha_of_tag(git_url_watcher_repo.directory, tag)
+            current_info = {
+                "repo_id": repo["repo_id"],
+                "tag": tag,
+                "tag_first_capture_group": repo[
+                    "all_matching_tags_first_capture_group"
+                ][i],
+                "sha": sha_of_tag,
+                "timestamp": timestamp_of_tagged_commit,
+            }
+            timestamped_list_of_all_matching_commits.append(current_info)
+    time_sorted_list_of_all_matching_commits = sorted(
+        timestamped_list_of_all_matching_commits,
+        key=lambda k: k["timestamp"],
+        reverse=False,
+    )
+    latest_commit = time_sorted_list_of_all_matching_commits[-1]
+    tag_to_checkout = latest_commit["tag"]
+    if latest_commit["tag_first_capture_group"]:
+        tag_to_checkout = latest_commit["tag_first_capture_group"]
+    repos_tags_to_checkout = {repo["repo_id"]: repo for repo in each_repo_synced_tags}
+    for repo in repos_tags_to_checkout.values():
+        if any(repo["all_matching_tags_first_capture_group"]):
+            for j in range(len(repo["all_matching_tags_first_capture_group"])):
+                if repo["all_matching_tags_first_capture_group"][j] == tag_to_checkout:
+                    repo["all_matching_tags"] = repo["all_matching_tags"][j]
+                    repo["tag_to_checkout"] = repo["all_matching_tags"]
+                    repo["all_matching_tags_first_capture_group"] = None
+                    break
+        else:
+            repo["all_matching_tags"] = tag_to_checkout
+            repo["tag_to_checkout"] = tag_to_checkout
+            repo["all_matching_tags_first_capture_group"] = tag_to_checkout
+    return repos_tags_to_checkout
 
 
 async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branches
@@ -666,45 +772,42 @@ async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branch
     for repo in repos:
         log.debug("fetching repo: %s...", repo.repo_url)
         await _git_fetch(repo.directory)
-    each_repo_latest_tags: Optional[
-        list[tuple(str, str)]
-    ] = await _latest_matching_tag_capture_group_identical_for_repos(repos)
+
+    tags_to_checkout = None
     if synced_via_tags:
-        if not each_repo_latest_tags:
-            log.info("Repos did not match in their latest tag's first capture group!")
+        tags_to_checkout = await _find_matching_tag_to_checkout_tag_sync(repos)
+        if not tags_to_checkout:
+            log.info("Repos did not match in their git tags.")
             log.info(
-                "Latest (matching) tags per repo, displaying first regex capture group:"
+                "Hint: We determined the following latest (matching) tags per repo:"
             )
             for repo_tag_info in await _get_repos_latest_tags(repos):
                 log.info("%s: %s", repo_tag_info[0], repo_tag_info[1])
-            log.info("Will only update those repos that have no tag-regex specified!")
-        else:
-            log.info("All synced repos have the same latest tag! Deploying....")
+            raise TagSyncErrorException(
+                "Repos did not match in their latest tag (or, if a tag-regex contains capture groups, their first capture group), but synced_via_tags is activated!"
+            )
+    else:
+        tags_to_checkout = {repo.repo_id: {"repo_id": repo.repo_id} for repo in repos}
     for repo in repos:
-        if synced_via_tags and not each_repo_latest_tags and repo.tags:
-            continue
-        log.debug("checking repo: %s...", repo.repo_url)
+        log.debug("checking for changes in repo: %s...", repo.repo_url)
         await _git_clean_repo(repo.directory)
 
         if repo.tags:
-            latest_matching_tag = await _git_get_latest_matching_tag(
-                repo.directory, repo.tags
-            )
-            if latest_matching_tag is None:
-                raise ConfigurationError(
-                    msg=f"no tags found in {repo.repo_id} that follows defined tags pattern {repo.tags}"
+            if not "tag_to_checkout" in tags_to_checkout[repo.repo_id].keys():
+                latest_matching_tag = await _git_get_latest_matching_tag_on_branch(
+                    repo.directory, repo.tags, repo.branch
                 )
-
-            if not await _check_if_tag_on_branch(
-                repo.directory,
-                repo.branch,
-                latest_matching_tag,
-            ):
-                continue
+                if latest_matching_tag is None:
+                    raise ConfigurationError(
+                        msg=f"no tags found in {repo.repo_id} that follows defined tags pattern {repo.tags} on branch {repo.branch}"
+                    )
+                tags_to_checkout[repo.repo_id]["tag_to_checkout"] = latest_matching_tag
         # changes in repo
         repo_changes: Optional[RepoStatus] = (
-            await _update_repo_using_tags(repo)
-            if repo.tags
+            await _update_repo_using_tags(
+                repo, tag_to_checkout=tags_to_checkout[repo.repo_id]["tag_to_checkout"]
+            )
+            if tags_to_checkout[repo.repo_id]["tag_to_checkout"]
             else await _update_repo_using_branch_head(repo)
         )
         if repo_changes:
@@ -731,7 +834,7 @@ class GitUrlWatcher(SubTask):
             GitRepo(
                 repo_id=config["id"],
                 repo_url=config["url"],
-                branch=config["branch"],
+                branch=config["branch"] if "branch" in config.keys() else None,
                 tags=config["tags"],
                 username=config["username"],
                 password=config["password"],

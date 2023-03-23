@@ -10,13 +10,22 @@ main:
   port: 8888
   synced_via_tags: False
   watched_git_repositories:
-    # all git repositories that shall be controlled
+    # This is explicitly to check that a repo can be watched without having a brnach specified
     - id: simcore-github-repo
       url: https://github.com/ITISFoundation/osparc-simcore.git
-      branch: master
       username: "blahblag"
       password: "somestuffverysecret"
       tags:
+      paths:
+        # lists the files where to look for changes in the repo
+        - services/docker-compose.yml
+        - Makefile
+        - .env-devel
+    - id: simcore-github-repo2
+      url: https://github.com/ITISFoundation/osparc-simcore.git
+      username: "blahblag"
+      password: "somestuffverysecret"
+      tags: ^staging_.*$
       paths:
         # lists the files where to look for changes in the repo
         - services/docker-compose.yml

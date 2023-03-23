@@ -3,6 +3,7 @@ import contextlib
 import copy
 import json
 import logging
+import os
 import tempfile
 from asyncio import create_task
 from asyncio.exceptions import CancelledError
@@ -172,7 +173,17 @@ async def generate_stack_file(
     if stack_recipe_cfg["command"]:
         # The command in the stack_recipe might contain shell natives like pipes and cd
         # Thus we run it in unsafe mode as a proper shell.
-        await shell_command_async(stack_recipe_cfg["command"], cwd=dest_dir)
+        injected_env_vars = {}
+        for injected_env_var in injected_env_vars.keys():
+            if injected_env_var in os.environ:
+                raise ConfigurationError(
+                    f"Injecting special variable failed. Environment variable {injected_env_var} is already set. This is not allowed."
+                )
+        await shell_command_async(
+            stack_recipe_cfg["command"],
+            cwd=dest_dir,
+            env=injected_env_vars.update(os.environ),
+        )
 
     stack_file = Path(dest_dir) / Path(stack_recipe_cfg["stack_file"])
 

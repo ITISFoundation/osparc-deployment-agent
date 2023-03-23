@@ -10,7 +10,7 @@ import asyncio
 import logging
 import subprocess
 from asyncio.subprocess import Process
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from .exceptions import CmdLineError
 
@@ -73,19 +73,32 @@ async def exec_command_async(
 
 
 async def shell_command_async(
-    cmd: str, cwd: str = ".", *, strip_endline: bool = True
+    cmd: str,
+    cwd: str = ".",
+    *,
+    strip_endline: bool = True,
+    env: Optional[dict[Any]] = None,
 ) -> Optional[str]:
     """Run the cmd shell command
 
     returns output.strip('\n') or None if no outputs
     raises CmdLineError
     """
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=cwd,
-    )
+    if env:
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+            env=env,
+        )
+    else:
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+        )
 
     return await _wait_and_process_results(
         proc, command=cmd, strip_endline=strip_endline
