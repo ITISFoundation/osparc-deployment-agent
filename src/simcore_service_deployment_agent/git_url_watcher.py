@@ -807,7 +807,7 @@ async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branch
             await _update_repo_using_tags(
                 repo, tag_to_checkout=tags_to_checkout[repo.repo_id]["tag_to_checkout"]
             )
-            if tags_to_checkout[repo.repo_id]["tag_to_checkout"]
+            if "tag_to_checkout" in tags_to_checkout[repo.repo_id].keys()
             else await _update_repo_using_branch_head(repo)
         )
         if repo_changes:
