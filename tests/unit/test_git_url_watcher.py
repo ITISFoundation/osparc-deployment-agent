@@ -272,7 +272,7 @@ async def test_git_url_watcher_find_new_file(
     init_result = await git_watcher.init()
 
     git_sha: str = run_command("git rev-parse --short HEAD", cwd=local_path_var)
-    assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
+    assert init_result[repo_id_var].split(":")[-1] == git_sha
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
@@ -398,7 +398,7 @@ async def test_git_url_watcher_paths(
     # expect to work now
     init_result = await git_watcher.init()
     git_sha = run_command("git rev-parse --short HEAD", cwd=local_path_var)
-    assert init_result == {repo_id_var: f"{repo_id_var}:{branch_var}:{git_sha}"}
+    assert init_result[repo_id_var].split(":")[-1] == git_sha
 
     # there was no changes
     assert not await git_watcher.check_for_changes()
@@ -543,9 +543,10 @@ async def test_git_url_watcher_tags(
         with attempt:
             # we should have a change here
             change_results = await git_watcher.check_for_changes()
-            latestTag = await git_url_watcher._git_get_latest_matching_tag(
+            latestTag = await git_url_watcher._git_get_latest_matching_tag_on_branch(
                 git_watcher.watched_repos[0].directory,
                 git_watcher.watched_repos[0].tags,
+                git_watcher.watched_repos[0].branch,
             )
             assert latestTag == NEW_VALID_TAG_ON_NEW_SHA
     #
@@ -829,12 +830,18 @@ async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes_tag_sync(
         f"git tag -d {NEW_VALID_TAG}",
         cwd=local_path_var,
     )
-    # There should be no changes / no deployment as tags dont match
+    # There should changes / rollback as NEW_VALID_TAG tags dont match anymore
 
     async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
         with attempt:
             change_results: dict = await git_watcher.check_for_changes()
-            assert not change_results
+            assert change_results
+            for i in range(len(git_watcher.watched_repos)):
+                repo = git_watcher.watched_repos[i]
+                assert repo.repo_id in change_results
+                assert (
+                    change_results[repo.repo_id].split(":")[-1] == git_shas_upon_init[i]
+                )
 
     # Remove tag everywhere
     for repo in [
@@ -853,11 +860,11 @@ async def test_git_url_watcher_rolls_back_if_tag_on_remote_vanishes_tag_sync(
             f"git tag -d {NEW_VALID_TAG} | true;",
             cwd=repo["url"].replace("file://localhost", ""),
         )
-    # We should have changes and effectively roll back
+    # We should have no changes since we previously effectively rolled back
     async for attempt in AsyncRetrying(**RETRYING_PARAMETERS):
         with attempt:
             change_results: dict = await git_watcher.check_for_changes()
-            assert change_results
+            assert not change_results
     # assert that we checked out the right code
     for i in range(len(git_shas_upon_init)):
         current_sha = git_shas_upon_init[i]
@@ -1070,7 +1077,8 @@ async def test_git_url_watcher_tag_sync_works_even_if_raise_upon_init(
     with pytest.raises(TagSyncErrorException):  # Will raise
         init_result = await git_watcher.init()
     #
-    assert not await git_watcher.check_for_changes()  # no synced tags
+    with pytest.raises(TagSyncErrorException):
+        await git_watcher.check_for_changes()  # no synced tags
     repo = _helper_list_watched_repos[0]
     VALID_TAG_3: str = "staging_z1stvalid"
     run_command(
