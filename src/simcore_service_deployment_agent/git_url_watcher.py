@@ -812,6 +812,17 @@ async def _check_for_changes_in_repositories(  # pylint: disable=too-many-branch
         )
         if repo_changes:
             changes[repo.repo_id] = repo_changes
+            log.info(
+                "I have deployed: %s ",
+                " , ".join(
+                    [
+                        str(repo_id)
+                        + ":"
+                        + str(tags_to_checkout[repo_id]["tag_to_checkout"])
+                        for repo_id in tags_to_checkout.keys()
+                    ]
+                ),
+            )
 
     return changes
 
