@@ -25,7 +25,6 @@ attrs==22.2.0
     # via
     #   -c requirements/_base.txt
     #   aiohttp
-    #   pytest
 certifi==2022.12.7
     # via
     #   -c requirements/_base.txt
@@ -98,7 +97,7 @@ ptvsd==4.3.2
     # via -r requirements/_test.in
 pylint==2.17.0
     # via -r requirements/_test.in
-pytest==7.2.2
+pytest==7.3.0
     # via
     #   -r requirements/_test.in
     #   pytest-aiohttp
