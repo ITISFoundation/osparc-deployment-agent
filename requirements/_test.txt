@@ -35,7 +35,7 @@ charset-normalizer==3.0.1
     #   -c requirements/_base.txt
     #   aiohttp
     #   requests
-codecov==2.1.12
+codecov==2.1.13
     # via -r requirements/_test.in
 coverage==6.5.0
     # via
