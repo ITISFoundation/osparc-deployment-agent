@@ -42,7 +42,7 @@ platformdirs==3.0.0
     #   -c requirements/_test.txt
     #   black
     #   virtualenv
-pre-commit==3.2.0
+pre-commit==3.3.0
     # via -r requirements/devenv.txt
 pyproject-hooks==1.0.0
     # via build
