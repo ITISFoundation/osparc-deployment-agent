@@ -89,10 +89,13 @@ ENV SC_BUILD_TARGET=build
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
 RUN python -m venv "${VIRTUAL_ENV}"
 
+ARG DOCKER_COMPOSE_VERSION="1.27.4"
 RUN pip --no-cache-dir install --upgrade \
   pip  \
   wheel \
-  setuptools
+  setuptools \
+  docker-compose~=${DOCKER_COMPOSE_VERSION}
+
 WORKDIR /build
 
 # All SC_ variables are customized
