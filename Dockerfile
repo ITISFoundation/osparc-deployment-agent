@@ -58,8 +58,23 @@ RUN apt-get update &&\
   lsb-release \
   make \
   gettext \
+  software-properties-common \
+  ca-certificates \
+  apt-transport-https \
+  build-essential \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/apt/keyrings \
+  && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends \
+  # only the cli is needed and we remove the unnecessary stuff again
+  docker-ce-cli \
+  containerd.io \
+  docker-compose-plugin
 
 # -------------------------- Build stage -------------------
 # Installs build/package management tools and third party dependencies
@@ -71,34 +86,13 @@ FROM base as build
 
 ENV SC_BUILD_TARGET=build
 
-RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
-  echo \
-  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
-  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-  apt-get update && \
-  apt-get install -y --no-install-recommends \
-  docker-ce \
-  docker-ce-cli \
-  containerd.io \
-  docker-compose-plugin
-
-RUN apt-get update &&\
-  apt-get install -y --no-install-recommends \
-  build-essential \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
-
-
 # NOTE: python virtualenv is used here such that installed packages may be moved to production image easily by copying the venv
 RUN python -m venv "${VIRTUAL_ENV}"
 
-ARG DOCKER_COMPOSE_VERSION="1.27.4"
 RUN pip --no-cache-dir install --upgrade \
   pip  \
   wheel \
-  setuptools \
-  docker-compose~=${DOCKER_COMPOSE_VERSION}
-
+  setuptools
 WORKDIR /build
 
 # All SC_ variables are customized
