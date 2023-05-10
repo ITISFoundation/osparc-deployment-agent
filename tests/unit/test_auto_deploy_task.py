@@ -54,17 +54,23 @@ def mocked_git_url_watcher(mocker: MockerFixture) -> dict[str, Any]:
     return mock_git_changes
 
 
-@pytest.fixture(scope="session")
-def mock_stack_config() -> ComposeSpecsDict:
-    cfg = ComposeSpecsDict(
-        **{
-            "version": "3.7",
-            "services": {
-                "fake_service": {"image": "fake_image"},
-                "fake_service2": {"image": "fake_image"},
-            },
-        }
-    )
+mock_compose_spec = ComposeSpecsDict(
+    **{
+        "version": "3.7",
+        "services": {
+            "fake_service": {"image": "fake_image"},
+            "fake_service2": {"image": "fake_image"},
+        },
+    }
+)
+mock_compose_spec_empty = ComposeSpecsDict(
+    **{}
+)  ## Assert we are able to handle an empty config file
+
+
+@pytest.fixture(scope="session", params=[mock_compose_spec, mock_compose_spec_empty])
+def mock_stack_config(request) -> ComposeSpecsDict:
+    cfg = request.param
     return cfg
 
 
@@ -138,9 +144,10 @@ async def test_filter_services(
         ],
         stack_file=valid_docker_stack_file,
     )
-    assert "app" not in stack_cfg["services"]
-    assert "some_volume" not in stack_cfg["volumes"]
-    assert "build" not in stack_cfg["services"]["anotherapp"]
+    if "services" in stack_cfg:
+        assert "app" not in stack_cfg["services"]
+        assert "some_volume" not in stack_cfg["volumes"]
+        assert "build" not in stack_cfg["services"]["anotherapp"]
 
 
 async def test_add_parameters(

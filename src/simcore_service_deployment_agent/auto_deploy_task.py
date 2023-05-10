@@ -56,33 +56,38 @@ def _filter_services(
     stack_cfg: ComposeSpecsDict = yaml.safe_load(
         Path(stack_file).read_text(encoding="UTF-8")
     )
-    # remove excluded services
-    for service in excluded_services:
-        stack_cfg["services"].pop(service, None)
+    if stack_cfg:
+        # remove excluded services
+        for service in excluded_services:
+            if "services" in stack_cfg.keys():
+                stack_cfg["services"].pop(service, None)
 
-    # remove excluded volumes
-    for volume in excluded_volumes:
-        stack_cfg.get("volumes", {}).pop(volume, None)
+        # remove excluded volumes
+        for volume in excluded_volumes:
+            stack_cfg.get("volumes", {}).pop(volume, None)
 
-    # remove build part, useless in a stack
-    for service in stack_cfg["services"].keys():
-        stack_cfg["services"][service].pop("build", None)
+        # remove build part, useless in a stack
+        if stack_cfg.keys():
+            for service in stack_cfg["services"].keys():
+                stack_cfg["services"][service].pop("build", None)
 
-        # Taking care of wrong format in extra_hosts
-        if "extra_hosts" in stack_cfg["services"][service]:
-            if isinstance(stack_cfg["services"][service]["extra_hosts"], dict):
-                if (
-                    len(stack_cfg["services"][service]["extra_hosts"].keys()) == 1
-                    and "" in stack_cfg["services"][service]["extra_hosts"]
-                ):
-                    if stack_cfg["services"][service]["extra_hosts"][""] == "":
-                        stack_cfg["services"][service]["extra_hosts"] = []
+                # Taking care of wrong format in extra_hosts
+                if "extra_hosts" in stack_cfg["services"][service]:
+                    if isinstance(stack_cfg["services"][service]["extra_hosts"], dict):
+                        if (
+                            len(stack_cfg["services"][service]["extra_hosts"].keys())
+                            == 1
+                            and "" in stack_cfg["services"][service]["extra_hosts"]
+                        ):
+                            if stack_cfg["services"][service]["extra_hosts"][""] == "":
+                                stack_cfg["services"][service]["extra_hosts"] = []
 
-    log.debug(
-        "filtered services: result in:\n%s",
-        json.dumps(stack_cfg, indent=2, sort_keys=True),
-    )
-    return stack_cfg
+        log.debug(
+            "filtered services: result in:\n%s",
+            json.dumps(stack_cfg, indent=2, sort_keys=True),
+        )
+        return stack_cfg
+    return ComposeSpecsDict()
 
 
 def add_parameters(
@@ -92,22 +97,23 @@ def add_parameters(
         "additional_parameters"
     ]
     log.debug("adding parameters to stack using %s", additional_parameters)
-    for key, value in additional_parameters.items():
-        if value and isinstance(value, dict):
-            for service_params in stack_cfg["services"].values():
-                if key in service_params:
-                    service_params[key].update(value)
-                else:
+    if "services" in stack_cfg.keys():
+        for key, value in additional_parameters.items():
+            if value and isinstance(value, dict):
+                for service_params in stack_cfg["services"].values():
+                    if key in service_params:
+                        service_params[key].update(value)
+                    else:
+                        service_params[key] = value
+            elif value and isinstance(value, list):
+                for _, service_params in stack_cfg["services"].items():
+                    if key in service_params:
+                        service_params[key].extend(value)
+                    else:
+                        service_params[key] = value
+            elif value and isinstance(value, str):
+                for _, service_params in stack_cfg["services"].items():
                     service_params[key] = value
-        elif value and isinstance(value, list):
-            for _, service_params in stack_cfg["services"].items():
-                if key in service_params:
-                    service_params[key].extend(value)
-                else:
-                    service_params[key] = value
-        elif value and isinstance(value, str):
-            for _, service_params in stack_cfg["services"].items():
-                service_params[key] = value
 
     return stack_cfg
 
@@ -118,12 +124,13 @@ def add_prefix_to_services(
     services_prefix = app_config["main"]["docker_stack_recipe"]["services_prefix"]
     if services_prefix:
         log.debug("adding service prefix %s to all services", services_prefix)
-        services = stack_cfg["services"]
-        new_services = {}
-        for service_name in services.keys():
-            new_service_name = f"{services_prefix}_{service_name}"
-            new_services[new_service_name] = services[service_name]
-        stack_cfg["services"] = new_services
+        if "services" in stack_cfg.keys():
+            services = stack_cfg["services"]
+            new_services = {}
+            for service_name in services.keys():
+                new_service_name = f"{services_prefix}_{service_name}"
+                new_services[new_service_name] = services[service_name]
+            stack_cfg["services"] = new_services
     return stack_cfg
 
 
@@ -345,22 +352,25 @@ async def _init_deploy(
         )
 
         # deploy stack to swarm
-        await deploy_stacks(app_config, app_session, stack_cfg)
+        if stack_cfg:
+            await deploy_stacks(app_config, app_session, stack_cfg)
 
-        # notifications
-        await notify(
-            app_config,
-            app_session,
-            message=f"Stack initialised with:\n{list(descriptions.values())}",
-        )
-        main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
-        await notify_state(
-            app_config,
-            app_session,
-            state=app["state"][TASK_NAME],
-            message=descriptions[main_repo] if main_repo in descriptions else "",
-        )
-        log.info("initialisation completed")
+            # notifications
+            await notify(
+                app_config,
+                app_session,
+                message=f"Stack initialised with:\n{list(descriptions.values())}",
+            )
+            main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
+            await notify_state(
+                app_config,
+                app_session,
+                state=app["state"][TASK_NAME],
+                message=descriptions[main_repo] if main_repo in descriptions else "",
+            )
+            log.info("initialisation completed")
+        else:
+            log.warning("no stack to deploy, empty stack file?")
         return (git_task, docker_task)
 
     except asyncio.CancelledError:
@@ -379,20 +389,23 @@ async def _deploy(
         log.warning("Stacks do not exist, initialising...")
         # notifications
         stack_cfg = await create_stack(git_task, app_config)
-        await deploy_stacks(app_config, app_session, stack_cfg)
-        await notify(
-            app_config,
-            app_session,
-            message="Stack was not found and re-initialised.",
-        )
-        main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
-        await notify_state(
-            app_config,
-            app_session,
-            state=app["state"][TASK_NAME],
-            message="Stack was not found and re-initialised.",
-        )
-        log.info("initialisation completed")
+        if stack_cfg:
+            await deploy_stacks(app_config, app_session, stack_cfg)
+            await notify(
+                app_config,
+                app_session,
+                message="Stack was not found and re-initialised.",
+            )
+            main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
+            await notify_state(
+                app_config,
+                app_session,
+                state=app["state"][TASK_NAME],
+                message="Stack was not found and re-initialised.",
+            )
+            log.info("initialisation completed")
+        else:
+            log.warning("no stack to deploy, empty stack file?")
 
     log.info("Checking for changes...")
     changes = await check_changes([git_task, docker_task])
@@ -405,20 +418,25 @@ async def _deploy(
     docker_task = await create_docker_registries_watch_subtask(app_config, stack_cfg)
 
     # deploy stack to swarm
-    log.info("redeploying the stack...")
-    await deploy_stacks(app_config, app_session, stack_cfg)
-    log.info("sending notifications...")
-    changes_as_texts = [f"{key}:{value}" for key, value in changes.items()]
-    await notify(app_config, app_session, message=f"Updated stack\n{changes_as_texts}")
-    main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
-    if main_repo in changes:
-        await notify_state(
-            app_config,
-            app_session,
-            state=app["state"][TASK_NAME],
-            message=changes[main_repo],
+    if stack_cfg:
+        log.info("redeploying the stack...")
+        await deploy_stacks(app_config, app_session, stack_cfg)
+        log.info("sending notifications...")
+        changes_as_texts = [f"{key}:{value}" for key, value in changes.items()]
+        await notify(
+            app_config, app_session, message=f"Updated stack\n{changes_as_texts}"
         )
-    log.info("stack re-deployed")
+        main_repo = app_config["main"]["docker_stack_recipe"]["workdir"]
+        if main_repo in changes:
+            await notify_state(
+                app_config,
+                app_session,
+                state=app["state"][TASK_NAME],
+                message=changes[main_repo],
+            )
+        log.info("stack re-deployed")
+    else:
+        log.warning("no stack to deploy, empty stack file?")
     return docker_task
 
 
