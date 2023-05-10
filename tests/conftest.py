@@ -60,6 +60,7 @@ def mocks_dir() -> Path:
         "valid_config.yaml",
         "valid_config_variation.yaml",
         "valid_config_no_notification.yaml",
+        "valid_config_no_stackfile_no_cmd.yaml",
     ],
 )
 def valid_config_file(mocks_dir: Path, request: FixtureRequest) -> Path:
