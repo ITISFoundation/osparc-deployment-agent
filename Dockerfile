@@ -61,7 +61,6 @@ RUN apt-get update &&\
   software-properties-common \
   ca-certificates \
   apt-transport-https \
-  build-essential \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -71,7 +70,6 @@ RUN mkdir -p /etc/apt/keyrings \
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
-  # only the cli is needed and we remove the unnecessary stuff again
   docker-ce-cli \
   containerd.io \
   docker-compose-plugin
@@ -83,6 +81,12 @@ RUN mkdir -p /etc/apt/keyrings \
 #
 
 FROM base as build
+
+RUN apt-get update &&\
+  apt-get install -y --no-install-recommends \
+  build-essential \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV SC_BUILD_TARGET=build
 
