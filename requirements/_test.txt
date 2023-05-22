@@ -126,7 +126,7 @@ pytest-runner==6.0.0
     # via -r requirements/_test.in
 pytest-simcore @ git+https://github.com/ITISFoundation/osparc-simcore.git@v1.49.0#subdirectory=packages/pytest-simcore
     # via -r requirements/_test.in
-pytest-sugar==0.9.6
+pytest-sugar==0.9.7
     # via -r requirements/_test.in
 pytest-xdist==3.3.1
     # via -r requirements/_test.in
