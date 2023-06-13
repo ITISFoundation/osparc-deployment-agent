@@ -53,7 +53,7 @@ class DockerRegistriesWatcher(SubTask):
                     image_url = stack_cfg["services"][service_name]["image"]
                     self.watched_docker_images.append({"image": image_url})
                 else:
-                    raise ValueError(
+                    raise ValueError(  # pylint: disable=raising-format-tuple
                         "Service %s in generated stack file has no docker image specififed.",
                         service_name,
                     )
