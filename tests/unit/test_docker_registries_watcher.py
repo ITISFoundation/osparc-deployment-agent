@@ -135,7 +135,7 @@ async def test_docker_registries_watcher_when_registry_fetch_fails(
     mock_docker_client.return_value.images.get_registry_data.side_effect = None
     change_result = await docker_watcher.check_for_changes()
     assert change_result == {
-        "alpine:latest": "image signature changed",
-        "ubuntu:latest": "image signature changed",
+        "alpine:latest": "docker image alpine:latest signature changed from {'Descriptor': 'somesignature'} to {'Descriptor': 'somenewsignature'}",
+        "ubuntu:latest": "docker image ubuntu:latest signature changed from {'Descriptor': 'somesignature'} to {'Descriptor': 'somenewsignature'}",
     }
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
