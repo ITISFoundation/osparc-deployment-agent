@@ -100,8 +100,8 @@ async def test_docker_registries_watcher(
     }
     change_result = await docker_watcher.check_for_changes()
     assert change_result == {
-        "alpine:latest": "image signature changed",
-        "ubuntu:latest": "image signature changed",
+        "alpine:latest": "docker image alpine:latest signature changed from {'Descriptor': 'somesignature'} to {'Descriptor': 'somenewsignature'}",
+        "ubuntu:latest": "docker image ubuntu:latest signature changed from {'Descriptor': 'somesignature'} to {'Descriptor': 'somenewsignature'}",
     }
     registry_config = valid_config["main"]["docker_private_registries"][0]
     _assert_docker_client_calls(mock_docker_client, registry_config, valid_docker_stack)
