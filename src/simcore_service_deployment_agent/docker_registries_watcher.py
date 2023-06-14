@@ -46,34 +46,43 @@ class DockerRegistriesWatcher(SubTask):
         # get all the private registries
         self.private_registries = app_config["main"]["docker_private_registries"]
         # get all the images to check for
-        self.watched_repos = []
+        self.watched_docker_images = []
         if "services" in stack_cfg:
             for service_name in stack_cfg["services"].keys():
                 if "image" in stack_cfg["services"][service_name]:
                     image_url = stack_cfg["services"][service_name]["image"]
-                    self.watched_repos.append({"image": image_url})
+                    self.watched_docker_images.append({"image": image_url})
+                else:
+                    raise ValueError(  # pylint: disable=raising-format-tuple
+                        "Service %s in generated stack file has no docker image specififed.",
+                        service_name,
+                    )
 
     async def init(self):
         log.info("initialising docker watcher..")
         with docker_client(self.private_registries) as client:
-            for repo in self.watched_repos:
+            for docker_image in self.watched_docker_images:
                 try:
-                    registry_data = client.images.get_registry_data(repo["image"])
-                    log.debug(
-                        "accessed to image %s: %s", repo["image"], registry_data.attrs
+                    registry_data = client.images.get_registry_data(
+                        docker_image["image"]
                     )
-                    repo["registry_data_attrs"] = registry_data.attrs
+                    log.debug(
+                        "succesfully accessed image %s: %s",
+                        docker_image["image"],
+                        registry_data.attrs,
+                    )
+                    docker_image["registry_data_attrs"] = registry_data.attrs
                 except docker.errors.APIError:
                     # in case a new service that is not yet in the registry was added
                     log.warning(
                         "could not find image %s, maybe a new image was added to the stack??",
-                        repo["image"],
+                        docker_image["image"],
                     )
                     # We null the content of repo["registry_data_attrs"].
                     # In check_for_changes(), it is expected that repo["registry_data_attrs"] is a dict with a key
                     # named "Descriptor", so we add it empty.
-                    repo["registry_data_attrs"] = {}
-        log.debug("docker watcher initialised")
+                    docker_image["registry_data_attrs"] = {}
+        log.info("docker watcher initialised")
 
     @retry(
         reraise=True,
@@ -84,32 +93,37 @@ class DockerRegistriesWatcher(SubTask):
     async def check_for_changes(self) -> dict:
         changes = {}
         with docker_client(self.private_registries) as client:
-            for repo in self.watched_repos:
+            for docker_image in self.watched_docker_images:
                 try:
-                    registry_data = client.images.get_registry_data(repo["image"])
+                    registry_data = client.images.get_registry_data(
+                        docker_image["image"]
+                    )
                     if (
-                        repo["registry_data_attrs"].get("Descriptor")
+                        docker_image["registry_data_attrs"].get("Descriptor")
                         != registry_data.attrs["Descriptor"]
                     ):
                         log.info(
                             "docker image %s signature changed from %s to %s!",
-                            repo["image"],
-                            repo["registry_data_attrs"],
+                            docker_image["image"],
+                            docker_image["registry_data_attrs"],
                             registry_data.attrs,
                         )
-                        changes[repo["image"]] = "image signature changed"
+                        changes[
+                            docker_image["image"]
+                        ] = f"docker image {docker_image['image']} signature changed from {docker_image['registry_data_attrs']} to {registry_data.attrs}"
                 except docker.errors.APIError:
-                    if repo["registry_data_attrs"]:
+                    if docker_image["registry_data_attrs"]:
+                        # This means we accessed the docker image from the registry in the past, but now it is not possibly
                         # in that case something is wrong...either docker or config
                         log.exception(
-                            "Error while retrieving image %s in registry", repo["image"]
+                            "Error while retrieving image %s in registry",
+                            docker_image["image"],
                         )
-                        # raise
                     else:
                         # in that case the registry does not contain yet the new service
                         log.warning(
-                            "the image %s is still not available in the registry",
-                            repo["image"],
+                            "Docker image %s is still not available in the registry",
+                            docker_image["image"],
                         )
         return changes
 
