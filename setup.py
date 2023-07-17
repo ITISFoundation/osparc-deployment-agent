@@ -41,7 +41,7 @@ SETUP = dict(
             "simcore-service-deployment-agent = simcore_service_deployment_agent.cli:main",
         ]
     },
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=INSTALL_REQUIREMENTS,
     tests_require=TEST_REQUIREMENTS,
     setup_requires=["pytest-runner"],
