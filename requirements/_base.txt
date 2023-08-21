@@ -107,7 +107,7 @@ sqlalchemy==1.4.46
     # via aiopg
 strict-rfc3339==0.7
     # via openapi-core
-tenacity==8.2.2
+tenacity==8.2.3
     # via
     #   -r requirements/_base.in
     #   simcore-service-library
