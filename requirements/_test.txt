@@ -94,7 +94,9 @@ pluggy==1.0.0
 pprintpp==0.4.0
     # via pytest-icdiff
 ptvsd==4.3.2
-    # via -r requirements/_test.in
+    # via
+    #   -c requirements/_base.txt
+    #   -r requirements/_test.in
 pylint==2.17.5
     # via -r requirements/_test.in
 pytest==7.3.2
@@ -119,7 +121,7 @@ pytest-icdiff==0.6
     # via -r requirements/_test.in
 pytest-instafail==0.5.0
     # via -r requirements/_test.in
-pytest-mock==3.10.0
+pytest-mock==3.12.0
     # via -r requirements/_test.in
 pytest-runner==6.0.0
     # via -r requirements/_test.in
@@ -149,7 +151,9 @@ urllib3==1.26.14
     #   -c requirements/_base.txt
     #   requests
 werkzeug==2.2.3
-    # via -r requirements/_test.in
+    # via
+    #   -c requirements/_base.txt
+    #   -r requirements/_test.in
 wrapt==1.15.0
     # via astroid
 yarl==1.8.2
